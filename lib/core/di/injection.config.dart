@@ -21,6 +21,8 @@ import 'package:android_sdk_manager/application/emulator/emulator_events.dart'
     as _i1064;
 import 'package:android_sdk_manager/application/emulator/emulator_list_cubit.dart'
     as _i6;
+import 'package:android_sdk_manager/application/flutter_sdk/flutter_sdk_cubit.dart'
+    as _i502;
 import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
     as _i740;
 import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
@@ -82,6 +84,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i915.FlutterDoctorCubit>(
       () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
+    );
+    gh.factory<_i502.FlutterSdkCubit>(
+      () => _i502.FlutterSdkCubit(gh<_i606.FlutterRepository>()),
     );
     gh.lazySingleton<_i720.DeviceRepository>(
       () => _i775.DeviceRepositoryImpl(

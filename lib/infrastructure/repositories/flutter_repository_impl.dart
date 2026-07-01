@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:injectable/injectable.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/doctor_report.dart';
+import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/repositories/flutter_repository.dart';
 
 /// [FlutterRepository] backed by the `flutter` command-line tool.
@@ -15,6 +17,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
   FlutterRepositoryImpl(this._runner);
 
   final CommandRunner _runner;
+
+  String get _flutter => Platform.isWindows ? 'flutter.bat' : 'flutter';
 
   @override
   Future<DoctorReport> runDoctor() async {
@@ -70,6 +74,254 @@ class FlutterRepositoryImpl implements FlutterRepository {
         supportsAdb: isAndroid,
       );
     }).where((d) => d.serial.isNotEmpty).toList();
+  }
+
+  // ---- SDK version management ----------------------------------------------
+
+  @override
+  Future<FlutterSdkInfo> getSdkInfo() async {
+    final result = await _runner.run(
+      _flutter,
+      ['--version', '--machine'],
+      timeout: const Duration(minutes: 2),
+    );
+    if (result.stdout.trim().isEmpty && !result.isSuccess) {
+      throw const ExecutableNotFoundFailure(
+        'flutter',
+        suggestion: 'Add the Flutter SDK "bin" folder to your PATH.',
+      );
+    }
+    return parseSdkInfo(result.stdout);
+  }
+
+  /// Parses `flutter --version --machine` JSON. Static & pure for tests.
+  static FlutterSdkInfo parseSdkInfo(String output) {
+    final start = output.indexOf('{');
+    final end = output.lastIndexOf('}');
+    Map<String, dynamic> json = const {};
+    if (start >= 0 && end > start) {
+      try {
+        final decoded = jsonDecode(output.substring(start, end + 1));
+        if (decoded is Map<String, dynamic>) json = decoded;
+      } catch (_) {
+        json = const {};
+      }
+    }
+    final root = json['flutterRoot'] as String?;
+    final isGit = root != null && Directory(p.join(root, '.git')).existsSync();
+    return FlutterSdkInfo(
+      version: json['frameworkVersion'] as String? ?? 'unknown',
+      channel: json['channel'] as String? ?? 'unknown',
+      dartVersion: json['dartSdkVersion'] as String?,
+      frameworkRevision: (json['frameworkRevisionShort'] ??
+          json['frameworkRevision']) as String?,
+      engineRevision: (json['engineRevisionShort'] ?? json['engineRevision'])
+          as String?,
+      sdkPath: root,
+      isGitRepo: isGit,
+    );
+  }
+
+  @override
+  Future<List<String>> listVersions(String channel) async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) return const [];
+
+    // Restrict tags to those reachable from the channel's branch so each
+    // channel shows its own versions.
+    final ref = await _channelRef(root, channel);
+    final result = await _runner.run(
+      'git',
+      [
+        '-C', root, 'tag', '-l', '--sort=-v:refname',
+        if (ref != null) ...['--merged', ref],
+      ],
+      timeout: const Duration(seconds: 30),
+    );
+    if (!result.isSuccess) return const [];
+    // Stable exposes clean x.y.z releases; beta/master include pre-release tags.
+    return parseVersionTags(result.stdout,
+        includePreRelease: channel != 'stable');
+  }
+
+  /// Resolves a usable git ref for [channel] (remote first, then local).
+  Future<String?> _channelRef(String root, String channel) async {
+    for (final ref in ['origin/$channel', channel]) {
+      final r = await _runner.run(
+        'git',
+        ['-C', root, 'rev-parse', '--verify', '--quiet', ref],
+        timeout: const Duration(seconds: 10),
+      );
+      if (r.isSuccess && r.stdout.trim().isNotEmpty) return ref;
+    }
+    return null;
+  }
+
+  /// Keeps release tags, newest first. Stable-style "3.24.1" always; when
+  /// [includePreRelease] also beta/dev tags like "3.45.0-1.2.pre".
+  static List<String> parseVersionTags(String output,
+      {bool includePreRelease = false}) {
+    final stable = RegExp(r'^\d+\.\d+\.\d+$');
+    final pre = RegExp(r'^\d+\.\d+\.\d+-\d+\.\d+\.pre$');
+    return const LineSplitter()
+        .convert(output)
+        .map((l) => l.trim())
+        .where((t) =>
+            stable.hasMatch(t) || (includePreRelease && pre.hasMatch(t)))
+        .toList();
+  }
+
+  @override
+  Future<RunningCommand> switchChannel(String channel) =>
+      _runner.start(_flutter, ['channel', channel]);
+
+  @override
+  Future<RunningCommand> upgrade() =>
+      _runner.start(_flutter, ['upgrade']);
+
+  @override
+  Future<RunningCommand> resetToStable() async {
+    // Switch back to the official stable branch (quick), then stream the
+    // upgrade that actually re-syncs the SDK.
+    await _runner.run(_flutter, ['channel', 'stable'],
+        timeout: const Duration(minutes: 2));
+    return _runner.start(_flutter, ['upgrade']);
+  }
+
+  @override
+  Future<RunningCommand> switchVersion(String version) async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) {
+      throw const UnknownFailure(
+        'This Flutter SDK is not a git checkout, so versions cannot be '
+        'switched. Use channels or reinstall Flutter via git.',
+      );
+    }
+    // Check out the tag; the tool snapshot is rebuilt by the following command.
+    final checkout = await _runner.run(
+      'git',
+      ['-C', root, 'checkout', version],
+      timeout: const Duration(minutes: 2),
+    );
+    if (!checkout.isSuccess) {
+      throw ProcessFailure(
+        'Failed to check out Flutter $version.',
+        exitCode: checkout.exitCode,
+        output: checkout.combinedOutput,
+        suggestion: 'Commit or stash local changes in the SDK first.',
+      );
+    }
+    // Running any flutter command now regenerates the version snapshot.
+    return _runner.start(_flutter, ['--version']);
+  }
+
+  @override
+  Future<List<String>> changelog(
+      String version, String? previousVersion) async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) return const [];
+
+    final hasPrev = previousVersion != null && previousVersion.isNotEmpty;
+    final args = [
+      '-C', root, 'log',
+      '--no-merges',
+      '--pretty=format:%s',
+      '-n', hasPrev ? '400' : '50',
+      if (hasPrev) '$previousVersion..$version' else version,
+    ];
+    final result = await _runner.run('git', args,
+        timeout: const Duration(seconds: 30));
+    if (!result.isSuccess) return const [];
+    return const LineSplitter()
+        .convert(result.stdout)
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<RunningCommand> installSdk(String directory, String channel) {
+    final dir = directory.trim();
+    if (dir.isEmpty) {
+      throw const UnknownFailure('Choose an install folder first.');
+    }
+    final target = Directory(dir);
+    if (target.existsSync() && target.listSync().isNotEmpty) {
+      throw FileSystemFailure('Folder "$dir" already exists and is not empty.');
+    }
+    return _runner.start('git', [
+      'clone',
+      '-b',
+      channel,
+      'https://github.com/flutter/flutter.git',
+      dir,
+    ]);
+  }
+
+  @override
+  Future<void> addSdkToPath(String sdkDir) async {
+    if (!Platform.isWindows) return;
+    final bin = p.join(sdkDir, 'bin');
+    // Append to the *user* PATH only if not already present, via PowerShell so
+    // the existing value is read and written safely (no setx truncation).
+    final script = "\$b='$bin'; "
+        "\$p=[Environment]::GetEnvironmentVariable('Path','User'); "
+        "if(\$p -notlike \"*\$b*\"){"
+        "[Environment]::SetEnvironmentVariable('Path', "
+        "(\$p.TrimEnd(';') + ';' + \$b), 'User')}";
+    final result = await _runner.run(
+      'powershell',
+      ['-NoProfile', '-Command', script],
+      timeout: const Duration(seconds: 30),
+    );
+    if (!result.isSuccess) {
+      throw ProcessFailure(
+        'Could not update PATH automatically.',
+        exitCode: result.exitCode,
+        output: result.combinedOutput,
+        suggestion: 'Add "$bin" to your PATH manually.',
+      );
+    }
+  }
+
+  @override
+  Future<void> uninstallSdk(String sdkPath) async {
+    final dir = Directory(sdkPath);
+    if (!dir.existsSync()) {
+      throw FileSystemFailure('Flutter SDK folder not found: $sdkPath');
+    }
+    // Safety: only delete something that actually looks like a Flutter SDK.
+    final marker =
+        File(p.join(sdkPath, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'));
+    if (!marker.existsSync()) {
+      throw FileSystemFailure(
+        '"$sdkPath" does not look like a Flutter SDK (no bin/flutter).',
+      );
+    }
+    try {
+      dir.deleteSync(recursive: true);
+    } on FileSystemException catch (e) {
+      throw FileSystemFailure(
+        'Could not fully remove the SDK. Close any running Flutter/Dart '
+        'processes and try again.',
+        cause: e,
+      );
+    }
+  }
+
+  @override
+  Future<void> openReleasePage(String version) async {
+    final url = 'https://github.com/flutter/flutter/releases/tag/$version';
+    if (Platform.isWindows) {
+      await Process.start('cmd', ['/c', 'start', '', url],
+          runInShell: true, mode: ProcessStartMode.detached);
+    } else {
+      final opener = Platform.isMacOS ? 'open' : 'xdg-open';
+      await Process.start(opener, [url], mode: ProcessStartMode.detached);
+    }
   }
 
   /// Parses `flutter doctor -v` output into sections. Static and pure for tests.
