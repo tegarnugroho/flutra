@@ -11,6 +11,8 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart'
     as _i75;
+import 'package:android_sdk_manager/application/doctor/flutter_doctor_cubit.dart'
+    as _i915;
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart'
     as _i622;
 import 'package:android_sdk_manager/application/emulator/emulator_events.dart'
@@ -26,12 +28,16 @@ import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart
     as _i277;
 import 'package:android_sdk_manager/domain/repositories/environment_repository.dart'
     as _i595;
+import 'package:android_sdk_manager/domain/repositories/flutter_repository.dart'
+    as _i606;
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
 import 'package:android_sdk_manager/infrastructure/repositories/emulator_repository_impl.dart'
     as _i60;
 import 'package:android_sdk_manager/infrastructure/repositories/environment_repository_impl.dart'
     as _i465;
+import 'package:android_sdk_manager/infrastructure/repositories/flutter_repository_impl.dart'
+    as _i483;
 import 'package:android_sdk_manager/infrastructure/repositories/sdk_repository_impl.dart'
     as _i77;
 import 'package:android_sdk_manager/infrastructure/sdk/sdk_locator.dart'
@@ -64,6 +70,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i144.CommandRunner>(),
         gh<_i839.SdkLocator>(),
       ),
+    );
+    gh.lazySingleton<_i606.FlutterRepository>(
+      () => _i483.FlutterRepositoryImpl(gh<_i144.CommandRunner>()),
+    );
+    gh.factory<_i915.FlutterDoctorCubit>(
+      () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
     );
     gh.lazySingleton<_i374.SdkRepository>(
       () => _i77.SdkRepositoryImpl(

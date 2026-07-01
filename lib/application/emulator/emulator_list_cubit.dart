@@ -17,16 +17,20 @@ class EmulatorListCubit extends Cubit<EmulatorListState> {
   final EmulatorRepository _repository;
 
   Future<void> load() async {
+    if (isClosed) return;
     emit(state.copyWith(status: EmulatorListStatus.loading, clearError: true));
     try {
       final avds = await _repository.listAvds();
+      if (isClosed) return;
       emit(state.copyWith(status: EmulatorListStatus.ready, avds: avds));
     } on Failure catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         status: EmulatorListStatus.failure,
         errorMessage: '${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}',
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         status: EmulatorListStatus.failure,
         errorMessage: '$e',
@@ -76,13 +80,16 @@ class EmulatorListCubit extends Cubit<EmulatorListState> {
   }
 
   void _busy(String name, bool busy) {
+    if (isClosed) return;
     final next = Set<String>.from(state.busyNames);
     busy ? next.add(name) : next.remove(name);
     emit(state.copyWith(busyNames: next));
   }
 
-  void _fail(String message) =>
-      emit(state.copyWith(errorMessage: message, status: state.status));
+  void _fail(String message) {
+    if (isClosed) return;
+    emit(state.copyWith(errorMessage: message, status: state.status));
+  }
 
   void clearError() => emit(state.copyWith(clearError: true));
 }

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -61,23 +60,10 @@ Map<String, dynamic>? _tryDecode(String arguments) {
 }
 
 Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
+  // The sub-window engine spawned by desktop_multi_window does NOT register
+  // window_manager, so we don't touch it here. The window is shown by native
+  // (hiddenAtLaunch: false) at its default size with a standard title bar.
   final controller = await WindowController.fromCurrentEngine();
-  // Size/center/title are nice-to-haves via window_manager; guard them so a
-  // missing native plugin (e.g. after a hot restart) never crashes the window.
-  try {
-    const options = WindowOptions(
-      size: Size(940, 720),
-      center: true,
-      title: 'Create Emulator',
-    );
-    unawaited(windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.setTitle('Create Emulator');
-      await windowManager.show();
-      await windowManager.focus();
-    }));
-  } on MissingPluginException catch (e) {
-    Logger('main').warning('window sizing unavailable: ${e.message}');
-  }
   runApp(CreateEmulatorWindowApp(
     windowController: controller,
     dark: args['dark'] == true,

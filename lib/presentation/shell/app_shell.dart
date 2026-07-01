@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
+import '../doctor/flutter_doctor_page.dart';
 import '../emulator/emulator_manager_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
@@ -63,7 +64,11 @@ class _AppShellState extends State<AppShell> {
           _placeholder(FluentIcons.text_document, 'Logcat Viewer'),
           _placeholder(FluentIcons.installation, 'APK Installer'),
           PaneItemHeader(header: const Text('Environment')),
-          _placeholder(FluentIcons.health, 'Flutter Doctor'),
+          PaneItem(
+            icon: const Icon(FluentIcons.health),
+            title: const Text('Flutter Doctor'),
+            body: const FlutterDoctorPage(),
+          ),
         ],
         footerItems: [
           _placeholder(FluentIcons.settings, 'Settings'),
