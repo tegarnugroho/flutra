@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/command/command_result.dart';
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
@@ -229,11 +230,73 @@ class FlutterRepositoryImpl implements FlutterRepository {
 
   @override
   Future<RunningCommand> resetToStable() async {
-    // Switch back to the official stable branch (quick), then stream the
-    // upgrade that actually re-syncs the SDK.
-    await _runner.run(_flutter, ['channel', 'stable'],
-        timeout: const Duration(minutes: 2));
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+
+    if (root != null && info.isGitRepo) {
+      // Do it via git so it works even from a detached/"unknown" state that the
+      // `flutter channel` command refuses to fix:
+      //  1) point origin at the official repo,
+      //  2) put HEAD on a real `stable` branch tracking origin/stable.
+      await _tryGit(root, [
+        'remote', 'set-url', 'origin',
+        'https://github.com/flutter/flutter.git',
+      ]);
+      final checkout = await _tryGit(
+          root, ['checkout', '-B', 'stable', 'origin/stable']);
+      if (checkout) {
+        _invalidateVersionStamp(root);
+      } else {
+        // Fall back to the flutter tool if origin/stable isn't available.
+        await _runner.run(_flutter, ['channel', 'stable'],
+            timeout: const Duration(minutes: 2));
+      }
+    } else {
+      await _runner.run(_flutter, ['channel', 'stable'],
+          timeout: const Duration(minutes: 2));
+    }
+    // Stream the upgrade that re-syncs the SDK to the latest stable.
     return _runner.start(_flutter, ['upgrade']);
+  }
+
+  /// Deletes the cached version stamp so `flutter` re-reads the channel/version
+  /// from git after a branch/tag change (otherwise it reports the stale one).
+  void _invalidateVersionStamp(String root) {
+    try {
+      final stamp = File(p.join(root, 'bin', 'cache', 'flutter.version.json'));
+      if (stamp.existsSync()) stamp.deleteSync();
+    } catch (_) {}
+  }
+
+  /// Runs a git command in [root], returning whether it succeeded (best-effort).
+  Future<bool> _tryGit(String root, List<String> args) async {
+    try {
+      final r = await _runner.run('git', ['-C', root, ...args],
+          timeout: const Duration(minutes: 2));
+      return r.isSuccess;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns the channel branch whose tip commit equals [version]'s commit, so
+  /// switching lands on a branch (clean channel) rather than a detached tag.
+  Future<String?> _branchForVersion(String root, String version) async {
+    String? commitOf(CommandResult r) =>
+        r.isSuccess && r.stdout.trim().isNotEmpty ? r.stdout.trim() : null;
+
+    final tag = await _runner.run('git', ['-C', root, 'rev-list', '-n', '1', version],
+        timeout: const Duration(seconds: 15));
+    final tagCommit = commitOf(tag);
+    if (tagCommit == null) return null;
+
+    for (final ch in kFlutterChannels) {
+      final b = await _runner.run(
+          'git', ['-C', root, 'rev-parse', '--verify', '--quiet', ch],
+          timeout: const Duration(seconds: 10));
+      if (commitOf(b) == tagCommit) return ch;
+    }
+    return null;
   }
 
   @override
@@ -246,10 +309,14 @@ class FlutterRepositoryImpl implements FlutterRepository {
         'switched. Use channels or reinstall Flutter via git.',
       );
     }
-    // Check out the tag; the tool snapshot is rebuilt by the following command.
+    // If the requested version's commit is the tip of a local channel branch,
+    // check out the BRANCH instead of the tag. Same version, but it stays on an
+    // official channel (no "[user-branch]"/"unknown source" doctor warnings).
+    final target = await _branchForVersion(root, version) ?? version;
+
     final checkout = await _runner.run(
       'git',
-      ['-C', root, 'checkout', version],
+      ['-C', root, 'checkout', target],
       timeout: const Duration(minutes: 2),
     );
     if (!checkout.isSuccess) {
@@ -260,6 +327,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
         suggestion: 'Commit or stash local changes in the SDK first.',
       );
     }
+    // Force flutter to recompute channel/version from git, not the old stamp.
+    _invalidateVersionStamp(root);
     // Ensure the upstream remote stays official so Flutter Doctor doesn't warn
     // about a "non-standard remote" after the checkout. Best-effort.
     if (!info.isStandardRemote) {
