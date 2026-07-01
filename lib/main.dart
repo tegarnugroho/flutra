@@ -13,6 +13,7 @@ import 'infrastructure/logging/dev_log_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
+import 'presentation/window/dev_logs_window.dart';
 import 'presentation/window/emulator_console_window.dart';
 
 /// Business id marking the standalone Create-Emulator window.
@@ -20,6 +21,9 @@ const String kCreateEmulatorWindow = 'createEmulator';
 
 /// Business id marking the standalone Emulator-Console window.
 const String kEmulatorConsoleWindow = 'emulatorConsole';
+
+/// Business id marking the standalone Developer-Logs window.
+const String kDevLogsWindow = 'devLogs';
 
 Future<void> main(List<String> args) async {
   _setupLogging();
@@ -33,20 +37,29 @@ Future<void> main(List<String> args) async {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }
   configureDependencies();
-  // Capture the full log/command flow for the developer log viewer.
-  getIt<DevLogService>().attach();
 
   // Every window (main and sub-windows) runs this same entrypoint. The current
   // engine's arguments tell us which one we are.
   final arguments = await _currentWindowArguments();
   final decoded = _tryDecode(arguments);
+  final businessId = decoded?['businessId'];
 
-  if (decoded != null && decoded['businessId'] == kCreateEmulatorWindow) {
-    await _runCreateEmulatorWindow(decoded);
+  // Capture the log/command flow for producing windows, but NOT the viewer
+  // window itself (it only reads the shared log file).
+  if (businessId != kDevLogsWindow) {
+    await getIt<DevLogService>().attach();
+  }
+
+  if (businessId == kCreateEmulatorWindow) {
+    await _runCreateEmulatorWindow(decoded!);
     return;
   }
-  if (decoded != null && decoded['businessId'] == kEmulatorConsoleWindow) {
-    await _runEmulatorConsoleWindow(decoded);
+  if (businessId == kEmulatorConsoleWindow) {
+    await _runEmulatorConsoleWindow(decoded!);
+    return;
+  }
+  if (businessId == kDevLogsWindow) {
+    await _runDevLogsWindow(decoded!);
     return;
   }
 
@@ -94,6 +107,14 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
     windowController: controller,
     dark: args['dark'] == true,
     avdName: args['avd'] as String? ?? '',
+  ));
+}
+
+Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(DevLogsWindowApp(
+    windowController: controller,
+    dark: args['dark'] == true,
   ));
 }
 

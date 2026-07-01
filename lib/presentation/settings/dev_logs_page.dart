@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
@@ -5,8 +7,8 @@ import 'package:logging/logging.dart';
 import '../../core/di/injection.dart';
 import '../../infrastructure/logging/dev_log_service.dart';
 
-/// Developer request-log viewer: shows every captured log record (command
-/// executions, warnings, errors) with level filtering and search.
+/// Developer request-log viewer. Reads the file-backed log so it works in a
+/// standalone window (separate isolate) and tails the main window's flow.
 class DevLogsPage extends StatefulWidget {
   const DevLogsPage({super.key});
 
@@ -17,18 +19,34 @@ class DevLogsPage extends StatefulWidget {
 class _DevLogsPageState extends State<DevLogsPage> {
   final DevLogService _service = getIt<DevLogService>();
   final ScrollController _scroll = ScrollController();
+  Timer? _timer;
+  List<DevLogRecord> _records = const [];
   String _query = '';
   Level _minLevel = Level.ALL;
 
   @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _timer = Timer.periodic(const Duration(milliseconds: 800), (_) => _refresh());
+  }
+
+  @override
   void dispose() {
+    _timer?.cancel();
     _scroll.dispose();
     super.dispose();
   }
 
+  Future<void> _refresh() async {
+    final records = await _service.readAll();
+    if (!mounted) return;
+    setState(() => _records = records);
+  }
+
   List<DevLogRecord> _filtered() {
     final q = _query.trim().toLowerCase();
-    return _service.records.where((r) {
+    return _records.where((r) {
       if (r.level < _minLevel) return false;
       if (q.isEmpty) return true;
       return r.message.toLowerCase().contains(q) ||
@@ -38,6 +56,12 @@ class _DevLogsPageState extends State<DevLogsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final records = _filtered();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
+    });
     return ScaffoldPage(
       header: PageHeader(
         title: const Text('Developer Logs'),
@@ -47,12 +71,15 @@ class _DevLogsPageState extends State<DevLogsPage> {
             CommandBarButton(
               icon: const Icon(FluentIcons.copy),
               label: const Text('Copy'),
-              onPressed: () => _copy(context),
+              onPressed: () => _copy(context, records),
             ),
             CommandBarButton(
               icon: const Icon(FluentIcons.clear),
               label: const Text('Clear'),
-              onPressed: () => _service.clear(),
+              onPressed: () async {
+                await _service.clear();
+                await _refresh();
+              },
             ),
           ],
         ),
@@ -87,21 +114,14 @@ class _DevLogsPageState extends State<DevLogsPage> {
                       ComboBoxItem(value: Level.INFO, child: Text('≥ Info')),
                       ComboBoxItem(
                           value: Level.WARNING, child: Text('≥ Warning')),
-                      ComboBoxItem(
-                          value: Level.SEVERE, child: Text('≥ Severe')),
+                      ComboBoxItem(value: Level.SEVERE, child: Text('≥ Severe')),
                     ],
-                    onChanged: (v) =>
-                        setState(() => _minLevel = v ?? Level.ALL),
+                    onChanged: (v) => setState(() => _minLevel = v ?? Level.ALL),
                   ),
                 ),
                 const Spacer(),
-                AnimatedBuilder(
-                  animation: _service,
-                  builder: (context, _) => Text(
-                    '${_service.records.length} records',
-                    style: FluentTheme.of(context).typography.caption,
-                  ),
-                ),
+                Text('${records.length} shown • ${_records.length} total',
+                    style: FluentTheme.of(context).typography.caption),
               ],
             ),
           ),
@@ -113,30 +133,18 @@ class _DevLogsPageState extends State<DevLogsPage> {
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: const Color(0xFF2A2A2A)),
               ),
-              child: AnimatedBuilder(
-                animation: _service,
-                builder: (context, _) {
-                  final records = _filtered();
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scroll.hasClients) {
-                      _scroll.jumpTo(_scroll.position.maxScrollExtent);
-                    }
-                  });
-                  if (records.isEmpty) {
-                    return const Center(
-                      child: Text('No log records.',
+              child: records.isEmpty
+                  ? const Center(
+                      child: Text('No log records yet.',
                           style: TextStyle(
                               color: Color(0xFF7A7A7A), fontSize: 12)),
-                    );
-                  }
-                  return ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(10),
-                    itemCount: records.length,
-                    itemBuilder: (context, i) => _LogRow(record: records[i]),
-                  );
-                },
-              ),
+                    )
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(10),
+                      itemCount: records.length,
+                      itemBuilder: (context, i) => _LogRow(record: records[i]),
+                    ),
             ),
           ),
         ],
@@ -144,9 +152,9 @@ class _DevLogsPageState extends State<DevLogsPage> {
     );
   }
 
-  Future<void> _copy(BuildContext context) async {
-    final text = _filtered()
-        .map((r) => '${_fmt(r.time)} ${r.level.name} ${r.logger}: ${r.message}')
+  Future<void> _copy(BuildContext context, List<DevLogRecord> records) async {
+    final text = records
+        .map((r) => '${r.timeStr} ${r.level.name} ${r.logger}: ${r.message}')
         .join('\n');
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
@@ -178,7 +186,7 @@ class _LogRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.5),
       child: SelectableText(
-        '${_fmt(record.time)}  ${record.level.name.padRight(7)} '
+        '${record.timeStr}  ${record.level.name.padRight(7)} '
         '${record.logger}: ${record.message}',
         style: TextStyle(
           fontFamily: 'Consolas',
@@ -189,10 +197,4 @@ class _LogRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _fmt(DateTime t) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  String three(int n) => n.toString().padLeft(3, '0');
-  return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}.${three(t.millisecond)}';
 }

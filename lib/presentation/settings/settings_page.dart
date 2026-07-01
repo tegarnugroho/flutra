@@ -1,10 +1,15 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'dart:convert';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
+
 import '../../application/settings/app_settings.dart';
 import '../../application/settings/settings_cubit.dart';
+import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
-import 'dev_logs_page.dart';
+import '../../main.dart' show kDevLogsWindow;
 
 /// Settings: theme, Android SDK path override and run-at-startup.
 class SettingsPage extends StatelessWidget {
@@ -133,16 +138,13 @@ class _SettingsView extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Button(
-                            onPressed: () => Navigator.of(context).push(
-                              FluentPageRoute<void>(
-                                  builder: (_) => const DevLogsPage()),
-                            ),
+                            onPressed: _openDevLogsWindow,
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(FluentIcons.text_document, size: 14),
                                 SizedBox(width: 8),
-                                Text('Open request log'),
+                                Text('Open request log (new window)'),
                               ],
                             ),
                           ),
@@ -158,6 +160,15 @@ class _SettingsView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Opens the Developer Logs as a separate OS window.
+Future<void> _openDevLogsWindow() async {
+  final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
+  await WindowController.create(WindowConfiguration(
+    arguments: jsonEncode({'businessId': kDevLogsWindow, 'dark': dark}),
+    hiddenAtLaunch: false,
+  ));
 }
 
 class _PathSetting extends StatefulWidget {
