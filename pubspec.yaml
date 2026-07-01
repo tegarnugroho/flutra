@@ -50,6 +50,20 @@ dev_dependencies:
   freezed: ^3.0.4
   json_serializable: ^6.9.4
   injectable_generator: ^2.7.0
+  msix: ^3.16.8
 
 flutter:
   uses-material-design: true
+
+# Windows MSIX packaging. Build with: dart run msix:create
+msix_config:
+  display_name: Flutter SDK Manager
+  publisher_display_name: Tegar Nugroho
+  identity_name: com.flutter.sdkmanager
+  publisher: CN=FlutterSdkManager
+  msix_version: 1.0.0.0
+  output_name: FlutterSdkManager
+  certificate_path: certificate.pfx
+  certificate_password: flutter123
+  capabilities: internetClient
+  install_certificate: false

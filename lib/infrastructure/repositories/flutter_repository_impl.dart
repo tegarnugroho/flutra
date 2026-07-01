@@ -11,15 +11,17 @@ import '../../domain/entities/device.dart';
 import '../../domain/entities/doctor_report.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../sdk/flutter_locator.dart';
 
 /// [FlutterRepository] backed by the `flutter` command-line tool.
 @LazySingleton(as: FlutterRepository)
 class FlutterRepositoryImpl implements FlutterRepository {
-  FlutterRepositoryImpl(this._runner);
+  FlutterRepositoryImpl(this._runner, this._locator);
 
   final CommandRunner _runner;
+  final FlutterLocator _locator;
 
-  String get _flutter => Platform.isWindows ? 'flutter.bat' : 'flutter';
+  String get _flutter => _locator.executable;
 
   @override
   Future<DoctorReport> runDoctor() async {

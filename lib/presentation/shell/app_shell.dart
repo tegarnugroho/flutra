@@ -1,8 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../application/settings/theme_cubit.dart';
-import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
@@ -11,7 +8,8 @@ import '../flutter_sdk/flutter_sdk_page.dart';
 import '../logcat/logcat_viewer_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
-import 'placeholder_page.dart';
+import '../sdk/updates_page.dart';
+import '../settings/settings_page.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
 ///
@@ -51,10 +49,9 @@ class _AppShellState extends State<AppShell> {
                 title: const Text('SDK Manager'),
                 body: const SdkManagerPage(),
               ),
-              _placeholder(FluentIcons.build_queue_new, 'Package Downloader'),
               PaneItem(
                 icon: const Icon(FluentIcons.cell_phone),
-                title: const Text('Emulator Manager'),
+                title: const Text('Virtual Device Manager'),
                 body: const EmulatorManagerPage(),
               ),
               PaneItem(
@@ -64,10 +61,14 @@ class _AppShellState extends State<AppShell> {
               ),
               PaneItem(
                 icon: const Icon(FluentIcons.text_document),
-                title: const Text('Logcat Viewer'),
+                title: const Text('Logcat'),
                 body: const LogcatViewerPage(),
               ),
-              _placeholder(FluentIcons.sync, 'Updates'),
+              PaneItem(
+                icon: const Icon(FluentIcons.sync),
+                title: const Text('Updates'),
+                body: const UpdatesPage(),
+              ),
             ],
           ),
           PaneItemExpander(
@@ -94,17 +95,16 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
         footerItems: [
-          _placeholder(FluentIcons.settings, 'Settings'),
+          PaneItem(
+            icon: const Icon(FluentIcons.settings),
+            title: const Text('Settings'),
+            body: const SettingsPage(),
+          ),
         ],
       ),
     );
   }
 
-  PaneItem _placeholder(IconData icon, String title) => PaneItem(
-        icon: Icon(icon),
-        title: Text(title),
-        body: PlaceholderPage(title: title, icon: icon),
-      );
 }
 
 /// Custom title bar shown at the top of the [NavigationView].
@@ -122,42 +122,9 @@ class _TitleBar extends StatelessWidget {
         children: [
           Icon(FluentIcons.cell_phone, size: 18, color: theme.accentColor),
           const SizedBox(width: 8),
-          Text('Android SDK Manager', style: theme.typography.bodyStrong),
-          const Spacer(),
-          const _ThemeToggle(),
+          Text('Flutter SDK Manager', style: theme.typography.bodyStrong),
         ],
       ),
-    );
-  }
-}
-
-/// Light/dark toggle wired to the [ThemeCubit].
-class _ThemeToggle extends StatelessWidget {
-  const _ThemeToggle();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<ThemeCubit, ThemeMode>(
-      bloc: getIt<ThemeCubit>(),
-      builder: (context, mode) {
-        final isDark = mode == ThemeMode.dark;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ToggleButton(
-            checked: isDark,
-            onChanged: (_) => getIt<ThemeCubit>().toggle(),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(isDark ? FluentIcons.clear_night : FluentIcons.sunny,
-                    size: 16),
-                const SizedBox(width: 6),
-                Text(isDark ? 'Dark' : 'Light'),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

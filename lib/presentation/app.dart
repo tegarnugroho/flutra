@@ -45,7 +45,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, mode) {
           return FluentApp(
-            title: 'Android SDK Manager',
+            title: 'Flutter SDK Manager',
             debugShowCheckedModeBanner: false,
             themeMode: mode,
             theme: AppTheme.light(),

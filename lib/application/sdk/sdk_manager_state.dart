@@ -68,6 +68,17 @@ class SdkManagerState extends Equatable {
   bool get isLoading => status == SdkManagerStatus.loading;
   int get updateCount => packages.where((p) => p.hasUpdate).length;
   int get installedCount => packages.where((p) => p.isInstalled).length;
+
+  /// Checked packages that can be installed or updated.
+  int get installableSelectedCount => packages
+      .where((p) =>
+          selected.contains(p.path) && (!p.isInstalled || p.hasUpdate))
+      .length;
+
+  /// Checked packages that are installed (so removable).
+  int get removableSelectedCount => packages
+      .where((p) => selected.contains(p.path) && p.isInstalled)
+      .length;
   int get queuedCount => queue.length + (activePath != null ? 1 : 0);
 
   SdkPackage? get selectedPackage {

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
@@ -44,6 +45,8 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  // Main window: load persisted settings and apply theme / SDK override.
+  await getIt<SettingsCubit>().init();
   runApp(const AndroidSdkManagerApp());
 }
 

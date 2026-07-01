@@ -93,7 +93,7 @@ class _EmulatorManagerView extends StatelessWidget {
     final cubit = context.read<EmulatorListCubit>();
     return ScaffoldPage(
       header: PageHeader(
-        title: const Text('Emulator Manager'),
+        title: const Text('Virtual Device Manager'),
         commandBar: BlocBuilder<EmulatorListCubit, EmulatorListState>(
           builder: (context, state) => CommandBar(
             mainAxisAlignment: MainAxisAlignment.end,

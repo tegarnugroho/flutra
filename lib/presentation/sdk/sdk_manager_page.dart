@@ -6,6 +6,7 @@ import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
 import '../emulator/widgets/avd_dialogs.dart';
+import 'widgets/package_progress.dart';
 import 'widgets/sdk_package_tile.dart';
 
 /// Package Manager: browse, search, install, update and remove Android SDK
@@ -102,8 +103,9 @@ class _SdkManagerView extends StatelessWidget {
                 ),
               ),
               if (state.queuedCount > 0 || state.busy)
-                _QueueBar(state: state, cubit: cubit),
-              if (state.consoleVisible) _ConsolePanel(state: state, cubit: cubit),
+                PackageQueueBar(state: state, cubit: cubit),
+              if (state.consoleVisible)
+                PackageConsole(state: state, cubit: cubit),
             ],
           );
         },
@@ -152,6 +154,11 @@ class _Toolbar extends StatelessWidget {
               onChanged: (v) => v == null ? null : cubit.setSort(v),
             ),
           ),
+          DropDownButton(
+            leading: const Icon(FluentIcons.toolbox, size: 14),
+            title: const Text('Quick setup'),
+            items: _quickSetupItems(context),
+          ),
           ToggleButton(
             checked: state.updatesOnly,
             onChanged: cubit.toggleUpdatesOnly,
@@ -164,16 +171,16 @@ class _Toolbar extends StatelessWidget {
           ),
           if (state.selected.isNotEmpty) ...[
             const SizedBox(width: 4),
-            FilledButton(
-              onPressed: state.busy ? null : cubit.installSelected,
-              child: Text('Install (${state.selected.length})'),
-            ),
-            Button(
-              onPressed: state.busy
-                  ? null
-                  : () => _removeSelected(context),
-              child: const Text('Remove'),
-            ),
+            if (state.installableSelectedCount > 0)
+              FilledButton(
+                onPressed: state.busy ? null : cubit.installSelected,
+                child: Text('Install (${state.installableSelectedCount})'),
+              ),
+            if (state.removableSelectedCount > 0)
+              Button(
+                onPressed: state.busy ? null : () => _removeSelected(context),
+                child: Text('Remove (${state.removableSelectedCount})'),
+              ),
             Button(onPressed: cubit.clearChecks, child: const Text('Clear')),
           ],
         ],
@@ -190,6 +197,77 @@ class _Toolbar extends StatelessWidget {
       confirmLabel: 'Remove',
     );
     if (ok) cubit.removeSelected();
+  }
+
+  // ---- Quick setup presets -------------------------------------------------
+
+  List<MenuFlyoutItemBase> _quickSetupItems(BuildContext context) {
+    final bt = _latestBuildTools;
+    return [
+      MenuFlyoutItem(
+        leading: const Icon(FluentIcons.toolbox),
+        text: const Text('Essential tools'),
+        onPressed: () => _installPreset(
+            context, const ['platform-tools', 'emulator', 'cmdline-tools;latest']),
+      ),
+      MenuFlyoutItem(
+        leading: const Icon(FluentIcons.plug_connected),
+        text: const Text('Google USB Driver'),
+        onPressed: () =>
+            _installPreset(context, const ['extras;google;usb_driver']),
+      ),
+      if (_apis.isNotEmpty) const MenuFlyoutSeparator(),
+      for (final api in _apis)
+        MenuFlyoutItem(
+          leading: const Icon(FluentIcons.cell_phone),
+          text: Text('Android $api environment'),
+          onPressed: () => _installPreset(context, [
+            'platforms;android-$api',
+            'system-images;android-$api;google_apis;x86_64',
+            ?bt,
+          ]),
+        ),
+    ];
+  }
+
+  bool _has(String path) => state.packages.any((p) => p.path == path);
+
+  String? get _latestBuildTools {
+    final bt = state.packages
+        .where((p) => p.category == PackageCategory.buildTools)
+        .map((p) => p.path)
+        .toList()
+      ..sort();
+    return bt.isEmpty ? null : bt.last;
+  }
+
+  List<int> get _apis {
+    final set = <int>{};
+    for (final p in state.packages) {
+      if (p.category != PackageCategory.platforms) continue;
+      final m = RegExp(r'android-(\d+)').firstMatch(p.path);
+      if (m != null) set.add(int.parse(m.group(1)!));
+    }
+    return set.toList()..sort((a, b) => b.compareTo(a));
+  }
+
+  void _installPreset(BuildContext context, List<String> paths) {
+    final present = paths.where(_has).toList();
+    if (present.isEmpty) {
+      displayInfoBar(context, builder: (context, close) {
+        return InfoBar(
+          title: const Text('Nothing to install'),
+          content: const Text(
+              'These packages were not found. Try Refresh, then retry.'),
+          severity: InfoBarSeverity.warning,
+          onClose: close,
+        );
+      });
+      return;
+    }
+    for (final p in present) {
+      cubit.enqueueInstall(p);
+    }
   }
 }
 
@@ -486,156 +564,6 @@ class _DetailsPanel extends StatelessWidget {
                   ? theme.typography.caption
                       ?.copyWith(fontFamily: 'Consolas')
                   : theme.typography.body),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- Queue bar --------------------------------------------------------------
-
-class _QueueBar extends StatelessWidget {
-  const _QueueBar({required this.state, required this.cubit});
-
-  final SdkManagerState state;
-  final SdkManagerCubit cubit;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.resources.subtleFillColorSecondary,
-        border: Border(
-            top: BorderSide(
-                color: theme.resources.controlStrokeColorDefault)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(
-              width: 16, height: 16, child: ProgressRing(strokeWidth: 2)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  state.activePath ?? 'Working…',
-                  style: theme.typography.bodyStrong,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                ProgressBar(
-                    value: state.progress != null
-                        ? state.progress! * 100
-                        : null),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          if (state.queue.isNotEmpty)
-            Text('${state.queue.length} queued',
-                style: theme.typography.caption),
-          const SizedBox(width: 12),
-          Button(onPressed: cubit.cancel, child: const Text('Cancel')),
-        ],
-      ),
-    );
-  }
-}
-
-// ---- Console ----------------------------------------------------------------
-
-class _ConsolePanel extends StatefulWidget {
-  const _ConsolePanel({required this.state, required this.cubit});
-
-  final SdkManagerState state;
-  final SdkManagerCubit cubit;
-
-  @override
-  State<_ConsolePanel> createState() => _ConsolePanelState();
-}
-
-class _ConsolePanelState extends State<_ConsolePanel> {
-  final ScrollController _scroll = ScrollController();
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      }
-    });
-    return Container(
-      height: 200,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0C0C0C),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A2A))),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: const Color(0xFF161616),
-            child: Row(
-              children: [
-                const Icon(FluentIcons.command_prompt,
-                    size: 12, color: Color(0xFFBBBBBB)),
-                const SizedBox(width: 8),
-                const Text('Console',
-                    style: TextStyle(color: Color(0xFFDDDDDD), fontSize: 12)),
-                const Spacer(),
-                Tooltip(
-                  message: 'Clear',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.clear, size: 12),
-                    onPressed: widget.cubit.clearConsole,
-                  ),
-                ),
-                Tooltip(
-                  message: 'Hide',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.chevron_down, size: 12),
-                    onPressed: widget.cubit.toggleConsole,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              controller: _scroll,
-              padding: const EdgeInsets.all(10),
-              itemCount: widget.state.console.length,
-              itemBuilder: (context, i) {
-                final line = widget.state.console[i];
-                final isCmd = line.startsWith('\$');
-                final isErr = line.startsWith('✗');
-                return SelectableText(
-                  line,
-                  style: TextStyle(
-                    fontFamily: 'Consolas',
-                    fontSize: 12,
-                    height: 1.35,
-                    color: isCmd
-                        ? const Color(0xFF63E39C)
-                        : isErr
-                            ? const Color(0xFFFF6B6B)
-                            : const Color(0xFFD4D4D4),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );

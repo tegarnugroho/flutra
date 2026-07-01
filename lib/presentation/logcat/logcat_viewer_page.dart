@@ -65,7 +65,7 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
       value: _cubit,
       child: ScaffoldPage(
         header: PageHeader(
-          title: const Text('Logcat Viewer'),
+          title: const Text('Logcat'),
           commandBar: CommandBar(
             mainAxisAlignment: MainAxisAlignment.end,
             primaryItems: [

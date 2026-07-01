@@ -346,25 +346,36 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
       throw FileSystemFailure('Source AVD "$source" was not found.');
     }
     final dstDir = Directory(p.join(_avdHome, '$target.avd'));
+    final dstIni = File(p.join(_avdHome, '$target.ini'));
+
     if (dstDir.existsSync()) {
-      throw FileSystemFailure('An AVD named "$target" already exists.');
+      // A complete AVD has both the .avd folder AND the .ini file. If the .ini
+      // is missing this is an orphan left by a previous failed duplicate —
+      // clean it up and continue instead of blocking the user forever.
+      if (dstIni.existsSync()) {
+        throw FileSystemFailure('An AVD named "$target" already exists.');
+      }
+      _log.warning('duplicate: removing orphaned "$target.avd"');
+      try {
+        await dstDir.delete(recursive: true);
+      } catch (_) {}
     }
 
-    // Copy the .avd directory contents. Skip runtime lock files and tolerate
-    // any file that is currently locked (e.g. when the source AVD is running),
-    // so duplicating a running emulator still succeeds with a clean copy.
-    dstDir.createSync(recursive: true);
+    // Copy asynchronously (File.copy runs off the UI isolate) so duplicating a
+    // large AVD never freezes the app. Lock files are skipped and locked files
+    // are tolerated, so duplicating a running emulator still works.
+    await dstDir.create(recursive: true);
     for (final entity in srcDir.listSync(recursive: true)) {
       final rel = p.relative(entity.path, from: srcDir.path);
       final base = p.basename(entity.path);
       if (base.endsWith('.lock')) continue; // *.lock, multiinstance.lock, …
       final destPath = p.join(dstDir.path, rel);
       if (entity is Directory) {
-        Directory(destPath).createSync(recursive: true);
+        await Directory(destPath).create(recursive: true);
       } else if (entity is File) {
-        Directory(p.dirname(destPath)).createSync(recursive: true);
+        await Directory(p.dirname(destPath)).create(recursive: true);
         try {
-          entity.copySync(destPath);
+          await entity.copy(destPath);
         } on FileSystemException catch (e) {
           _log.warning('duplicate: skipping locked file $rel (${e.osError})');
         }
@@ -372,16 +383,14 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
     }
 
     // Rewrite the top-level <name>.ini to point at the new directory.
-    final iniContent = srcIni
-        .readAsStringSync()
+    final iniContent = (await srcIni.readAsString())
         .replaceAll('$source.avd', '$target.avd');
-    File(p.join(_avdHome, '$target.ini')).writeAsStringSync(iniContent);
+    await dstIni.writeAsString(iniContent);
 
     // Update AvdId / display name inside config.ini.
     final config = File(p.join(dstDir.path, 'config.ini'));
     if (config.existsSync()) {
-      final updated = config
-          .readAsLinesSync()
+      final updated = (await config.readAsLines())
           .map((line) {
             if (line.startsWith('AvdId=')) return 'AvdId=$target';
             if (line.startsWith('avd.ini.displayname=')) {
@@ -390,7 +399,7 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
             return line;
           })
           .join('\n');
-      config.writeAsStringSync('$updated\n');
+      await config.writeAsString('$updated\n');
     }
   }
 

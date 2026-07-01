@@ -47,17 +47,23 @@ Future<String?> showTextPromptDialog(
   final result = await showDialog<String>(
     context: context,
     builder: (context) => ContentDialog(
+      constraints: const BoxConstraints(maxWidth: 400),
       title: Text(title),
-      content: Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: InfoLabel(
-          label: label,
-          child: TextBox(
-            controller: controller,
-            autofocus: true,
-            onSubmitted: (v) => Navigator.pop(context, v),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          InfoLabel(
+            label: label,
+            child: TextBox(
+              controller: controller,
+              autofocus: true,
+              maxLines: 1,
+              onSubmitted: (v) => Navigator.pop(context, v),
+            ),
           ),
-        ),
+        ],
       ),
       actions: [
         Button(
