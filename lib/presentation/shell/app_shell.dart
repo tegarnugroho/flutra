@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
+import '../emulator/create_emulator_page.dart';
+import '../emulator/emulator_manager_page.dart';
 import 'placeholder_page.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
@@ -41,8 +43,16 @@ class _AppShellState extends State<AppShell> {
           _placeholder(FluentIcons.build_queue_new, 'Package Downloader'),
           _placeholder(FluentIcons.sync, 'Updates'),
           PaneItemHeader(header: const Text('Emulators')),
-          _placeholder(FluentIcons.cell_phone, 'Emulator Manager'),
-          _placeholder(FluentIcons.add_to, 'Create Emulator'),
+          PaneItem(
+            icon: const Icon(FluentIcons.cell_phone),
+            title: const Text('Emulator Manager'),
+            body: const EmulatorManagerPage(),
+          ),
+          PaneItem(
+            icon: const Icon(FluentIcons.add_to),
+            title: const Text('Create Emulator'),
+            body: const CreateEmulatorPage(),
+          ),
           _placeholder(FluentIcons.command_prompt, 'Emulator Console'),
           PaneItemHeader(header: const Text('Devices')),
           _placeholder(FluentIcons.plug_connected, 'Device Manager'),
