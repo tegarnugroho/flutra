@@ -254,15 +254,19 @@ class FlutterRepositoryImpl implements FlutterRepository {
     }
     final target = Directory(dir);
     if (target.existsSync() && target.listSync().isNotEmpty) {
-      // Clean up leftovers (e.g. from a partial uninstall) so the clone can
-      // proceed. If files are still locked, this stays non-empty and we abort.
-      await _forceDelete(dir);
-      if (Directory(dir).existsSync() && Directory(dir).listSync().isNotEmpty) {
-        throw FileSystemFailure(
-          'Folder "$dir" already exists and could not be emptied. Close any '
-          'programs using it and try again, or pick another folder.',
-        );
-      }
+      // Never auto-delete a non-empty folder — it could be a working SDK. If it
+      // already holds a Flutter, say so; otherwise ask for an empty folder.
+      final isFlutter = File(p.join(dir, 'bin',
+                  Platform.isWindows ? 'flutter.bat' : 'flutter'))
+              .existsSync() ||
+          Directory(p.join(dir, 'packages')).existsSync();
+      throw FileSystemFailure(
+        isFlutter
+            ? 'A Flutter SDK already exists at "$dir". Press Refresh to use it, '
+                'or uninstall it first.'
+            : 'Folder "$dir" is not empty. Pick an empty/new folder, or clear '
+                'it first.',
+      );
     }
     // `-b` accepts a channel branch (stable/beta/master) or a version tag.
     return _runner.start('git', [
@@ -356,25 +360,59 @@ class FlutterRepositoryImpl implements FlutterRepository {
     }
   }
 
-  /// Deletes [path] as thoroughly as possible. Uses `rmdir /s /q` on Windows
-  /// (handles read-only git objects better than Dart's delete), falling back to
-  /// Dart's recursive delete.
+  /// Deletes [path] as thoroughly as possible.
+  ///
+  /// On Windows this (1) terminates any dart/flutter processes running from
+  /// *inside* [path] (e.g. an IDE analysis server holding the SDK's dart.exe),
+  /// (2) empties the folder with `robocopy /MIR` from an empty dir — which
+  /// handles read-only git objects and >260-char paths that defeat `rmdir` —
+  /// then (3) removes the now-empty folder. Falls back to Dart's delete.
   Future<void> _forceDelete(String path) async {
-    try {
-      if (Platform.isWindows) {
+    if (Platform.isWindows) {
+      await _killProcessesUnder(path);
+
+      Directory? tmp;
+      try {
+        tmp = Directory.systemTemp.createTempSync('asm_empty');
+        // robocopy exit codes 0–7 are success; don't gate on exit code.
+        await _runner.run(
+          'robocopy',
+          [tmp.path, path, '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NC', '/NS'],
+          timeout: const Duration(minutes: 3),
+        );
+      } catch (_) {
+      } finally {
+        try {
+          tmp?.deleteSync(recursive: true);
+        } catch (_) {}
+      }
+      try {
         await _runner.run('cmd', ['/c', 'rmdir', '/s', '/q', path],
             timeout: const Duration(minutes: 2));
-      } else {
-        await Directory(path).delete(recursive: true);
-      }
-    } catch (_) {
-      // Best-effort; the caller re-checks whether the folder is gone.
+      } catch (_) {}
     }
-    // Second pass with Dart's API to mop up anything rmdir skipped.
+    // Cross-platform fallback / final mop-up.
     if (Directory(path).existsSync()) {
       try {
         await Directory(path).delete(recursive: true);
       } catch (_) {}
+    }
+  }
+
+  /// Kills processes whose executable lives inside [path] (Windows only), so
+  /// their file locks are released before deletion. Scoped to [path] so it
+  /// never touches an unrelated dart/flutter install.
+  Future<void> _killProcessesUnder(String path) async {
+    final script = "Get-CimInstance Win32_Process | "
+        "Where-Object { \$_.ExecutablePath -and "
+        "\$_.ExecutablePath -like '$path\\*' } | "
+        "ForEach-Object { try { Stop-Process -Id \$_.ProcessId -Force "
+        "-ErrorAction SilentlyContinue } catch {} }";
+    try {
+      await _runner.run('powershell', ['-NoProfile', '-Command', script],
+          timeout: const Duration(seconds: 30));
+    } catch (_) {
+      // Best-effort — deletion still tries afterwards.
     }
   }
 
