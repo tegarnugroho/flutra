@@ -9,7 +9,9 @@ import '../../application/settings/app_settings.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
+import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
+import '../emulator/widgets/avd_dialogs.dart';
 
 /// Settings: theme, Android SDK path override and run-at-startup.
 class SettingsPage extends StatelessWidget {
@@ -115,6 +117,26 @@ class _SettingsView extends StatelessWidget {
                           onChanged: cubit.setCloseToTray,
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      _Setting(
+                        icon: FluentIcons.blocked2,
+                        title: 'Stop all Flutter & Dart processes',
+                        subtitle: 'Force-kills every running dart/flutter '
+                            'process — frees a locked SDK (also stops the IDE '
+                            'analyzer).',
+                        trailing: Button(
+                          onPressed: () => _stopProcesses(context),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(FluentIcons.blocked2,
+                                  size: 14, color: Color(0xFFC42B1C)),
+                              SizedBox(width: 6),
+                              Text('Stop all'),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -160,6 +182,30 @@ class _SettingsView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Confirms, then force-kills all Flutter/Dart processes.
+Future<void> _stopProcesses(BuildContext context) async {
+  final ok = await showConfirmDialog(
+    context,
+    title: 'Stop all Flutter & Dart processes?',
+    message: 'This force-kills every running dart/flutter process, including '
+        'your IDE\'s analysis server. Use it to free a locked SDK.',
+    confirmLabel: 'Stop all',
+  );
+  if (!ok || !context.mounted) return;
+  final killed = await getIt<ProcessService>().stopFlutterAndDart();
+  if (!context.mounted) return;
+  await displayInfoBar(context, builder: (context, close) {
+    return InfoBar(
+      title: Text(killed > 0 ? 'Stopped $killed process(es)' : 'Nothing running'),
+      content: Text(killed > 0
+          ? 'All Flutter/Dart processes were terminated.'
+          : 'No Flutter/Dart processes were running.'),
+      severity: killed > 0 ? InfoBarSeverity.success : InfoBarSeverity.info,
+      onClose: close,
+    );
+  });
 }
 
 /// Opens the Developer Logs as a separate OS window.

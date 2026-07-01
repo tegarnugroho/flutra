@@ -139,11 +139,13 @@ class _DevLogsPageState extends State<DevLogsPage> {
                           style: TextStyle(
                               color: Color(0xFF7A7A7A), fontSize: 12)),
                     )
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.all(10),
-                      itemCount: records.length,
-                      itemBuilder: (context, i) => _LogRow(record: records[i]),
+                  : SelectionArea(
+                      child: ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.all(10),
+                        itemCount: records.length,
+                        itemBuilder: (context, i) => _LogRow(record: records[i]),
+                      ),
                     ),
             ),
           ),
@@ -185,7 +187,7 @@ class _LogRow extends StatelessWidget {
                 : const Color(0xFF9AA5B1);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.5),
-      child: SelectableText(
+      child: Text(
         '${record.timeStr}  ${record.level.name.padRight(7)} '
         '${record.logger}: ${record.message}',
         style: TextStyle(

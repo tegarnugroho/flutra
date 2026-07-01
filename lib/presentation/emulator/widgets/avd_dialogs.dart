@@ -24,6 +24,7 @@ Future<bool> showConfirmDialog(
                   backgroundColor: WidgetStateProperty.all(
                     const Color(0xFFC42B1C),
                   ),
+                  foregroundColor: WidgetStateProperty.all(Colors.white),
                 )
               : null,
           onPressed: () => Navigator.pop(context, true),

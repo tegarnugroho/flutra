@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -33,7 +36,12 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
   Future<void> _initTray() async {
     try {
       await windowManager.setPreventClose(true);
-      await trayManager.setIcon('assets/app_icon.ico');
+      // Use the app icon bundled next to the executable (asset-relative paths
+      // aren't reliably resolved by the tray on Windows).
+      final assetIcon = p.join(p.dirname(Platform.resolvedExecutable), 'data',
+          'flutter_assets', 'assets', 'app_icon.ico');
+      await trayManager
+          .setIcon(File(assetIcon).existsSync() ? assetIcon : 'assets/app_icon.ico');
       await trayManager.setToolTip('Flutter SDK Manager');
       await trayManager.setContextMenu(Menu(items: [
         MenuItem(key: 'show', label: 'Open Flutter SDK Manager'),

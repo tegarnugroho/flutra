@@ -60,6 +60,8 @@ import 'package:android_sdk_manager/infrastructure/settings/settings_service.dar
     as _i517;
 import 'package:android_sdk_manager/infrastructure/settings/startup_service.dart'
     as _i104;
+import 'package:android_sdk_manager/infrastructure/system/process_service.dart'
+    as _i891;
 import 'package:android_sdk_manager/infrastructure/trash/trash_service.dart'
     as _i95;
 import 'package:get_it/get_it.dart' as _i174;
@@ -84,6 +86,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
+    );
+    gh.lazySingleton<_i891.ProcessService>(
+      () => _i891.ProcessService(gh<_i144.CommandRunner>()),
     );
     gh.lazySingleton<_i95.TrashService>(
       () => _i95.TrashService(gh<_i144.CommandRunner>()),

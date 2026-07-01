@@ -136,13 +136,27 @@ class CommandRunner {
       await drained; // ensure all lines flushed before completing
       stopwatch.stop();
       await outputController.close();
-      _log.fine('done: $executable exit=$code in ${stopwatch.elapsedMilliseconds}ms');
+      final stdoutStr = stdoutBuffer.toString().trimRight();
+      final stderrStr = stderrBuffer.toString().trimRight();
+      _log.fine(
+          'done: $executable exit=$code in ${stopwatch.elapsedMilliseconds}ms');
+      // Log the response (truncated) so the developer log shows request output.
+      final combined = stderrStr.isEmpty
+          ? stdoutStr
+          : (stdoutStr.isEmpty ? stderrStr : '$stdoutStr\n$stderrStr');
+      if (combined.isNotEmpty) {
+        const max = 1500;
+        final snippet = combined.length > max
+            ? '${combined.substring(0, max)}… (+${combined.length - max} chars)'
+            : combined;
+        _log.fine('output: ${snippet.replaceAll('\n', ' ⏎ ')}');
+      }
       return CommandResult(
         executable: executable,
         arguments: arguments,
         exitCode: code,
-        stdout: stdoutBuffer.toString().trimRight(),
-        stderr: stderrBuffer.toString().trimRight(),
+        stdout: stdoutStr,
+        stderr: stderrStr,
         duration: stopwatch.elapsed,
       );
     }();
