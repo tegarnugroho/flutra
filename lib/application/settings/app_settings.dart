@@ -9,6 +9,7 @@ class AppSettings extends Equatable {
     this.flutterSdkPath,
     this.runAtStartup = false,
     this.closeToTray = true,
+    this.developerMode = false,
   });
 
   final ThemeMode themeMode;
@@ -24,6 +25,9 @@ class AppSettings extends Equatable {
   /// Hide to the system tray on window close instead of quitting.
   final bool closeToTray;
 
+  /// Reveals developer tools (e.g. the request-log viewer).
+  final bool developerMode;
+
   static String? _str(Object? v) =>
       (v is String && v.trim().isNotEmpty) ? v : null;
 
@@ -38,6 +42,7 @@ class AppSettings extends Equatable {
       flutterSdkPath: _str(json['flutterSdkPath']),
       runAtStartup: json['runAtStartup'] as bool? ?? false,
       closeToTray: json['closeToTray'] as bool? ?? true,
+      developerMode: json['developerMode'] as bool? ?? false,
     );
   }
 
@@ -51,6 +56,7 @@ class AppSettings extends Equatable {
         'flutterSdkPath': flutterSdkPath,
         'runAtStartup': runAtStartup,
         'closeToTray': closeToTray,
+        'developerMode': developerMode,
       };
 
   AppSettings copyWith({
@@ -61,6 +67,7 @@ class AppSettings extends Equatable {
     bool clearFlutterSdkPath = false,
     bool? runAtStartup,
     bool? closeToTray,
+    bool? developerMode,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -72,10 +79,17 @@ class AppSettings extends Equatable {
           : (flutterSdkPath ?? this.flutterSdkPath),
       runAtStartup: runAtStartup ?? this.runAtStartup,
       closeToTray: closeToTray ?? this.closeToTray,
+      developerMode: developerMode ?? this.developerMode,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [themeMode, androidSdkPath, flutterSdkPath, runAtStartup, closeToTray];
+  List<Object?> get props => [
+        themeMode,
+        androidSdkPath,
+        flutterSdkPath,
+        runAtStartup,
+        closeToTray,
+        developerMode,
+      ];
 }

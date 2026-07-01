@@ -40,6 +40,8 @@ import 'package:android_sdk_manager/domain/repositories/flutter_repository.dart'
     as _i606;
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
+import 'package:android_sdk_manager/infrastructure/logging/dev_log_service.dart'
+    as _i848;
 import 'package:android_sdk_manager/infrastructure/repositories/device_repository_impl.dart'
     as _i775;
 import 'package:android_sdk_manager/infrastructure/repositories/emulator_repository_impl.dart'
@@ -76,6 +78,7 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i245.ThemeCubit>(() => _i245.ThemeCubit());
     gh.lazySingleton<_i144.CommandRunner>(() => _i144.CommandRunner());
+    gh.lazySingleton<_i848.DevLogService>(() => _i848.DevLogService());
     gh.lazySingleton<_i1034.FlutterLocator>(() => _i1034.FlutterLocator());
     gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
     gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());

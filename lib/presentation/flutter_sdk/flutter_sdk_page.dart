@@ -59,7 +59,20 @@ class _FlutterSdkView extends StatelessWidget {
           ),
         ),
       ),
-      content: BlocBuilder<FlutterSdkCubit, FlutterSdkState>(
+      content: BlocConsumer<FlutterSdkCubit, FlutterSdkState>(
+        listenWhen: (p, c) =>
+            c.errorMessage != null && p.errorMessage != c.errorMessage,
+        listener: (context, state) {
+          displayInfoBar(context, builder: (context, close) {
+            return InfoBar(
+              title: const Text('Error'),
+              content: Text(state.errorMessage!),
+              severity: InfoBarSeverity.error,
+              isLong: true,
+              onClose: close,
+            );
+          });
+        },
         builder: (context, state) {
           if (state.isLoading && state.info == null) {
             return const Center(child: ProgressRing());

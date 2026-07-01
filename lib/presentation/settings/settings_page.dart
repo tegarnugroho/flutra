@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/settings/app_settings.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../core/di/injection.dart';
+import 'dev_logs_page.dart';
 
 /// Settings: theme, Android SDK path override and run-at-startup.
 class SettingsPage extends StatelessWidget {
@@ -109,6 +110,44 @@ class _SettingsView extends StatelessWidget {
                           onChanged: cubit.setCloseToTray,
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _Section(
+                  title: 'Developer',
+                  child: Column(
+                    children: [
+                      _Setting(
+                        icon: FluentIcons.developer_tools,
+                        title: 'Developer mode',
+                        subtitle: 'Capture every command/request in an in-app '
+                            'log viewer for debugging.',
+                        trailing: ToggleSwitch(
+                          checked: settings.developerMode,
+                          onChanged: cubit.setDeveloperMode,
+                        ),
+                      ),
+                      if (settings.developerMode) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Button(
+                            onPressed: () => Navigator.of(context).push(
+                              FluentPageRoute<void>(
+                                  builder: (_) => const DevLogsPage()),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(FluentIcons.text_document, size: 14),
+                                SizedBox(width: 8),
+                                Text('Open request log'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

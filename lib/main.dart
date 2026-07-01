@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
+import 'infrastructure/logging/dev_log_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
@@ -32,6 +33,8 @@ Future<void> main(List<String> args) async {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }
   configureDependencies();
+  // Capture the full log/command flow for the developer log viewer.
+  getIt<DevLogService>().attach();
 
   // Every window (main and sub-windows) runs this same entrypoint. The current
   // engine's arguments tell us which one we are.
@@ -95,9 +98,13 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
 }
 
 void _setupLogging() {
-  Logger.root.level = Level.INFO;
+  // Capture everything (incl. FINE command-exec logs) for the dev log; only
+  // print INFO+ to the console to avoid noise.
+  Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    // ignore: avoid_print
-    print('${record.level.name} ${record.loggerName}: ${record.message}');
+    if (record.level >= Level.INFO) {
+      // ignore: avoid_print
+      print('${record.level.name} ${record.loggerName}: ${record.message}');
+    }
   });
 }

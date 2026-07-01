@@ -72,6 +72,9 @@ class SettingsCubit extends Cubit<AppSettings> {
   Future<void> setCloseToTray(bool value) =>
       _persist(state.copyWith(closeToTray: value));
 
+  Future<void> setDeveloperMode(bool value) =>
+      _persist(state.copyWith(developerMode: value));
+
   void _apply(AppSettings s) {
     _theme.setMode(s.themeMode);
     _locator.overrideSdkRoot = s.androidSdkPath;

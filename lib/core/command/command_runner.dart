@@ -136,6 +136,7 @@ class CommandRunner {
       await drained; // ensure all lines flushed before completing
       stopwatch.stop();
       await outputController.close();
+      _log.fine('done: $executable exit=$code in ${stopwatch.elapsedMilliseconds}ms');
       return CommandResult(
         executable: executable,
         arguments: arguments,

@@ -70,3 +70,4 @@ msix_config:
   certificate_password: flutter123
   capabilities: internetClient
   install_certificate: false
+  logo_path: D:\Projects\android_sdk_manager\windows\runner\resources\app_icon.ico
