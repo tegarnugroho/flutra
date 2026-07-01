@@ -1,18 +1,25 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../application/emulator/emulator_events.dart';
 import '../../application/emulator/emulator_list_cubit.dart';
+import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
-import 'create_emulator_page.dart';
+import '../../main.dart' show kCreateEmulatorWindow;
 import 'widgets/avd_card.dart';
 import 'widgets/avd_dialogs.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
 ///
-/// The Create Emulator wizard is hosted inside this screen's content area (not
-/// pushed as a full-screen route), so the navigation rail stays visible.
+/// Create Emulator opens in a separate OS window (via desktop_multi_window). The
+/// list reloads when this window regains focus or an [EmulatorEvents] change is
+/// signalled, keeping both windows in sync.
 class EmulatorManagerPage extends StatefulWidget {
   const EmulatorManagerPage({super.key});
 
@@ -21,27 +28,41 @@ class EmulatorManagerPage extends StatefulWidget {
 }
 
 class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
-  bool _creating = false;
+  late final EmulatorListCubit _cubit;
+  StreamSubscription<void>? _eventsSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _cubit = getIt<EmulatorListCubit>()..load();
+    _eventsSub = getIt<EmulatorEvents>().onChanged.listen((_) => _cubit.load());
+  }
+
+  @override
+  void dispose() {
+    _eventsSub?.cancel();
+    _cubit.close();
+    super.dispose();
+  }
+
+  Future<void> _openCreateWindow() async {
+    final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
+    await WindowController.create(WindowConfiguration(
+      arguments: jsonEncode({
+        'businessId': kCreateEmulatorWindow,
+        'dark': dark,
+      }),
+      // Show immediately from native so visibility doesn't depend on
+      // window_manager being available.
+      hiddenAtLaunch: false,
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<EmulatorListCubit>()..load(),
-      child: Builder(
-        builder: (context) {
-          if (_creating) {
-            return CreateEmulatorPage(
-              onClose: (created) {
-                setState(() => _creating = false);
-                if (created) context.read<EmulatorListCubit>().load();
-              },
-            );
-          }
-          return _EmulatorManagerView(
-            onCreate: () => setState(() => _creating = true),
-          );
-        },
-      ),
+    return BlocProvider.value(
+      value: _cubit,
+      child: _EmulatorManagerView(onCreate: _openCreateWindow),
     );
   }
 }

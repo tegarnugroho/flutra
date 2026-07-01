@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:injectable/injectable.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
@@ -22,6 +23,7 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
   final CommandRunner _runner;
   final SdkLocator _locator;
 
+  static final Logger _log = Logger('EmulatorRepository');
   static const _timeout = Duration(seconds: 60);
 
   // ---- Tool path guards ----------------------------------------------------
@@ -348,16 +350,24 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
       throw FileSystemFailure('An AVD named "$target" already exists.');
     }
 
-    // Copy the .avd directory contents.
+    // Copy the .avd directory contents. Skip runtime lock files and tolerate
+    // any file that is currently locked (e.g. when the source AVD is running),
+    // so duplicating a running emulator still succeeds with a clean copy.
     dstDir.createSync(recursive: true);
     for (final entity in srcDir.listSync(recursive: true)) {
       final rel = p.relative(entity.path, from: srcDir.path);
+      final base = p.basename(entity.path);
+      if (base.endsWith('.lock')) continue; // *.lock, multiinstance.lock, …
       final destPath = p.join(dstDir.path, rel);
       if (entity is Directory) {
         Directory(destPath).createSync(recursive: true);
       } else if (entity is File) {
         Directory(p.dirname(destPath)).createSync(recursive: true);
-        entity.copySync(destPath);
+        try {
+          entity.copySync(destPath);
+        } on FileSystemException catch (e) {
+          _log.warning('duplicate: skipping locked file $rel (${e.osError})');
+        }
       }
     }
 

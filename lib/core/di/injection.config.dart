@@ -13,6 +13,8 @@ import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart'
     as _i75;
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart'
     as _i622;
+import 'package:android_sdk_manager/application/emulator/emulator_events.dart'
+    as _i1064;
 import 'package:android_sdk_manager/application/emulator/emulator_list_cubit.dart'
     as _i6;
 import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
@@ -44,6 +46,10 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
+    gh.singleton<_i1064.EmulatorEvents>(
+      () => _i1064.EmulatorEvents(),
+      dispose: (i) => i.dispose(),
+    );
     gh.singleton<_i245.ThemeCubit>(() => _i245.ThemeCubit());
     gh.lazySingleton<_i144.CommandRunner>(() => _i144.CommandRunner());
     gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
