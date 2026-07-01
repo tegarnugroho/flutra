@@ -2,56 +2,112 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/sdk_package.dart';
 
-/// A single SDK package row with version, status and install/uninstall action.
+/// A single package row: checkbox, status dot, name/path, version, per-row
+/// action, and an inline progress bar while installing.
 class SdkPackageTile extends StatelessWidget {
   const SdkPackageTile({
     super.key,
     required this.package,
+    required this.checked,
+    required this.selected,
+    required this.queued,
+    required this.active,
+    required this.progress,
+    required this.onCheck,
+    required this.onSelect,
     required this.onInstall,
     required this.onUninstall,
   });
 
   final SdkPackage package;
+  final bool checked;
+  final bool selected;
+  final bool queued;
+  final bool active;
+  final double? progress;
+  final ValueChanged<bool> onCheck;
+  final VoidCallback onSelect;
   final VoidCallback onInstall;
   final VoidCallback onUninstall;
 
   @override
   Widget build(BuildContext context) {
     final theme = FluentTheme.of(context);
-    return Card(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          _statusDot(),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: onSelect,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.accentColor.withValues(alpha: 0.12)
+              : theme.resources.cardBackgroundFillColorDefault,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selected
+                ? theme.accentColor
+                : theme.resources.controlStrokeColorDefault,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            Row(
               children: [
-                Text(
-                  package.description,
-                  style: theme.typography.bodyStrong,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Checkbox(
+                  checked: checked,
+                  onChanged: (v) => onCheck(v ?? false),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  package.path,
-                  style: theme.typography.caption?.copyWith(
-                    fontFamily: 'Consolas',
-                    color: theme.resources.textFillColorTertiary,
+                const SizedBox(width: 8),
+                _statusDot(),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(package.description,
+                          style: theme.typography.bodyStrong,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      Text(package.path,
+                          style: theme.typography.caption?.copyWith(
+                            fontFamily: 'Consolas',
+                            color: theme.resources.textFillColorTertiary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(width: 10),
+                _version(theme),
+                const SizedBox(width: 14),
+                _action(),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          _versionColumn(theme),
-          const SizedBox(width: 16),
-          _action(theme),
-        ],
+            if (active || queued) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ProgressBar(
+                      value: active ? (progress != null ? progress! * 100 : null)
+                          : 0,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    active
+                        ? (progress != null
+                            ? '${(progress! * 100).round()}%'
+                            : 'Working…')
+                        : 'Queued',
+                    style: theme.typography.caption,
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -69,71 +125,49 @@ class SdkPackageTile extends StatelessWidget {
     );
   }
 
-  Widget _versionColumn(FluentThemeData theme) {
+  Widget _version(FluentThemeData theme) {
     return SizedBox(
-      width: 120,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (package.hasUpdate) ...[
-            Text(
+      width: 110,
+      child: package.hasUpdate
+          ? Text(
               '${package.installedVersion ?? '?'} → ${package.availableVersion ?? '?'}',
               style: theme.typography.caption
                   ?.copyWith(color: const Color(0xFFFFB900)),
               textAlign: TextAlign.end,
-            ),
-          ] else
-            Text(
-              package.displayVersion ?? '—',
-              style: theme.typography.caption,
-              textAlign: TextAlign.end,
-            ),
-          const SizedBox(height: 2),
-          Text(
-            _stateLabel,
-            style: theme.typography.caption?.copyWith(
-              color: theme.resources.textFillColorTertiary,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
+            )
+          : Text(package.displayVersion ?? '—',
+              style: theme.typography.caption, textAlign: TextAlign.end),
     );
   }
 
-  String get _stateLabel => switch (package.state) {
-        PackageState.installed => 'Installed',
-        PackageState.updatable => 'Update available',
-        PackageState.available => 'Not installed',
-      };
-
-  Widget _action(FluentThemeData theme) {
+  Widget _action() {
+    if (active || queued) {
+      return const SizedBox(width: 84);
+    }
     switch (package.state) {
       case PackageState.available:
-        return FilledButton(
-          onPressed: onInstall,
-          child: const Text('Install'),
+        return SizedBox(
+          width: 84,
+          child: FilledButton(
+              onPressed: onInstall, child: const Text('Install')),
         );
       case PackageState.updatable:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FilledButton(onPressed: onInstall, child: const Text('Update')),
-            const SizedBox(width: 6),
-            _uninstallButton(),
-          ],
+        return SizedBox(
+          width: 84,
+          child:
+              FilledButton(onPressed: onInstall, child: const Text('Update')),
         );
       case PackageState.installed:
-        return _uninstallButton();
+        return SizedBox(
+          width: 84,
+          child: Tooltip(
+            message: 'Uninstall',
+            child: IconButton(
+              icon: const Icon(FluentIcons.delete, color: Color(0xFFC42B1C)),
+              onPressed: onUninstall,
+            ),
+          ),
+        );
     }
   }
-
-  Widget _uninstallButton() => Tooltip(
-        message: 'Uninstall',
-        child: IconButton(
-          icon: const Icon(FluentIcons.delete, color: Color(0xFFC42B1C)),
-          onPressed: onUninstall,
-        ),
-      );
 }

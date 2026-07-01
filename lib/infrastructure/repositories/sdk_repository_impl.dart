@@ -66,6 +66,10 @@ class SdkRepositoryImpl implements SdkRepository {
   Future<RunningCommand> acceptAllLicenses() =>
       _startWithAutoYes(['--licenses', ..._rootArg]);
 
+  @override
+  Future<RunningCommand> updateAll() =>
+      _startWithAutoYes(['--update', ..._rootArg]);
+
   /// Starts sdkmanager and answers "y" to every interactive license prompt.
   Future<RunningCommand> _startWithAutoYes(List<String> args) async {
     final command = await _runner.start(_sdkManager, args);

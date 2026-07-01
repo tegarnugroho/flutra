@@ -16,4 +16,8 @@ abstract class SdkRepository {
 
   /// Runs `sdkmanager --licenses`, auto-answering "y" to every prompt.
   Future<RunningCommand> acceptAllLicenses();
+
+  /// Updates every installed package that has a newer version available
+  /// (`sdkmanager --update`). Streaming handle.
+  Future<RunningCommand> updateAll();
 }

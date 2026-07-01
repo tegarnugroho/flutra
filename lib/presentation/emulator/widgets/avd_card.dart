@@ -14,6 +14,7 @@ class AvdCard extends StatelessWidget {
     required this.onWipe,
     required this.onDelete,
     required this.onDuplicate,
+    required this.onConsole,
   });
 
   final Avd avd;
@@ -24,6 +25,7 @@ class AvdCard extends StatelessWidget {
   final VoidCallback onWipe;
   final VoidCallback onDelete;
   final VoidCallback onDuplicate;
+  final VoidCallback onConsole;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +175,11 @@ class AvdCard extends StatelessWidget {
               leading: const Icon(FluentIcons.a_a_d_logo),
               text: const Text('Cold boot'),
               onPressed: avd.isRunning ? null : onColdBoot,
+            ),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.command_prompt),
+              text: const Text('Emulator Console'),
+              onPressed: onConsole,
             ),
             MenuFlyoutItem(
               leading: const Icon(FluentIcons.copy),

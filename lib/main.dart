@@ -9,9 +9,13 @@ import 'package:window_manager/window_manager.dart';
 import 'core/di/injection.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
+import 'presentation/window/emulator_console_window.dart';
 
 /// Business id marking the standalone Create-Emulator window.
 const String kCreateEmulatorWindow = 'createEmulator';
+
+/// Business id marking the standalone Emulator-Console window.
+const String kEmulatorConsoleWindow = 'emulatorConsole';
 
 Future<void> main(List<String> args) async {
   _setupLogging();
@@ -33,6 +37,10 @@ Future<void> main(List<String> args) async {
 
   if (decoded != null && decoded['businessId'] == kCreateEmulatorWindow) {
     await _runCreateEmulatorWindow(decoded);
+    return;
+  }
+  if (decoded != null && decoded['businessId'] == kEmulatorConsoleWindow) {
+    await _runEmulatorConsoleWindow(decoded);
     return;
   }
 
@@ -67,6 +75,15 @@ Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
   runApp(CreateEmulatorWindowApp(
     windowController: controller,
     dark: args['dark'] == true,
+  ));
+}
+
+Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(EmulatorConsoleWindowApp(
+    windowController: controller,
+    dark: args['dark'] == true,
+    avdName: args['avd'] as String? ?? '',
   ));
 }
 

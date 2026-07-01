@@ -11,7 +11,7 @@ import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
-import '../../main.dart' show kCreateEmulatorWindow;
+import '../../main.dart' show kCreateEmulatorWindow, kEmulatorConsoleWindow;
 import 'widgets/avd_card.dart';
 import 'widgets/avd_dialogs.dart';
 
@@ -58,19 +58,35 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
     ));
   }
 
+  Future<void> _openConsoleWindow(Avd avd) async {
+    final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
+    await WindowController.create(WindowConfiguration(
+      arguments: jsonEncode({
+        'businessId': kEmulatorConsoleWindow,
+        'dark': dark,
+        'avd': avd.name,
+      }),
+      hiddenAtLaunch: false,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cubit,
-      child: _EmulatorManagerView(onCreate: _openCreateWindow),
+      child: _EmulatorManagerView(
+        onCreate: _openCreateWindow,
+        onConsole: _openConsoleWindow,
+      ),
     );
   }
 }
 
 class _EmulatorManagerView extends StatelessWidget {
-  const _EmulatorManagerView({required this.onCreate});
+  const _EmulatorManagerView({required this.onCreate, required this.onConsole});
 
   final VoidCallback onCreate;
+  final void Function(Avd) onConsole;
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +176,7 @@ class _EmulatorManagerView extends StatelessWidget {
                 onWipe: () => _confirmWipe(context, cubit, avd),
                 onDelete: () => _confirmDelete(context, cubit, avd),
                 onDuplicate: () => _promptDuplicate(context, cubit, avd),
+                onConsole: () => onConsole(avd),
               );
             },
           );

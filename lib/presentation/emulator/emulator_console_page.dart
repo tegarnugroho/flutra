@@ -11,7 +11,10 @@ import '../common/log_toolbar.dart';
 
 /// Emulator Console: launches an AVD and streams its stdout/stderr live.
 class EmulatorConsolePage extends StatefulWidget {
-  const EmulatorConsolePage({super.key});
+  const EmulatorConsolePage({super.key, this.initialAvd});
+
+  /// Pre-selects this AVD (e.g. when opened from the Emulator Manager).
+  final String? initialAvd;
 
   @override
   State<EmulatorConsolePage> createState() => _EmulatorConsolePageState();
@@ -45,7 +48,8 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
       if (!mounted) return;
       setState(() {
         _avds = avds;
-        _name ??= avds.isNotEmpty ? avds.first.name : null;
+        _name ??= widget.initialAvd ??
+            (avds.isNotEmpty ? avds.first.name : null);
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -89,6 +93,13 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
             : BlocBuilder<LiveLogCubit, LiveLogState>(
                 builder: (context, state) {
                   final running = state.isRunning || state.isStarting;
+                  final selectedAvds =
+                      _avds.where((a) => a.name == _name).toList();
+                  final selected =
+                      selectedAvds.isEmpty ? null : selectedAvds.first;
+                  // Can't attach to an emulator this app didn't launch.
+                  final alreadyRunning =
+                      selected?.isRunning == true && !running;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -108,7 +119,11 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                                 items: [
                                   for (final a in _avds)
                                     ComboBoxItem(
-                                        value: a.name, child: Text(a.name)),
+                                      value: a.name,
+                                      child: Text(a.isRunning
+                                          ? '${a.name}  • running'
+                                          : a.name),
+                                    ),
                                 ],
                                 onChanged: running
                                     ? null
@@ -137,7 +152,9 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                               )
                             else
                               FilledButton(
-                                onPressed: _name == null ? null : _launch,
+                                onPressed: _name == null || alreadyRunning
+                                    ? null
+                                    : _launch,
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -150,6 +167,20 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                           ],
                         ),
                       ),
+                      if (alreadyRunning)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                          child: InfoBar(
+                            title: const Text('Already running'),
+                            content: const Text(
+                                'The console only shows output for emulators '
+                                'launched here — it cannot attach to a running '
+                                'instance. Use Logcat Viewer for its logs, or '
+                                'stop it first.'),
+                            severity: InfoBarSeverity.info,
+                            isLong: true,
+                          ),
+                        ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                         child: LogToolbar(
