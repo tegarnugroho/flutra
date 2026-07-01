@@ -11,6 +11,8 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart'
     as _i75;
+import 'package:android_sdk_manager/application/device/device_manager_cubit.dart'
+    as _i884;
 import 'package:android_sdk_manager/application/doctor/flutter_doctor_cubit.dart'
     as _i915;
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart'
@@ -24,6 +26,8 @@ import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
 import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
     as _i245;
 import 'package:android_sdk_manager/core/command/command_runner.dart' as _i144;
+import 'package:android_sdk_manager/domain/repositories/device_repository.dart'
+    as _i720;
 import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart'
     as _i277;
 import 'package:android_sdk_manager/domain/repositories/environment_repository.dart'
@@ -32,6 +36,8 @@ import 'package:android_sdk_manager/domain/repositories/flutter_repository.dart'
     as _i606;
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
+import 'package:android_sdk_manager/infrastructure/repositories/device_repository_impl.dart'
+    as _i775;
 import 'package:android_sdk_manager/infrastructure/repositories/emulator_repository_impl.dart'
     as _i60;
 import 'package:android_sdk_manager/infrastructure/repositories/environment_repository_impl.dart'
@@ -77,6 +83,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i915.FlutterDoctorCubit>(
       () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
     );
+    gh.lazySingleton<_i720.DeviceRepository>(
+      () => _i775.DeviceRepositoryImpl(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+      ),
+    );
     gh.lazySingleton<_i374.SdkRepository>(
       () => _i77.SdkRepositoryImpl(
         gh<_i144.CommandRunner>(),
@@ -94,6 +106,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i75.DashboardCubit>(
       () => _i75.DashboardCubit(gh<_i595.EnvironmentRepository>()),
+    );
+    gh.factory<_i884.DeviceManagerCubit>(
+      () => _i884.DeviceManagerCubit(
+        gh<_i720.DeviceRepository>(),
+        gh<_i606.FlutterRepository>(),
+      ),
     );
     return this;
   }

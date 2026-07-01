@@ -5,6 +5,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
+import '../../domain/entities/device.dart';
 import '../../domain/entities/doctor_report.dart';
 import '../../domain/repositories/flutter_repository.dart';
 
@@ -30,6 +31,45 @@ class FlutterRepositoryImpl implements FlutterRepository {
       );
     }
     return DoctorReport(sections: parse(output), rawOutput: output);
+  }
+
+  @override
+  Future<List<Device>> listDevices() async {
+    final result = await _runner.run(
+      Platform.isWindows ? 'flutter.bat' : 'flutter',
+      ['devices', '--machine'],
+      timeout: const Duration(minutes: 2),
+    );
+    return parseFlutterDevices(result.stdout);
+  }
+
+  /// Parses `flutter devices --machine` JSON into [Device]s. Static & pure.
+  static List<Device> parseFlutterDevices(String output) {
+    // Flutter may print warnings before the JSON; isolate the array.
+    final start = output.indexOf('[');
+    final end = output.lastIndexOf(']');
+    if (start < 0 || end <= start) return const [];
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(output.substring(start, end + 1));
+    } catch (_) {
+      return const [];
+    }
+    if (decoded is! List) return const [];
+
+    return decoded.whereType<Map<String, dynamic>>().map((json) {
+      final target = json['targetPlatform'] as String?;
+      final id = json['id'] as String? ?? '';
+      final isAndroid = target?.startsWith('android') ?? false;
+      return Device(
+        serial: id,
+        state: DeviceState.device,
+        model: json['name'] as String?,
+        sdkInt: null,
+        platform: target,
+        supportsAdb: isAndroid,
+      );
+    }).where((d) => d.serial.isNotEmpty).toList();
   }
 
   /// Parses `flutter doctor -v` output into sections. Static and pure for tests.

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
+import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
 import '../emulator/emulator_manager_page.dart';
 import '../sdk/license_manager_page.dart';
@@ -60,7 +61,11 @@ class _AppShellState extends State<AppShell> {
           ),
           _placeholder(FluentIcons.command_prompt, 'Emulator Console'),
           PaneItemHeader(header: const Text('Devices')),
-          _placeholder(FluentIcons.plug_connected, 'Device Manager'),
+          PaneItem(
+            icon: const Icon(FluentIcons.plug_connected),
+            title: const Text('Device Manager'),
+            body: const DeviceManagerPage(),
+          ),
           _placeholder(FluentIcons.text_document, 'Logcat Viewer'),
           _placeholder(FluentIcons.installation, 'APK Installer'),
           PaneItemHeader(header: const Text('Environment')),
