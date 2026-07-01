@@ -6,6 +6,8 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../../infrastructure/trash/trash_entry.dart';
+import '../../infrastructure/trash/trash_service.dart';
 
 part 'flutter_sdk_state.dart';
 
@@ -13,13 +15,17 @@ part 'flutter_sdk_state.dart';
 /// channels/versions.
 @injectable
 class FlutterSdkCubit extends Cubit<FlutterSdkState> {
-  FlutterSdkCubit(this._repository) : super(const FlutterSdkState());
+  FlutterSdkCubit(this._repository, this._trash)
+      : super(const FlutterSdkState());
 
   final FlutterRepository _repository;
+  final TrashService _trash;
 
   Future<void> load() async {
     if (isClosed) return;
     emit(state.copyWith(status: FlutterSdkStatus.loading, clearError: true));
+    // Recently-uninstalled SDKs that can still be restored (24h window).
+    final restorable = await _restorable();
     try {
       final info = await _repository.getSdkInfo();
       if (isClosed) return;
@@ -33,10 +39,14 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
         versions: versions,
         browsingChannel: channel,
         versionsLoading: false,
+        restorable: restorable,
       ));
     } on ExecutableNotFoundFailure {
-      // No Flutter on PATH — offer to install one.
-      if (!isClosed) emit(state.copyWith(status: FlutterSdkStatus.notInstalled));
+      // No Flutter on PATH — offer to install (or restore a recent one).
+      if (!isClosed) {
+        emit(state.copyWith(
+            status: FlutterSdkStatus.notInstalled, restorable: restorable));
+      }
     } on Failure catch (e) {
       _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
     } catch (e) {
@@ -60,6 +70,26 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
       await load();
     } on Failure catch (e) {
       _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
+    }
+  }
+
+  /// Restores a soft-deleted Flutter SDK back to its original location.
+  Future<void> restore(TrashEntry entry) async {
+    try {
+      await _trash.restore(entry);
+      await load();
+    } on Failure catch (e) {
+      _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
+    }
+  }
+
+  /// Trashed Flutter SDKs still within the 24h restore window.
+  Future<List<TrashEntry>> _restorable() async {
+    try {
+      final all = await _trash.list();
+      return all.where((e) => e.label == 'Flutter SDK').toList();
+    } catch (_) {
+      return const [];
     }
   }
 

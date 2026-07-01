@@ -6,6 +6,7 @@ import '../../application/flutter_sdk/flutter_sdk_cubit.dart';
 import '../../core/command/command_runner.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../infrastructure/trash/trash_entry.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
 import '../emulator/widgets/avd_dialogs.dart';
@@ -64,7 +65,11 @@ class _FlutterSdkView extends StatelessWidget {
             return const Center(child: ProgressRing());
           }
           if (state.status == FlutterSdkStatus.notInstalled) {
-            return _InstallView(onInstalled: cubit.load);
+            return _InstallView(
+              onInstalled: cubit.load,
+              restorable: state.restorable,
+              onRestore: cubit.restore,
+            );
           }
           if (state.status == FlutterSdkStatus.failure && state.info == null) {
             return _ErrorView(
@@ -793,9 +798,15 @@ class _ChannelPill extends StatelessWidget {
 
 /// Shown when no Flutter SDK is on PATH: clone one into a chosen folder.
 class _InstallView extends StatefulWidget {
-  const _InstallView({required this.onInstalled});
+  const _InstallView({
+    required this.onInstalled,
+    this.restorable = const [],
+    required this.onRestore,
+  });
 
   final VoidCallback onInstalled;
+  final List<TrashEntry> restorable;
+  final ValueChanged<TrashEntry> onRestore;
 
   @override
   State<_InstallView> createState() => _InstallViewState();
@@ -846,6 +857,22 @@ class _InstallViewState extends State<_InstallView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.restorable.isNotEmpty) ...[
+              InfoBar(
+                title: const Text('Recently uninstalled'),
+                content: Text(
+                    'You uninstalled a Flutter SDK. It is kept for 24 hours — '
+                    'restore it to ${widget.restorable.first.originalPath}.'),
+                severity: InfoBarSeverity.warning,
+                isLong: true,
+                action: FilledButton(
+                  onPressed: () =>
+                      widget.onRestore(widget.restorable.first),
+                  child: const Text('Restore'),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
             Container(
               width: 80,
               height: 80,

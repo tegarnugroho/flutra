@@ -86,15 +86,30 @@ class _SettingsView extends StatelessWidget {
                 const SizedBox(height: 20),
                 _Section(
                   title: 'System',
-                  child: _Setting(
-                    icon: FluentIcons.power_button,
-                    title: 'Run at startup',
-                    subtitle: 'Launch Flutter SDK Manager when you sign in to '
-                        'Windows.',
-                    trailing: ToggleSwitch(
-                      checked: settings.runAtStartup,
-                      onChanged: cubit.setRunAtStartup,
-                    ),
+                  child: Column(
+                    children: [
+                      _Setting(
+                        icon: FluentIcons.power_button,
+                        title: 'Run at startup',
+                        subtitle: 'Launch Flutter SDK Manager when you sign in '
+                            'to Windows.',
+                        trailing: ToggleSwitch(
+                          checked: settings.runAtStartup,
+                          onChanged: cubit.setRunAtStartup,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _Setting(
+                        icon: FluentIcons.chrome_minimize,
+                        title: 'Close to system tray',
+                        subtitle: 'Hide to the tray on close instead of '
+                            'quitting. Right-click the tray icon to exit.',
+                        trailing: ToggleSwitch(
+                          checked: settings.closeToTray,
+                          onChanged: cubit.setCloseToTray,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

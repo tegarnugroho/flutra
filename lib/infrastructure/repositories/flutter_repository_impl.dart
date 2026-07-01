@@ -12,14 +12,16 @@ import '../../domain/entities/doctor_report.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../sdk/flutter_locator.dart';
+import '../trash/trash_service.dart';
 
 /// [FlutterRepository] backed by the `flutter` command-line tool.
 @LazySingleton(as: FlutterRepository)
 class FlutterRepositoryImpl implements FlutterRepository {
-  FlutterRepositoryImpl(this._runner, this._locator);
+  FlutterRepositoryImpl(this._runner, this._locator, this._trash);
 
   final CommandRunner _runner;
   final FlutterLocator _locator;
+  final TrashService _trash;
 
   String get _flutter => _locator.executable;
 
@@ -353,69 +355,9 @@ class FlutterRepositoryImpl implements FlutterRepository {
       );
     }
 
-    await _forceDelete(sdkPath);
-    if (Directory(sdkPath).existsSync()) {
-      throw FileSystemFailure(
-        'Some files could not be removed (likely locked by a running '
-        'Flutter/Dart process). Close them and uninstall again to finish.',
-      );
-    }
-  }
-
-  /// Deletes [path] as thoroughly as possible.
-  ///
-  /// On Windows this (1) terminates any dart/flutter processes running from
-  /// *inside* [path] (e.g. an IDE analysis server holding the SDK's dart.exe),
-  /// (2) empties the folder with `robocopy /MIR` from an empty dir — which
-  /// handles read-only git objects and >260-char paths that defeat `rmdir` —
-  /// then (3) removes the now-empty folder. Falls back to Dart's delete.
-  Future<void> _forceDelete(String path) async {
-    if (Platform.isWindows) {
-      await _killProcessesUnder(path);
-
-      Directory? tmp;
-      try {
-        tmp = Directory.systemTemp.createTempSync('asm_empty');
-        // robocopy exit codes 0–7 are success; don't gate on exit code.
-        await _runner.run(
-          'robocopy',
-          [tmp.path, path, '/MIR', '/NFL', '/NDL', '/NJH', '/NJS', '/NC', '/NS'],
-          timeout: const Duration(minutes: 3),
-        );
-      } catch (_) {
-      } finally {
-        try {
-          tmp?.deleteSync(recursive: true);
-        } catch (_) {}
-      }
-      try {
-        await _runner.run('cmd', ['/c', 'rmdir', '/s', '/q', path],
-            timeout: const Duration(minutes: 2));
-      } catch (_) {}
-    }
-    // Cross-platform fallback / final mop-up.
-    if (Directory(path).existsSync()) {
-      try {
-        await Directory(path).delete(recursive: true);
-      } catch (_) {}
-    }
-  }
-
-  /// Kills processes whose executable lives inside [path] (Windows only), so
-  /// their file locks are released before deletion. Scoped to [path] so it
-  /// never touches an unrelated dart/flutter install.
-  Future<void> _killProcessesUnder(String path) async {
-    final script = "Get-CimInstance Win32_Process | "
-        "Where-Object { \$_.ExecutablePath -and "
-        "\$_.ExecutablePath -like '$path\\*' } | "
-        "ForEach-Object { try { Stop-Process -Id \$_.ProcessId -Force "
-        "-ErrorAction SilentlyContinue } catch {} }";
-    try {
-      await _runner.run('powershell', ['-NoProfile', '-Command', script],
-          timeout: const Duration(seconds: 30));
-    } catch (_) {
-      // Best-effort — deletion still tries afterwards.
-    }
+    // Soft-delete: move to the trash (kept 24h) instead of erasing, so the user
+    // can restore or cancel. This is also an instant move, not a slow delete.
+    await _trash.trash(sdkPath, label: 'Flutter SDK');
   }
 
   @override

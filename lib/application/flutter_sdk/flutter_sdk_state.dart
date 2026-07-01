@@ -10,6 +10,7 @@ class FlutterSdkState extends Equatable {
     this.versions = const [],
     this.browsingChannel,
     this.versionsLoading = false,
+    this.restorable = const [],
     this.errorMessage,
   });
 
@@ -22,6 +23,9 @@ class FlutterSdkState extends Equatable {
   final String? browsingChannel;
   final bool versionsLoading;
 
+  /// Recently soft-deleted Flutter SDKs that can still be restored (24h window).
+  final List<TrashEntry> restorable;
+
   final String? errorMessage;
 
   bool get isLoading => status == FlutterSdkStatus.loading;
@@ -33,6 +37,7 @@ class FlutterSdkState extends Equatable {
     List<String>? versions,
     String? browsingChannel,
     bool? versionsLoading,
+    List<TrashEntry>? restorable,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -42,11 +47,19 @@ class FlutterSdkState extends Equatable {
       versions: versions ?? this.versions,
       browsingChannel: browsingChannel ?? this.browsingChannel,
       versionsLoading: versionsLoading ?? this.versionsLoading,
+      restorable: restorable ?? this.restorable,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
   @override
-  List<Object?> get props =>
-      [status, info, versions, browsingChannel, versionsLoading, errorMessage];
+  List<Object?> get props => [
+        status,
+        info,
+        versions,
+        browsingChannel,
+        versionsLoading,
+        restorable,
+        errorMessage,
+      ];
 }

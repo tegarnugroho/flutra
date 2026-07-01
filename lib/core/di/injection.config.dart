@@ -58,6 +58,8 @@ import 'package:android_sdk_manager/infrastructure/settings/settings_service.dar
     as _i517;
 import 'package:android_sdk_manager/infrastructure/settings/startup_service.dart'
     as _i104;
+import 'package:android_sdk_manager/infrastructure/trash/trash_service.dart'
+    as _i95;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -80,6 +82,16 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
     );
+    gh.lazySingleton<_i95.TrashService>(
+      () => _i95.TrashService(gh<_i144.CommandRunner>()),
+    );
+    gh.lazySingleton<_i606.FlutterRepository>(
+      () => _i483.FlutterRepositoryImpl(
+        gh<_i144.CommandRunner>(),
+        gh<_i1034.FlutterLocator>(),
+        gh<_i95.TrashService>(),
+      ),
+    );
     gh.singleton<_i698.SettingsCubit>(
       () => _i698.SettingsCubit(
         gh<_i517.SettingsService>(),
@@ -101,6 +113,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i839.SdkLocator>(),
       ),
     );
+    gh.factory<_i915.FlutterDoctorCubit>(
+      () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
+    );
     gh.lazySingleton<_i720.DeviceRepository>(
       () => _i775.DeviceRepositoryImpl(
         gh<_i144.CommandRunner>(),
@@ -116,17 +131,17 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i740.SdkManagerCubit>(
       () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
     );
-    gh.lazySingleton<_i606.FlutterRepository>(
-      () => _i483.FlutterRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i1034.FlutterLocator>(),
-      ),
-    );
     gh.factory<_i622.CreateEmulatorCubit>(
       () => _i622.CreateEmulatorCubit(gh<_i277.EmulatorRepository>()),
     );
     gh.factory<_i6.EmulatorListCubit>(
       () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
+    );
+    gh.factory<_i502.FlutterSdkCubit>(
+      () => _i502.FlutterSdkCubit(
+        gh<_i606.FlutterRepository>(),
+        gh<_i95.TrashService>(),
+      ),
     );
     gh.factory<_i75.DashboardCubit>(
       () => _i75.DashboardCubit(gh<_i595.EnvironmentRepository>()),
@@ -136,12 +151,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i720.DeviceRepository>(),
         gh<_i606.FlutterRepository>(),
       ),
-    );
-    gh.factory<_i915.FlutterDoctorCubit>(
-      () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
-    );
-    gh.factory<_i502.FlutterSdkCubit>(
-      () => _i502.FlutterSdkCubit(gh<_i606.FlutterRepository>()),
     );
     return this;
   }

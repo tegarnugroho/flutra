@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -8,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
+import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
 import 'presentation/window/emulator_console_window.dart';
@@ -45,8 +47,10 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  // Main window: load persisted settings and apply theme / SDK override.
+  // Main window: load persisted settings and apply theme / SDK override, then
+  // purge any soft-deleted folders older than 24h.
   await getIt<SettingsCubit>().init();
+  unawaited(getIt<TrashService>().purgeExpired());
   runApp(const AndroidSdkManagerApp());
 }
 
