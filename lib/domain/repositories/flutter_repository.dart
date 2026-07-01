@@ -28,6 +28,10 @@ abstract class FlutterRepository {
   /// after a version checkout left the SDK on an "unknown"/user branch.
   Future<RunningCommand> resetToStable();
 
+  /// Points the SDK's `origin` remote at the official Flutter repository,
+  /// clearing the "not a standard remote" doctor warning.
+  Future<void> fixUpstreamRemote();
+
   /// Checks out release [version] (a git tag) and rebuilds the tool. Streaming.
   Future<RunningCommand> switchVersion(String version);
 

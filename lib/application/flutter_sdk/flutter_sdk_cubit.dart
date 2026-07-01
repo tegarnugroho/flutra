@@ -73,6 +73,16 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
     }
   }
 
+  /// Points the SDK's git origin at the official repo, then reloads.
+  Future<void> fixRemote() async {
+    try {
+      await _repository.fixUpstreamRemote();
+      await load();
+    } on Failure catch (e) {
+      _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
+    }
+  }
+
   /// Restores a soft-deleted Flutter SDK back to its original location.
   Future<void> restore(TrashEntry entry) async {
     try {

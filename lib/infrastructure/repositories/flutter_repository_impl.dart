@@ -99,7 +99,46 @@ class FlutterRepositoryImpl implements FlutterRepository {
         suggestion: 'Install a Flutter SDK, or add its "bin" folder to PATH.',
       );
     }
-    return parseSdkInfo(result.stdout);
+    var info = parseSdkInfo(result.stdout);
+    // Attach the git origin URL so the UI can offer to fix a non-standard one.
+    final root = info.sdkPath;
+    if (info.isGitRepo && root != null) {
+      try {
+        final remote = await _runner.run(
+          'git',
+          ['-C', root, 'remote', 'get-url', 'origin'],
+          timeout: const Duration(seconds: 10),
+        );
+        if (remote.isSuccess) {
+          info = info.copyWith(remoteUrl: remote.stdout.trim());
+        }
+      } catch (_) {}
+    }
+    return info;
+  }
+
+  @override
+  Future<void> fixUpstreamRemote() async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) {
+      throw const UnknownFailure('This SDK is not a git checkout.');
+    }
+    final result = await _runner.run(
+      'git',
+      [
+        '-C', root, 'remote', 'set-url', 'origin',
+        'https://github.com/flutter/flutter.git',
+      ],
+      timeout: const Duration(seconds: 15),
+    );
+    if (!result.isSuccess) {
+      throw ProcessFailure(
+        'Failed to update the git remote.',
+        exitCode: result.exitCode,
+        output: result.combinedOutput,
+      );
+    }
   }
 
   /// Parses `flutter --version --machine` JSON. Static & pure for tests.
@@ -220,6 +259,20 @@ class FlutterRepositoryImpl implements FlutterRepository {
         output: checkout.combinedOutput,
         suggestion: 'Commit or stash local changes in the SDK first.',
       );
+    }
+    // Ensure the upstream remote stays official so Flutter Doctor doesn't warn
+    // about a "non-standard remote" after the checkout. Best-effort.
+    if (!info.isStandardRemote) {
+      try {
+        await _runner.run(
+          'git',
+          [
+            '-C', root, 'remote', 'set-url', 'origin',
+            'https://github.com/flutter/flutter.git',
+          ],
+          timeout: const Duration(seconds: 15),
+        );
+      } catch (_) {}
     }
     // Running any flutter command now regenerates the version snapshot.
     return _runner.start(_flutter, ['--version']);

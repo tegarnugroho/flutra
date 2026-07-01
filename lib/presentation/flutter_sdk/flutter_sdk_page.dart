@@ -127,6 +127,23 @@ class _FlutterSdkView extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (info.isGitRepo && !info.isStandardRemote) ...[
+                  const SizedBox(height: 12),
+                  InfoBar(
+                    title: const Text('Non-standard upstream remote'),
+                    content: Text(
+                      'The SDK git remote is "${info.remoteUrl ?? 'unknown'}", '
+                      'which triggers a "not a standard remote" warning in '
+                      'Flutter Doctor. Point it at the official repository.',
+                    ),
+                    severity: InfoBarSeverity.warning,
+                    isLong: true,
+                    action: FilledButton(
+                      onPressed: cubit.fixRemote,
+                      child: const Text('Fix remote'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Text('Channel', style: FluentTheme.of(context).typography.subtitle),
                 const SizedBox(height: 4),
