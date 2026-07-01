@@ -10,20 +10,46 @@ import 'widgets/avd_card.dart';
 import 'widgets/avd_dialogs.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
-class EmulatorManagerPage extends StatelessWidget {
+///
+/// The Create Emulator wizard is hosted inside this screen's content area (not
+/// pushed as a full-screen route), so the navigation rail stays visible.
+class EmulatorManagerPage extends StatefulWidget {
   const EmulatorManagerPage({super.key});
+
+  @override
+  State<EmulatorManagerPage> createState() => _EmulatorManagerPageState();
+}
+
+class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
+  bool _creating = false;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<EmulatorListCubit>()..load(),
-      child: const _EmulatorManagerView(),
+      child: Builder(
+        builder: (context) {
+          if (_creating) {
+            return CreateEmulatorPage(
+              onClose: (created) {
+                setState(() => _creating = false);
+                if (created) context.read<EmulatorListCubit>().load();
+              },
+            );
+          }
+          return _EmulatorManagerView(
+            onCreate: () => setState(() => _creating = true),
+          );
+        },
+      ),
     );
   }
 }
 
 class _EmulatorManagerView extends StatelessWidget {
-  const _EmulatorManagerView();
+  const _EmulatorManagerView({required this.onCreate});
+
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +64,7 @@ class _EmulatorManagerView extends StatelessWidget {
               CommandBarButton(
                 icon: const Icon(FluentIcons.add),
                 label: const Text('Create'),
-                onPressed: () => _openCreateWizard(context, cubit),
+                onPressed: onCreate,
               ),
               CommandBarButton(
                 icon: state.isLoading
@@ -92,7 +118,7 @@ class _EmulatorManagerView extends StatelessWidget {
               title: 'No emulators yet',
               message: 'Create your first Android Virtual Device to get started.',
               actionLabel: 'Create emulator',
-              onAction: () => _openCreateWizard(context, cubit),
+              onAction: onCreate,
             );
           }
           return ListView.separated(
@@ -119,14 +145,6 @@ class _EmulatorManagerView extends StatelessWidget {
         },
       ),
     );
-  }
-
-  Future<void> _openCreateWizard(
-      BuildContext context, EmulatorListCubit cubit) async {
-    final created = await Navigator.of(context, rootNavigator: true).push<bool>(
-      FluentPageRoute(builder: (_) => const CreateEmulatorPage()),
-    );
-    if (created == true) cubit.load();
   }
 
   Future<void> _confirmWipe(

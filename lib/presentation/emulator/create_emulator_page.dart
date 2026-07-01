@@ -9,25 +9,50 @@ import '../../domain/entities/system_image.dart';
 import 'widgets/select_tile.dart';
 
 /// Multi-step wizard for creating a new AVD.
+///
+/// When [onClose] is provided the wizard is embedded inside another screen and
+/// reports completion (`true` = created) via the callback; otherwise it assumes
+/// it was pushed as a route and pops the navigator.
 class CreateEmulatorPage extends StatelessWidget {
-  const CreateEmulatorPage({super.key});
+  const CreateEmulatorPage({super.key, this.onClose});
+
+  final void Function(bool created)? onClose;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<CreateEmulatorCubit>()..load(),
-      child: const _CreateEmulatorView(),
+      child: _CreateEmulatorView(onClose: onClose),
     );
   }
 }
 
 class _CreateEmulatorView extends StatelessWidget {
-  const _CreateEmulatorView();
+  const _CreateEmulatorView({this.onClose});
+
+  final void Function(bool created)? onClose;
+
+  void _close(BuildContext context, bool created) {
+    if (onClose != null) {
+      onClose!(created);
+    } else if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(created);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return ScaffoldPage(
-      header: const PageHeader(title: Text('Create Emulator')),
+      header: PageHeader(
+        title: const Text('Create Emulator'),
+        leading: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: IconButton(
+            icon: const Icon(FluentIcons.back, size: 16),
+            onPressed: () => _close(context, false),
+          ),
+        ),
+      ),
       content: BlocConsumer<CreateEmulatorCubit, CreateEmulatorState>(
         listenWhen: (p, c) => p.createdName != c.createdName,
         listener: (context, state) {
@@ -77,9 +102,7 @@ class _CreateEmulatorView extends StatelessWidget {
             child: const Text('Back to list'),
             onPressed: () {
               Navigator.pop(dialogContext);
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop(true);
-              }
+              _close(context, true);
             },
           ),
         ],

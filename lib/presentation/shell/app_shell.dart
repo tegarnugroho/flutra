@@ -4,8 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
-import '../emulator/create_emulator_page.dart';
 import '../emulator/emulator_manager_page.dart';
+import '../sdk/license_manager_page.dart';
+import '../sdk/sdk_manager_page.dart';
 import 'placeholder_page.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
@@ -38,8 +39,16 @@ class _AppShellState extends State<AppShell> {
           ),
           PaneItemHeader(header: const Text('SDK')),
           _placeholder(FluentIcons.download, 'SDK Installer'),
-          _placeholder(FluentIcons.packages, 'SDK Manager'),
-          _placeholder(FluentIcons.permissions, 'License Manager'),
+          PaneItem(
+            icon: const Icon(FluentIcons.packages),
+            title: const Text('SDK Manager'),
+            body: const SdkManagerPage(),
+          ),
+          PaneItem(
+            icon: const Icon(FluentIcons.permissions),
+            title: const Text('License Manager'),
+            body: const LicenseManagerPage(),
+          ),
           _placeholder(FluentIcons.build_queue_new, 'Package Downloader'),
           _placeholder(FluentIcons.sync, 'Updates'),
           PaneItemHeader(header: const Text('Emulators')),
@@ -47,11 +56,6 @@ class _AppShellState extends State<AppShell> {
             icon: const Icon(FluentIcons.cell_phone),
             title: const Text('Emulator Manager'),
             body: const EmulatorManagerPage(),
-          ),
-          PaneItem(
-            icon: const Icon(FluentIcons.add_to),
-            title: const Text('Create Emulator'),
-            body: const CreateEmulatorPage(),
           ),
           _placeholder(FluentIcons.command_prompt, 'Emulator Console'),
           PaneItemHeader(header: const Text('Devices')),
