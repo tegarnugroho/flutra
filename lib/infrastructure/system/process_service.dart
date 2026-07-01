@@ -11,33 +11,28 @@ class ProcessService {
 
   final CommandRunner _runner;
 
-  /// Image names covering the Flutter/Dart toolchain (the `flutter` command
-  /// itself runs as dart.exe).
-  static const List<String> _images = [
-    'dart.exe',
-    'dartaotruntime.exe',
-    'dartvm.exe',
-    'flutter_tester.exe',
-  ];
-
-  /// Force-kills every running Flutter/Dart process. Returns the number of
-  /// processes terminated. Windows only.
+  /// Force-kills every running Flutter/Dart process and returns the count that
+  /// was found and terminated. Uses PowerShell enumeration (accurate even when
+  /// `taskkill` would silently fail on access-denied). Windows only.
   Future<int> stopFlutterAndDart() async {
     if (!Platform.isWindows) return 0;
-    var killed = 0;
-    for (final image in _images) {
-      try {
-        final result = await _runner.run(
-          'taskkill',
-          ['/F', '/IM', image],
-          timeout: const Duration(seconds: 10),
-        );
-        // taskkill prints one "SUCCESS:" line per terminated PID.
-        killed += 'SUCCESS:'.allMatches(result.stdout).length;
-      } catch (_) {
-        // ignore (image not running / not found)
-      }
+    const script = r"$names=@('dart.exe','dartaotruntime.exe','dartvm.exe',"
+        r"'flutter_tester.exe'); "
+        r"$procs=@(Get-CimInstance Win32_Process | "
+        r"Where-Object { $names -contains $_.Name }); "
+        r"foreach($p in $procs){ try{ Stop-Process -Id $p.ProcessId -Force "
+        r"-ErrorAction SilentlyContinue }catch{} } "
+        r"Write-Output ('KILLED=' + $procs.Count)";
+    try {
+      final result = await _runner.run(
+        'powershell',
+        ['-NoProfile', '-Command', script],
+        timeout: const Duration(seconds: 20),
+      );
+      final match = RegExp(r'KILLED=(\d+)').firstMatch(result.stdout);
+      return match == null ? 0 : int.parse(match.group(1)!);
+    } catch (_) {
+      return 0;
     }
-    return killed;
   }
 }

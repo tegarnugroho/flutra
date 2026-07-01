@@ -56,7 +56,6 @@ class TrashService {
     if (!dir.existsSync()) {
       throw FileSystemFailure('Folder not found: $path');
     }
-    await _killProcessesUnder(path);
 
     final parent = p.dirname(path);
     final trashRoot = Directory(p.join(parent, '.asm-trash'));
@@ -64,16 +63,29 @@ class TrashService {
 
     final now = DateTime.now();
     final stamp = now.microsecondsSinceEpoch.toString();
-    final trashPath =
-        p.join(trashRoot.path, '${p.basename(path)}-$stamp');
+    final trashPath = p.join(trashRoot.path, '${p.basename(path)}-$stamp');
 
-    try {
-      await dir.rename(trashPath); // same volume → instant, no copy
-    } on FileSystemException catch (e) {
+    // A single locked file (e.g. an IDE analysis server's dart.exe that respawns
+    // instantly) blocks the whole-directory rename. Kill + retry a few times to
+    // win the race against the respawn.
+    FileSystemException? lastError;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      await _killProcessesUnder(path);
+      try {
+        await dir.rename(trashPath); // same volume → instant, no copy
+        lastError = null;
+        break;
+      } on FileSystemException catch (e) {
+        lastError = e;
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+    if (lastError != null) {
       throw FileSystemFailure(
-        'Could not move the folder to trash. Close programs using it and try '
-        'again.',
-        cause: e,
+        'Could not move the folder — it is still in use. If you launched this '
+        'app with "flutter run" from that SDK, run the built app instead, or '
+        'close your IDE, then try again.',
+        cause: lastError,
       );
     }
 
