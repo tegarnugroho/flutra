@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +6,7 @@ import '../../application/flutter_sdk/flutter_sdk_cubit.dart';
 import '../../core/command/command_runner.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
 import '../emulator/widgets/avd_dialogs.dart';
 
@@ -85,6 +84,9 @@ class _FlutterSdkView extends StatelessWidget {
                   onUninstall: info.sdkPath == null
                       ? null
                       : () => _uninstall(context, info.sdkPath!),
+                  onAddToPath: info.sdkPath == null
+                      ? null
+                      : () => _addToPath(context, info.sdkPath!),
                 ),
                 if (!info.isKnownChannel) ...[
                   const SizedBox(height: 16),
@@ -153,15 +155,56 @@ class _FlutterSdkView extends StatelessWidget {
           '"\\bin" entry from PATH afterwards. This cannot be undone.',
       confirmLabel: 'Uninstall',
     );
-    if (ok) cubit.uninstall();
+    if (!ok || !context.mounted) return;
+    await showBusyDialog(
+      context,
+      title: 'Uninstalling Flutter SDK',
+      message: 'Removing $path …',
+      task: cubit.uninstall,
+    );
+  }
+
+  static Future<void> _addToPath(BuildContext context, String sdkPath) async {
+    final cubit = context.read<FlutterSdkCubit>();
+    try {
+      await cubit.addToPath(sdkPath);
+      if (!context.mounted) return;
+      await displayInfoBar(context, builder: (context, close) {
+        return InfoBar(
+          title: const Text('Added to PATH'),
+          content: const Text(
+              'Open a NEW terminal (and restart this app) for "flutter" to be '
+              'available. Existing terminals keep the old PATH.'),
+          severity: InfoBarSeverity.success,
+          isLong: true,
+          onClose: close,
+        );
+      });
+    } catch (e) {
+      if (!context.mounted) return;
+      await displayInfoBar(context, builder: (context, close) {
+        return InfoBar(
+          title: const Text('Could not update PATH'),
+          content: Text('$e'),
+          severity: InfoBarSeverity.error,
+          isLong: true,
+          onClose: close,
+        );
+      });
+    }
   }
 }
 
 class _CurrentSdkCard extends StatelessWidget {
-  const _CurrentSdkCard({required this.info, this.onUninstall});
+  const _CurrentSdkCard({
+    required this.info,
+    this.onUninstall,
+    this.onAddToPath,
+  });
 
   final FlutterSdkInfo info;
   final VoidCallback? onUninstall;
+  final VoidCallback? onAddToPath;
 
   @override
   Widget build(BuildContext context) {
@@ -220,22 +263,48 @@ class _CurrentSdkCard extends StatelessWidget {
               ],
             ),
           ),
-          if (onUninstall != null) ...[
+          if (onAddToPath != null || onUninstall != null) ...[
             const SizedBox(width: 12),
-            Tooltip(
-              message: 'Uninstall this Flutter SDK',
-              child: Button(
-                onPressed: onUninstall,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(FluentIcons.delete, size: 14, color: Color(0xFFC42B1C)),
-                    SizedBox(width: 6),
-                    Text('Uninstall',
-                        style: TextStyle(color: Color(0xFFC42B1C))),
-                  ],
-                ),
-              ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (onAddToPath != null)
+                  Tooltip(
+                    message: 'Add Flutter to PATH so "flutter" works in any '
+                        'terminal',
+                    child: Button(
+                      onPressed: onAddToPath,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(FluentIcons.command_prompt, size: 14),
+                          SizedBox(width: 6),
+                          Text('Add to PATH'),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (onAddToPath != null && onUninstall != null)
+                  const SizedBox(height: 8),
+                if (onUninstall != null)
+                  Tooltip(
+                    message: 'Uninstall this Flutter SDK',
+                    child: Button(
+                      onPressed: onUninstall,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(FluentIcons.delete,
+                              size: 14, color: Color(0xFFC42B1C)),
+                          SizedBox(width: 6),
+                          Text('Uninstall',
+                              style: TextStyle(color: Color(0xFFC42B1C))),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],
@@ -733,22 +802,38 @@ class _InstallView extends StatefulWidget {
 }
 
 class _InstallViewState extends State<_InstallView> {
+  // Sentinel meaning "the channel tip" rather than a specific version tag.
+  static const _latest = '__latest__';
+
   late final TextEditingController _dir;
   String _channel = 'stable';
+  String _version = _latest;
+  List<String> _versions = const [];
+  bool _loadingVersions = false;
 
   @override
   void initState() {
     super.initState();
-    final home = Platform.environment['USERPROFILE'] ??
-        Platform.environment['HOME'] ??
-        'C:\\';
-    _dir = TextEditingController(text: p.join(home, 'flutter'));
+    _dir = TextEditingController(text: r'C:\Dev\SDK\flutter');
+    _loadVersions();
   }
 
   @override
   void dispose() {
     _dir.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadVersions() async {
+    setState(() => _loadingVersions = true);
+    final versions =
+        await context.read<FlutterSdkCubit>().listInstallableVersions(_channel);
+    if (!mounted) return;
+    setState(() {
+      _versions = versions;
+      _version = _latest; // reset selection when channel changes
+      _loadingVersions = false;
+    });
   }
 
   @override
@@ -790,18 +875,70 @@ class _InstallViewState extends State<_InstallView> {
               child: TextBox(controller: _dir),
             ),
             const SizedBox(height: 14),
-            InfoLabel(
-              label: 'Channel',
-              child: ComboBox<String>(
-                isExpanded: true,
-                value: _channel,
-                items: [
-                  for (final c in kFlutterChannels)
-                    ComboBoxItem(value: c, child: Text(c)),
-                ],
-                onChanged: (v) => setState(() => _channel = v ?? 'stable'),
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: InfoLabel(
+                    label: 'Channel',
+                    child: ComboBox<String>(
+                      isExpanded: true,
+                      value: _channel,
+                      items: [
+                        for (final c in kFlutterChannels)
+                          ComboBoxItem(value: c, child: Text(c)),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _channel = v);
+                        _loadVersions();
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InfoLabel(
+                    label: 'Version',
+                    child: _loadingVersions
+                        ? const SizedBox(
+                            height: 32,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: ProgressRing(strokeWidth: 2)),
+                            ),
+                          )
+                        : ComboBox<String>(
+                            isExpanded: true,
+                            value: _version,
+                            items: [
+                              const ComboBoxItem(
+                                  value: _latest,
+                                  child: Text('Latest (channel tip)')),
+                              for (final v in _versions)
+                                ComboBoxItem(value: v, child: Text(v)),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _version = v ?? _latest),
+                          ),
+                  ),
+                ),
+              ],
             ),
+            if (!_loadingVersions && _versions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Could not fetch the version list (offline?). "Latest" still '
+                  'works.',
+                  style: theme.typography.caption?.copyWith(
+                    color: theme.resources.textFillColorTertiary,
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _install,
@@ -826,10 +963,11 @@ class _InstallViewState extends State<_InstallView> {
   Future<void> _install() async {
     final cubit = context.read<FlutterSdkCubit>();
     final dir = _dir.text.trim();
+    final ref = _version == _latest ? _channel : _version;
     final ok = await showCommandProgressDialog(
       context,
-      title: 'Cloning Flutter ($_channel)',
-      start: () => cubit.installSdk(dir, _channel),
+      title: 'Cloning Flutter ($ref)',
+      start: () => cubit.installSdk(dir, ref),
     );
     if (!ok || !mounted) return;
     // Offer to wire the new SDK into PATH.

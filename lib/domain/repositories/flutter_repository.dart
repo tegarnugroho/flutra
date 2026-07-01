@@ -39,9 +39,14 @@ abstract class FlutterRepository {
   /// Opens the GitHub release page for [version] in the default browser.
   Future<void> openReleasePage(String version);
 
-  /// Clones the Flutter SDK for [channel] into [directory] (git clone).
-  /// Streaming handle. Used when no Flutter SDK is installed yet.
-  Future<RunningCommand> installSdk(String directory, String channel);
+  /// Clones the Flutter SDK into [directory] at [ref] (a channel name like
+  /// "stable" or a version tag like "3.24.0"). Streaming handle. Used when no
+  /// Flutter SDK is installed yet.
+  Future<RunningCommand> installSdk(String directory, String ref);
+
+  /// Fetches the official installable versions for [channel] from Flutter's
+  /// release index (network). Empty on failure.
+  Future<List<String>> listInstallableVersions(String channel);
 
   /// Appends `<sdkDir>/bin` to the user's PATH (Windows). Requires an app
   /// restart to take effect.

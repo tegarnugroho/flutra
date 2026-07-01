@@ -44,8 +44,11 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
     }
   }
 
-  Future<RunningCommand> installSdk(String directory, String channel) =>
-      _repository.installSdk(directory, channel);
+  Future<RunningCommand> installSdk(String directory, String ref) =>
+      _repository.installSdk(directory, ref);
+
+  Future<List<String>> listInstallableVersions(String channel) =>
+      _repository.listInstallableVersions(channel);
 
   Future<void> addToPath(String sdkDir) => _repository.addSdkToPath(sdkDir);
 

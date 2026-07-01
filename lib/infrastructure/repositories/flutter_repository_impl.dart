@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
@@ -85,10 +86,13 @@ class FlutterRepositoryImpl implements FlutterRepository {
       ['--version', '--machine'],
       timeout: const Duration(minutes: 2),
     );
-    if (result.stdout.trim().isEmpty && !result.isSuccess) {
+    // A non-zero exit means flutter is missing or its SDK is broken (e.g. a
+    // half-deleted folder that lost its .git). Either way it isn't usable, so
+    // treat it as "not installed" and let the UI offer a fresh install.
+    if (!result.isSuccess) {
       throw const ExecutableNotFoundFailure(
         'flutter',
-        suggestion: 'Add the Flutter SDK "bin" folder to your PATH.',
+        suggestion: 'Install a Flutter SDK, or add its "bin" folder to PATH.',
       );
     }
     return parseSdkInfo(result.stdout);
@@ -243,22 +247,58 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
-  Future<RunningCommand> installSdk(String directory, String channel) {
+  Future<RunningCommand> installSdk(String directory, String ref) async {
     final dir = directory.trim();
     if (dir.isEmpty) {
       throw const UnknownFailure('Choose an install folder first.');
     }
     final target = Directory(dir);
     if (target.existsSync() && target.listSync().isNotEmpty) {
-      throw FileSystemFailure('Folder "$dir" already exists and is not empty.');
+      // Clean up leftovers (e.g. from a partial uninstall) so the clone can
+      // proceed. If files are still locked, this stays non-empty and we abort.
+      await _forceDelete(dir);
+      if (Directory(dir).existsSync() && Directory(dir).listSync().isNotEmpty) {
+        throw FileSystemFailure(
+          'Folder "$dir" already exists and could not be emptied. Close any '
+          'programs using it and try again, or pick another folder.',
+        );
+      }
     }
+    // `-b` accepts a channel branch (stable/beta/master) or a version tag.
     return _runner.start('git', [
       'clone',
       '-b',
-      channel,
+      ref,
       'https://github.com/flutter/flutter.git',
       dir,
     ]);
+  }
+
+  @override
+  Future<List<String>> listInstallableVersions(String channel) async {
+    try {
+      final response = await Dio().get<dynamic>(
+        'https://storage.googleapis.com/flutter_infra_release/releases/'
+        'releases_windows.json',
+        options: Options(responseType: ResponseType.json),
+      );
+      final data = response.data;
+      final map = data is String
+          ? jsonDecode(data) as Map<String, dynamic>
+          : data as Map<String, dynamic>;
+      final releases = (map['releases'] as List).cast<Map<String, dynamic>>();
+      final versions = <String>[];
+      final seen = <String>{};
+      for (final r in releases) {
+        if (r['channel'] != channel) continue;
+        final v = r['version'] as String?;
+        if (v == null || !seen.add(v)) continue;
+        versions.add(v);
+      }
+      return versions;
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override
@@ -293,22 +333,48 @@ class FlutterRepositoryImpl implements FlutterRepository {
     if (!dir.existsSync()) {
       throw FileSystemFailure('Flutter SDK folder not found: $sdkPath');
     }
-    // Safety: only delete something that actually looks like a Flutter SDK.
-    final marker =
-        File(p.join(sdkPath, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'));
-    if (!marker.existsSync()) {
+    // Safety: only delete something that looks like a Flutter SDK (a full one,
+    // or leftovers from a previous partial uninstall).
+    final looksLikeFlutter = File(p.join(sdkPath, 'bin',
+                Platform.isWindows ? 'flutter.bat' : 'flutter'))
+            .existsSync() ||
+        Directory(p.join(sdkPath, 'bin')).existsSync() ||
+        Directory(p.join(sdkPath, 'packages')).existsSync() ||
+        p.basename(sdkPath).toLowerCase() == 'flutter';
+    if (!looksLikeFlutter) {
       throw FileSystemFailure(
-        '"$sdkPath" does not look like a Flutter SDK (no bin/flutter).',
+        '"$sdkPath" does not look like a Flutter SDK — refusing to delete it.',
       );
     }
-    try {
-      dir.deleteSync(recursive: true);
-    } on FileSystemException catch (e) {
+
+    await _forceDelete(sdkPath);
+    if (Directory(sdkPath).existsSync()) {
       throw FileSystemFailure(
-        'Could not fully remove the SDK. Close any running Flutter/Dart '
-        'processes and try again.',
-        cause: e,
+        'Some files could not be removed (likely locked by a running '
+        'Flutter/Dart process). Close them and uninstall again to finish.',
       );
+    }
+  }
+
+  /// Deletes [path] as thoroughly as possible. Uses `rmdir /s /q` on Windows
+  /// (handles read-only git objects better than Dart's delete), falling back to
+  /// Dart's recursive delete.
+  Future<void> _forceDelete(String path) async {
+    try {
+      if (Platform.isWindows) {
+        await _runner.run('cmd', ['/c', 'rmdir', '/s', '/q', path],
+            timeout: const Duration(minutes: 2));
+      } else {
+        await Directory(path).delete(recursive: true);
+      }
+    } catch (_) {
+      // Best-effort; the caller re-checks whether the folder is gone.
+    }
+    // Second pass with Dart's API to mop up anything rmdir skipped.
+    if (Directory(path).existsSync()) {
+      try {
+        await Directory(path).delete(recursive: true);
+      } catch (_) {}
     }
   }
 
