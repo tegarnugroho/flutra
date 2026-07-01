@@ -219,6 +219,15 @@ class DeviceRepositoryImpl implements DeviceRepository {
   Future<void> openLogcat(String serial) =>
       _openConsole([_adb, '-s', serial, 'logcat']);
 
+  @override
+  Future<RunningCommand> streamLogcat(String serial) async {
+    // Clear the ring buffer first so the view starts fresh, then stream in the
+    // simple `brief` format we parse for priority/tag.
+    await _runner.run(_adb, ['-s', serial, 'logcat', '-c'],
+        timeout: const Duration(seconds: 10));
+    return _runner.start(_adb, ['-s', serial, 'logcat', '-v', 'brief']);
+  }
+
   /// Opens a detached external console running [command].
   Future<void> _openConsole(List<String> command) async {
     if (Platform.isWindows) {

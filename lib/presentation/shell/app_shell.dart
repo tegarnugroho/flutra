@@ -6,8 +6,10 @@ import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
+import '../emulator/emulator_console_page.dart';
 import '../emulator/emulator_manager_page.dart';
 import '../flutter_sdk/flutter_sdk_page.dart';
+import '../logcat/logcat_viewer_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import 'placeholder_page.dart';
@@ -64,14 +66,22 @@ class _AppShellState extends State<AppShell> {
                 title: const Text('Emulator Manager'),
                 body: const EmulatorManagerPage(),
               ),
-              _placeholder(FluentIcons.command_prompt, 'Emulator Console'),
+              PaneItem(
+                icon: const Icon(FluentIcons.command_prompt),
+                title: const Text('Emulator Console'),
+                body: const EmulatorConsolePage(),
+              ),
               PaneItemHeader(header: const Text('Devices')),
               PaneItem(
                 icon: const Icon(FluentIcons.plug_connected),
                 title: const Text('Device Manager'),
                 body: const DeviceManagerPage(),
               ),
-              _placeholder(FluentIcons.text_document, 'Logcat Viewer'),
+              PaneItem(
+                icon: const Icon(FluentIcons.text_document),
+                title: const Text('Logcat Viewer'),
+                body: const LogcatViewerPage(),
+              ),
               _placeholder(FluentIcons.installation, 'APK Installer'),
             ],
           ),

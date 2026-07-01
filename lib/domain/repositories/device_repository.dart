@@ -24,4 +24,8 @@ abstract class DeviceRepository {
 
   /// Opens an external terminal running `adb logcat` for [serial].
   Future<void> openLogcat(String serial);
+
+  /// Streams `adb logcat` for [serial] into the app. Returns the live process
+  /// so the UI can display, filter and stop it. Clears the buffer first.
+  Future<RunningCommand> streamLogcat(String serial);
 }
