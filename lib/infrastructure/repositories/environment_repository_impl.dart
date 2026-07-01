@@ -1,0 +1,222 @@
+import 'dart:io';
+
+import 'package:injectable/injectable.dart';
+import 'package:path/path.dart' as p;
+
+import '../../core/command/command_runner.dart';
+import '../../core/error/failures.dart';
+import '../../domain/entities/environment_snapshot.dart';
+import '../../domain/entities/tool_status.dart';
+import '../../domain/repositories/environment_repository.dart';
+import '../sdk/sdk_locator.dart';
+
+/// Concrete [EnvironmentRepository] that probes the real toolchain.
+///
+/// Each tool is detected independently and concurrently; a failure in one probe
+/// never aborts the others — it surfaces as an error/missing [ToolStatus].
+@LazySingleton(as: EnvironmentRepository)
+class EnvironmentRepositoryImpl implements EnvironmentRepository {
+  EnvironmentRepositoryImpl(this._runner, this._locator);
+
+  final CommandRunner _runner;
+  final SdkLocator _locator;
+
+  static const _probeTimeout = Duration(seconds: 30);
+
+  @override
+  Future<EnvironmentSnapshot> detect() async {
+    // Run every probe concurrently for a fast dashboard refresh.
+    final results = await Future.wait([
+      _detectSdk(),
+      _detectJava(),
+      _detectFlutter(),
+      _detectEmulator(),
+      _detectAdb(),
+    ]);
+
+    final sdk = results[0];
+    final java = results[1];
+    final flutter = results[2];
+    final emulator = results[3];
+    final adb = results[4];
+
+    return EnvironmentSnapshot(
+      sdk: sdk,
+      java: java,
+      flutter: flutter,
+      emulator: emulator,
+      adb: adb,
+      sdkPath: _locator.sdkRoot,
+      javaPath: java.path,
+      flutterPath: flutter.path,
+      platformToolsVersion: adb.version,
+      buildToolsVersion: _locator.latestBuildToolsVersion,
+      emulatorVersion: emulator.version,
+    );
+  }
+
+  // ---- Android SDK ---------------------------------------------------------
+
+  Future<ToolStatus> _detectSdk() async {
+    final root = _locator.sdkRoot;
+    if (root == null) {
+      return const ToolStatus(
+        kind: ToolKind.sdk,
+        state: ToolState.missing,
+        detail: 'No SDK detected. Install one from the SDK Installer.',
+      );
+    }
+
+    final platforms = _locator.installedPlatforms;
+    final buildTools = _locator.installedBuildToolsVersions;
+    final parts = <String>[
+      '${platforms.length} platform(s)',
+      '${buildTools.length} build-tools',
+    ];
+
+    return ToolStatus(
+      kind: ToolKind.sdk,
+      state: ToolState.installed,
+      path: root,
+      detail: parts.join(' • '),
+    );
+  }
+
+  // ---- Java ----------------------------------------------------------------
+
+  Future<ToolStatus> _detectJava() async {
+    final javaHome = Platform.environment['JAVA_HOME'];
+    final executable = javaHome != null
+        ? p.join(javaHome, 'bin', Platform.isWindows ? 'java.exe' : 'java')
+        : 'java';
+
+    try {
+      // `java -version` prints to stderr on virtually all JDKs.
+      final result = await _runner.run(
+        executable,
+        ['-version'],
+        timeout: _probeTimeout,
+      );
+      final output = result.combinedOutput;
+      final version = _firstMatch(output, RegExp(r'version "([^"]+)"')) ??
+          _firstMatch(output, RegExp(r'(\d+\.\d+\.\d+)'));
+      return ToolStatus(
+        kind: ToolKind.java,
+        state: version == null ? ToolState.error : ToolState.installed,
+        version: version,
+        path: javaHome ?? await _runner.which('java'),
+      );
+    } on ExecutableNotFoundFailure {
+      return const ToolStatus(
+        kind: ToolKind.java,
+        state: ToolState.missing,
+        detail: 'Java (JDK 17+) is required by the Android tools.',
+      );
+    } on Failure catch (e) {
+      return _errorStatus(ToolKind.java, e);
+    }
+  }
+
+  // ---- Flutter -------------------------------------------------------------
+
+  Future<ToolStatus> _detectFlutter() async {
+    try {
+      final result = await _runner.run(
+        Platform.isWindows ? 'flutter.bat' : 'flutter',
+        ['--version', '--machine'],
+        timeout: _probeTimeout,
+      );
+      // Prefer the human line for a friendly version; fall back to raw.
+      final version = _firstMatch(
+        result.combinedOutput,
+        RegExp(r'"frameworkVersion"\s*:\s*"([^"]+)"'),
+      );
+      final path = await _runner.which('flutter');
+      return ToolStatus(
+        kind: ToolKind.flutter,
+        state: result.isSuccess ? ToolState.installed : ToolState.error,
+        version: version,
+        path: path,
+      );
+    } on ExecutableNotFoundFailure {
+      return const ToolStatus(
+        kind: ToolKind.flutter,
+        state: ToolState.missing,
+        detail: 'Flutter is not on your PATH.',
+      );
+    } on Failure catch (e) {
+      return _errorStatus(ToolKind.flutter, e);
+    }
+  }
+
+  // ---- Emulator ------------------------------------------------------------
+
+  Future<ToolStatus> _detectEmulator() async {
+    final exe = _locator.emulator;
+    if (exe == null) {
+      return const ToolStatus(
+        kind: ToolKind.emulator,
+        state: ToolState.missing,
+        detail: 'Install the "emulator" package from the SDK Manager.',
+      );
+    }
+    try {
+      final result = await _runner.run(exe, ['-version'],
+          timeout: _probeTimeout);
+      final version = _firstMatch(
+        result.combinedOutput,
+        RegExp(r'version\s+([\d.]+)', caseSensitive: false),
+      );
+      return ToolStatus(
+        kind: ToolKind.emulator,
+        state: ToolState.installed,
+        version: version,
+        path: exe,
+      );
+    } on Failure catch (e) {
+      return _errorStatus(ToolKind.emulator, e);
+    }
+  }
+
+  // ---- ADB / platform-tools ------------------------------------------------
+
+  Future<ToolStatus> _detectAdb() async {
+    final exe = _locator.adb;
+    if (exe == null) {
+      return const ToolStatus(
+        kind: ToolKind.adb,
+        state: ToolState.missing,
+        detail: 'Install "platform-tools" from the SDK Manager.',
+      );
+    }
+    try {
+      final result = await _runner.run(exe, ['--version'],
+          timeout: _probeTimeout);
+      final version = _firstMatch(
+        result.combinedOutput,
+        RegExp(r'version\s+([\d.]+)', caseSensitive: false),
+      );
+      return ToolStatus(
+        kind: ToolKind.adb,
+        state: ToolState.installed,
+        version: version,
+        path: exe,
+      );
+    } on Failure catch (e) {
+      return _errorStatus(ToolKind.adb, e);
+    }
+  }
+
+  // ---- Helpers -------------------------------------------------------------
+
+  ToolStatus _errorStatus(ToolKind kind, Failure failure) => ToolStatus(
+        kind: kind,
+        state: ToolState.error,
+        detail: failure.message,
+      );
+
+  String? _firstMatch(String input, RegExp pattern) {
+    final match = pattern.firstMatch(input);
+    return match?.group(1);
+  }
+}
