@@ -10,6 +10,10 @@ class AppSettings extends Equatable {
     this.runAtStartup = false,
     this.closeToTray = true,
     this.developerMode = false,
+    this.windowX,
+    this.windowY,
+    this.windowWidth,
+    this.windowHeight,
   });
 
   final ThemeMode themeMode;
@@ -28,6 +32,18 @@ class AppSettings extends Equatable {
   /// Reveals developer tools (e.g. the request-log viewer).
   final bool developerMode;
 
+  /// Last main-window bounds, restored on next launch.
+  final double? windowX;
+  final double? windowY;
+  final double? windowWidth;
+  final double? windowHeight;
+
+  bool get hasWindowBounds =>
+      windowX != null &&
+      windowY != null &&
+      windowWidth != null &&
+      windowHeight != null;
+
   static String? _str(Object? v) =>
       (v is String && v.trim().isNotEmpty) ? v : null;
 
@@ -43,6 +59,10 @@ class AppSettings extends Equatable {
       runAtStartup: json['runAtStartup'] as bool? ?? false,
       closeToTray: json['closeToTray'] as bool? ?? true,
       developerMode: json['developerMode'] as bool? ?? false,
+      windowX: (json['windowX'] as num?)?.toDouble(),
+      windowY: (json['windowY'] as num?)?.toDouble(),
+      windowWidth: (json['windowWidth'] as num?)?.toDouble(),
+      windowHeight: (json['windowHeight'] as num?)?.toDouble(),
     );
   }
 
@@ -57,6 +77,10 @@ class AppSettings extends Equatable {
         'runAtStartup': runAtStartup,
         'closeToTray': closeToTray,
         'developerMode': developerMode,
+        'windowX': windowX,
+        'windowY': windowY,
+        'windowWidth': windowWidth,
+        'windowHeight': windowHeight,
       };
 
   AppSettings copyWith({
@@ -68,6 +92,10 @@ class AppSettings extends Equatable {
     bool? runAtStartup,
     bool? closeToTray,
     bool? developerMode,
+    double? windowX,
+    double? windowY,
+    double? windowWidth,
+    double? windowHeight,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -80,6 +108,10 @@ class AppSettings extends Equatable {
       runAtStartup: runAtStartup ?? this.runAtStartup,
       closeToTray: closeToTray ?? this.closeToTray,
       developerMode: developerMode ?? this.developerMode,
+      windowX: windowX ?? this.windowX,
+      windowY: windowY ?? this.windowY,
+      windowWidth: windowWidth ?? this.windowWidth,
+      windowHeight: windowHeight ?? this.windowHeight,
     );
   }
 
@@ -91,5 +123,9 @@ class AppSettings extends Equatable {
         runAtStartup,
         closeToTray,
         developerMode,
+        windowX,
+        windowY,
+        windowWidth,
+        windowHeight,
       ];
 }

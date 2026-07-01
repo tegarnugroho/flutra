@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
 import 'infrastructure/logging/dev_log_service.dart';
+import 'infrastructure/settings/settings_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
@@ -66,6 +67,7 @@ Future<void> main(List<String> args) async {
   // Main window: load persisted settings and apply theme / SDK override, then
   // purge any soft-deleted folders older than 24h.
   await getIt<SettingsCubit>().init();
+  await _restoreWindowBounds();
   unawaited(getIt<TrashService>().purgeExpired());
   runApp(const AndroidSdkManagerApp());
 }
@@ -108,6 +110,18 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
     dark: args['dark'] == true,
     avdName: args['avd'] as String? ?? '',
   ));
+}
+
+/// Restores the last main-window position/size from settings.
+Future<void> _restoreWindowBounds() async {
+  final s = getIt<SettingsService>().settings;
+  if (!s.hasWindowBounds) return;
+  try {
+    await windowManager.setBounds(Rect.fromLTWH(
+        s.windowX!, s.windowY!, s.windowWidth!, s.windowHeight!));
+  } on MissingPluginException catch (_) {
+    // window_manager unavailable — keep native default bounds.
+  } catch (_) {}
 }
 
 Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {

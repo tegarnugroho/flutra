@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
@@ -53,8 +54,11 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     }
   }
 
+  Timer? _saveBoundsTimer;
+
   @override
   void dispose() {
+    _saveBoundsTimer?.cancel();
     windowManager.removeListener(this);
     trayManager.removeListener(this);
     super.dispose();
@@ -67,7 +71,33 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
   }
 
   @override
+  void onWindowMoved() => _scheduleSaveBounds();
+
+  @override
+  void onWindowResized() => _scheduleSaveBounds();
+
+  void _scheduleSaveBounds() {
+    _saveBoundsTimer?.cancel();
+    _saveBoundsTimer =
+        Timer(const Duration(milliseconds: 800), _saveWindowBounds);
+  }
+
+  Future<void> _saveWindowBounds() async {
+    try {
+      final b = await windowManager.getBounds();
+      final service = getIt<SettingsService>();
+      await service.save(service.settings.copyWith(
+        windowX: b.left,
+        windowY: b.top,
+        windowWidth: b.width,
+        windowHeight: b.height,
+      ));
+    } catch (_) {}
+  }
+
+  @override
   void onWindowClose() async {
+    await _saveWindowBounds();
     // Honour the "close to tray" preference; otherwise really quit.
     final toTray = getIt<SettingsService>().settings.closeToTray;
     if (toTray) {
