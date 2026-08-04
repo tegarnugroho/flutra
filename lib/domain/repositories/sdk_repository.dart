@@ -19,5 +19,10 @@ abstract class SdkRepository {
 
   /// Updates every installed package that has a newer version available
   /// (`sdkmanager --update`). Streaming handle.
-  Future<RunningCommand> updateAll();
+  /// Updates every package with a newer version available.
+  ///
+  /// Set [includesCmdlineTools] when the pending updates contain the
+  /// cmdline-tools package, so the implementation can work around sdkmanager
+  /// being unable to overwrite its own jars.
+  Future<RunningCommand> updateAll({bool includesCmdlineTools = false});
 }

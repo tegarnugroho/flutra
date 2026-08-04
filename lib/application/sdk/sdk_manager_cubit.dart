@@ -121,7 +121,15 @@ class SdkManagerCubit extends Cubit<SdkManagerState> {
 
   /// Updates all installed packages via `sdkmanager --update`.
   Future<void> updateAll() async {
-    await _runStreaming('--update', () => _repository.updateAll());
+    // sdkmanager can't overwrite its own jars while running; tell the
+    // repository when cmdline-tools is part of this batch so it can stage a
+    // copy instead of paying that cost on every update.
+    final touchesCmdlineTools = state.packages.any(
+        (p) => p.hasUpdate && p.path.startsWith('cmdline-tools'));
+    await _runStreaming(
+      '--update',
+      () => _repository.updateAll(includesCmdlineTools: touchesCmdlineTools),
+    );
     await load();
   }
 

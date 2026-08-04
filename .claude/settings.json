@@ -29,7 +29,13 @@
       "Bash(/tmp/shot.sh 6 fsdk_releases 20)",
       "Bash(/tmp/shot.sh 6 fsdk_scroll 20)",
       "Bash(/tmp/shot.sh 6 fsdk_final 20)",
-      "Bash(/tmp/shot.sh 6 fsdk_all 20)"
+      "Bash(/tmp/shot.sh 6 fsdk_all 20)",
+      "Bash(powershell -NoProfile -Command \"Get-Process java,studio64,adb -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path | Format-Table -AutoSize\")",
+      "Bash(./sdkmanager.bat --version)",
+      "Bash(rm -rf cmdline_copy_test)",
+      "Bash(mkdir cmdline_copy_test)",
+      "Bash(cp -r \"C:/Users/pc/AppData/Local/Android/Sdk/cmdline-tools/latest/.\" cmdline_copy_test/)",
+      "Bash(./cmdline_copy_test/bin/sdkmanager.bat --sdk_root=\"C:/Users/pc/AppData/Local/Android/Sdk\" --list)"
     ]
   }
 }
