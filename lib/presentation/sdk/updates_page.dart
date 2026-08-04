@@ -1,12 +1,10 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../application/flutter_sdk/flutter_update_cubit.dart';
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
-import '../../domain/entities/flutter_update_status.dart';
 import '../../domain/entities/sdk_package.dart';
-import '../../domain/repositories/flutter_repository.dart';
-import '../../infrastructure/flutter/flutter_update_service.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
@@ -23,8 +21,11 @@ class UpdatesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<SdkManagerCubit>()..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<SdkManagerCubit>()..load()),
+        BlocProvider(create: (_) => getIt<FlutterUpdateCubit>()..check()),
+      ],
       child: const _UpdatesView(),
     );
   }
@@ -208,81 +209,66 @@ class _UpdateRow extends StatelessWidget {
 
 /// The Flutter SDK's own update state, from the official release index.
 ///
-/// Kept out of [SdkManagerCubit], which only knows about Android SDK packages.
-class _FlutterUpdateRow extends StatefulWidget {
+/// Driven by [FlutterUpdateCubit] rather than local state: the check is async
+/// and its result outlives a rebuild.
+class _FlutterUpdateRow extends StatelessWidget {
   const _FlutterUpdateRow();
-
-  @override
-  State<_FlutterUpdateRow> createState() => _FlutterUpdateRowState();
-}
-
-class _FlutterUpdateRowState extends State<_FlutterUpdateRow> {
-  late Future<FlutterUpdateStatus?> _status;
-
-  @override
-  void initState() {
-    super.initState();
-    _status = _check();
-  }
-
-  Future<FlutterUpdateStatus?> _check({bool forceRefresh = false}) async {
-    try {
-      final info = await getIt<FlutterRepository>().getSdkInfo();
-      return getIt<FlutterUpdateService>()
-          .check(channel: info.channel, forceRefresh: forceRefresh);
-    } catch (_) {
-      // No Flutter SDK installed, or it isn't readable.
-      return null;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return FutureBuilder<FlutterUpdateStatus?>(
-      future: _status,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const GroupedList(
+    return BlocBuilder<FlutterUpdateCubit, FlutterUpdateState>(
+      builder: (context, state) {
+        final update = state.update;
+        if (update == null) {
+          return GroupedList(
             children: [
               GroupedListRow(
                 title: 'Flutter SDK',
-                subtitle: 'Checking the release channel…',
+                subtitle: state.isLoading
+                    ? 'Checking the release channel…'
+                    : 'Could not reach the Flutter release list.',
+                trailing: [
+                  if (state.isLoading)
+                    const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: ProgressRing(strokeWidth: 2))
+                  else
+                    OutlinedActionButton(
+                      icon: FluentIcons.refresh,
+                      label: 'Check again',
+                      dense: true,
+                      onPressed: () => context
+                          .read<FlutterUpdateCubit>()
+                          .check(forceRefresh: true),
+                    ),
+                ],
               ),
             ],
           );
         }
-        final status = snapshot.data;
-        if (status == null) {
-          return const GroupedList(
-            children: [
-              GroupedListRow(
-                title: 'Flutter SDK',
-                subtitle: 'Could not reach the Flutter release list.',
-              ),
-            ],
-          );
-        }
-        final latest = status.latest;
-        final installed = status.installed;
+
+        final latest = update.latest;
+        final installed = update.installed;
         return GroupedList(
           children: [
             GroupedListRow(
-              statusColor: status.updateAvailable
+              statusColor: update.updateAvailable
                   ? palette.statusWarn
                   : palette.statusOk,
               showStatusSlot: true,
               title: 'Flutter SDK',
-              secondary: status.channel,
+              secondary: update.channel,
               trailing: [
-                if (status.updateAvailable && latest != null)
+                if (update.updateAvailable && latest != null)
                   Text.rich(
                     TextSpan(
                       style: AppTextStyles.monoValue,
                       children: [
                         TextSpan(
                             text: installed?.displayVersion ??
-                                status.shortHash ??
+                                update.shortHash ??
                                 '?'),
                         TextSpan(
                           text: ' → ',
@@ -294,17 +280,22 @@ class _FlutterUpdateRowState extends State<_FlutterUpdateRow> {
                     ),
                   )
                 else
-                  Text(installed?.displayVersion ?? status.shortHash ?? '—',
+                  Text(installed?.displayVersion ?? update.shortHash ?? '—',
                       style: AppTextStyles.monoValue),
+                if (state.isLoading)
+                  const SizedBox(
+                      width: 14, height: 14, child: ProgressRing(strokeWidth: 2)),
               ],
               hoverActions: [
-                OutlinedActionButton(
-                  icon: FluentIcons.refresh,
-                  label: 'Check again',
-                  dense: true,
-                  onPressed: () => setState(
-                      () => _status = _check(forceRefresh: true)),
-                ),
+                if (!state.isLoading)
+                  OutlinedActionButton(
+                    icon: FluentIcons.refresh,
+                    label: 'Check again',
+                    dense: true,
+                    onPressed: () => context
+                        .read<FlutterUpdateCubit>()
+                        .check(forceRefresh: true),
+                  ),
               ],
             ),
           ],

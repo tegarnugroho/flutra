@@ -35,7 +35,11 @@
       "Bash(rm -rf cmdline_copy_test)",
       "Bash(mkdir cmdline_copy_test)",
       "Bash(cp -r \"C:/Users/pc/AppData/Local/Android/Sdk/cmdline-tools/latest/.\" cmdline_copy_test/)",
-      "Bash(./cmdline_copy_test/bin/sdkmanager.bat --sdk_root=\"C:/Users/pc/AppData/Local/Android/Sdk\" --list)"
+      "Bash(./cmdline_copy_test/bin/sdkmanager.bat --sdk_root=\"C:/Users/pc/AppData/Local/Android/Sdk\" --list)",
+      "Bash(grep -v \"// \")",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(/tmp/shot.sh 5 updates_cubit 24)",
+      "Bash(cmd //c sdkmanager.bat --version)"
     ]
   }
 }

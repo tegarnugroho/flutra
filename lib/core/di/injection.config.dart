@@ -25,6 +25,10 @@ import 'package:android_sdk_manager/application/emulator/emulator_list_cubit.dar
     as _i6;
 import 'package:android_sdk_manager/application/flutter_sdk/flutter_sdk_cubit.dart'
     as _i502;
+import 'package:android_sdk_manager/application/flutter_sdk/flutter_update_cubit.dart'
+    as _i839;
+import 'package:android_sdk_manager/application/log/logcat_devices_cubit.dart'
+    as _i643;
 import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
     as _i740;
 import 'package:android_sdk_manager/application/settings/settings_cubit.dart'
@@ -165,6 +169,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i606.FlutterRepository>(),
       ),
     );
+    gh.factory<_i643.LogcatDevicesCubit>(
+      () => _i643.LogcatDevicesCubit(gh<_i720.DeviceRepository>()),
+    );
     gh.factory<_i622.CreateEmulatorCubit>(
       () => _i622.CreateEmulatorCubit(gh<_i277.EmulatorRepository>()),
     );
@@ -180,6 +187,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i75.DashboardCubit>(
       () => _i75.DashboardCubit(gh<_i595.EnvironmentRepository>()),
+    );
+    gh.factory<_i839.FlutterUpdateCubit>(
+      () => _i839.FlutterUpdateCubit(
+        gh<_i606.FlutterRepository>(),
+        gh<_i147.FlutterUpdateService>(),
+      ),
     );
     gh.factory<_i884.DeviceManagerCubit>(
       () => _i884.DeviceManagerCubit(
