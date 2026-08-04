@@ -15,6 +15,7 @@ class AppSettings extends Equatable {
     this.windowWidth,
     this.windowHeight,
     this.apiBaseUrl,
+    this.doctorTimings = const {},
   });
 
   final ThemeMode themeMode;
@@ -42,6 +43,10 @@ class AppSettings extends Equatable {
   /// Base URL for the settings API (e.g. addresses), without trailing slash.
   final String? apiBaseUrl;
 
+  /// How long each `flutter doctor` check took on the last successful run, in
+  /// milliseconds, keyed by check name. Drives the time-weighted progress bar.
+  final Map<String, int> doctorTimings;
+
   bool get hasWindowBounds =>
       windowX != null &&
       windowY != null &&
@@ -50,6 +55,15 @@ class AppSettings extends Equatable {
 
   static String? _str(Object? v) =>
       (v is String && v.trim().isNotEmpty) ? v : null;
+
+  static Map<String, int> _timings(Object? v) {
+    if (v is! Map) return const {};
+    return {
+      for (final entry in v.entries)
+        if (entry.key is String && entry.value is num)
+          entry.key as String: (entry.value as num).round(),
+    };
+  }
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     return AppSettings(
@@ -68,6 +82,7 @@ class AppSettings extends Equatable {
       windowWidth: (json['windowWidth'] as num?)?.toDouble(),
       windowHeight: (json['windowHeight'] as num?)?.toDouble(),
       apiBaseUrl: _str(json['apiBaseUrl']),
+      doctorTimings: _timings(json['doctorTimings']),
     );
   }
 
@@ -87,6 +102,7 @@ class AppSettings extends Equatable {
         'windowWidth': windowWidth,
         'windowHeight': windowHeight,
         'apiBaseUrl': apiBaseUrl,
+        'doctorTimings': doctorTimings,
       };
 
   AppSettings copyWith({
@@ -104,6 +120,7 @@ class AppSettings extends Equatable {
     double? windowHeight,
     String? apiBaseUrl,
     bool clearApiBaseUrl = false,
+    Map<String, int>? doctorTimings,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -121,6 +138,7 @@ class AppSettings extends Equatable {
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
       apiBaseUrl: clearApiBaseUrl ? null : (apiBaseUrl ?? this.apiBaseUrl),
+      doctorTimings: doctorTimings ?? this.doctorTimings,
     );
   }
 
@@ -137,5 +155,6 @@ class AppSettings extends Equatable {
         windowWidth,
         windowHeight,
         apiBaseUrl,
+        doctorTimings,
       ];
 }

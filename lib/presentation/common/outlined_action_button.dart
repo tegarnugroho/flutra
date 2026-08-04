@@ -17,10 +17,17 @@ class OutlinedActionButton extends StatefulWidget {
     this.busy = false,
     this.dense = false,
     this.tooltip,
+    this.hoverLabel,
+    this.hoverIcon,
   });
 
   final IconData icon;
   final String? label;
+
+  /// Shown instead of [label] while the pointer is over the button, so a
+  /// button whose action changes (Running → Cancel) can say so.
+  final String? hoverLabel;
+  final IconData? hoverIcon;
   final VoidCallback? onPressed;
 
   /// Spins the icon. The button keeps its enabled look so headers don't
@@ -71,7 +78,12 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton>
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    final enabled = widget.onPressed != null && !widget.busy;
+    // A busy button stays clickable when it offers a hover action (Cancel).
+    final enabled =
+        widget.onPressed != null && (!widget.busy || widget.hoverLabel != null);
+    final label =
+        _hovered ? (widget.hoverLabel ?? widget.label) : widget.label;
+    final icon = _hovered ? (widget.hoverIcon ?? widget.icon) : widget.icon;
     final foreground = enabled ? palette.textTertiary : palette.textMuted;
 
     Widget button = MouseRegion(
@@ -99,12 +111,12 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton>
             children: [
               RotationTransition(
                 turns: _spin,
-                child: Icon(widget.icon, size: 13, color: foreground),
+                child: Icon(icon, size: 13, color: foreground),
               ),
-              if (widget.label != null) ...[
+              if (label != null) ...[
                 const SizedBox(width: 7),
                 Text(
-                  widget.label!,
+                  label,
                   style: AppTextStyles.buttonLabel.copyWith(color: foreground),
                 ),
               ],

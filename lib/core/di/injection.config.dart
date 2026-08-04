@@ -50,6 +50,8 @@ import 'package:android_sdk_manager/domain/repositories/flutter_repository.dart'
     as _i606;
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
+import 'package:android_sdk_manager/infrastructure/doctor/doctor_runner.dart'
+    as _i706;
 import 'package:android_sdk_manager/infrastructure/flutter/flutter_releases_service.dart'
     as _i961;
 import 'package:android_sdk_manager/infrastructure/flutter/flutter_update_service.dart'
@@ -103,6 +105,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i1034.FlutterLocator>(() => _i1034.FlutterLocator());
     gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
     gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());
+    gh.lazySingleton<_i706.DoctorRunner>(
+      () => _i706.DoctorRunner(gh<_i144.CommandRunner>()),
+    );
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
     );
@@ -142,9 +147,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i144.CommandRunner>(),
         gh<_i839.SdkLocator>(),
       ),
-    );
-    gh.factory<_i915.FlutterDoctorCubit>(
-      () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
     );
     gh.lazySingleton<_i720.DeviceRepository>(
       () => _i775.DeviceRepositoryImpl(
@@ -191,6 +193,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i144.CommandRunner>(),
         gh<_i839.SdkLocator>(),
         gh<_i147.FlutterUpdateService>(),
+      ),
+    );
+    gh.factory<_i915.FlutterDoctorCubit>(
+      () => _i915.FlutterDoctorCubit(
+        gh<_i706.DoctorRunner>(),
+        gh<_i517.SettingsService>(),
       ),
     );
     gh.factory<_i75.DashboardCubit>(

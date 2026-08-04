@@ -131,6 +131,7 @@ class GroupedListRow extends StatefulWidget {
     this.onTap,
     this.below,
     this.selected = false,
+    this.background,
   });
 
   /// Colour of the leading status dot. Implies [showStatusSlot].
@@ -164,6 +165,9 @@ class GroupedListRow extends StatefulWidget {
 
   final bool selected;
 
+  /// Overrides the row fill (e.g. the accent tint on a running check).
+  final Color? background;
+
   @override
   State<GroupedListRow> createState() => _GroupedListRowState();
 }
@@ -181,9 +185,10 @@ class _GroupedListRowState extends State<GroupedListRow> {
 
     Widget row = AnimatedContainer(
       duration: const Duration(milliseconds: 90),
-      color: widget.selected || _hovered
-          ? palette.surfaceRaised
-          : Colors.transparent,
+      color: widget.background ??
+          (widget.selected || _hovered
+              ? palette.surfaceRaised
+              : Colors.transparent),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

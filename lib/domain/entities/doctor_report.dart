@@ -9,6 +9,7 @@ class DoctorSection extends Equatable {
     required this.status,
     required this.title,
     this.details = const [],
+    this.elapsed,
   });
 
   final DoctorStatus status;
@@ -19,8 +20,11 @@ class DoctorSection extends Equatable {
   /// Indented detail lines beneath the heading.
   final List<String> details;
 
+  /// How long the check took, as reported by `flutter doctor -v` itself.
+  final Duration? elapsed;
+
   @override
-  List<Object?> get props => [status, title, details];
+  List<Object?> get props => [status, title, details, elapsed];
 }
 
 /// The full result of running `flutter doctor -v`.
