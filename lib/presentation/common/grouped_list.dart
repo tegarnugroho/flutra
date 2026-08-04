@@ -74,6 +74,43 @@ class GroupedList extends StatelessWidget {
   }
 }
 
+/// A lazily-built [GroupedList] for long lists.
+///
+/// Same chrome as [GroupedList] — hairline outline, 8px radius, 1px dividers —
+/// but rows are built on demand, so hundreds of entries cost nothing until
+/// they scroll into view. Must be given bounded height (an [Expanded] parent).
+class GroupedListView extends StatelessWidget {
+  const GroupedListView({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.controller,
+  });
+
+  final int itemCount;
+  final NullableIndexedWidgetBuilder itemBuilder;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return GroupedBox(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+        child: ListView.separated(
+          controller: controller,
+          padding: EdgeInsets.zero,
+          itemCount: itemCount,
+          separatorBuilder: (_, _) =>
+              Container(height: AppShape.hairline, color: palette.border),
+          itemBuilder: (context, index) =>
+              itemBuilder(context, index) ?? const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
+}
+
 /// The standard row inside a [GroupedList].
 ///
 /// Layout: fixed status slot · leading icon · title (+ inline secondary) ·

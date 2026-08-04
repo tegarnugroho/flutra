@@ -26,7 +26,10 @@
       "Bash(powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2\")",
       "Bash(curl -s -o rel.json \"https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json\")",
       "Bash(powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\")",
-      "Bash(/tmp/shot.sh 6 fsdk_releases 20)"
+      "Bash(/tmp/shot.sh 6 fsdk_releases 20)",
+      "Bash(/tmp/shot.sh 6 fsdk_scroll 20)",
+      "Bash(/tmp/shot.sh 6 fsdk_final 20)",
+      "Bash(/tmp/shot.sh 6 fsdk_all 20)"
     ]
   }
 }

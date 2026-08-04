@@ -69,12 +69,6 @@ class FlutterRelease extends Equatable {
   /// Dart version without the trailing `(build …)` qualifier.
   String? get displayDartVersion => dartSdkVersion?.split(' ').first;
 
-  /// True for releases before Flutter 3.0, which the UI hides by default.
-  bool get isLegacy {
-    final major = int.tryParse(displayVersion.split('.').first);
-    return major != null && major < 3;
-  }
-
   @override
   List<Object?> get props => [hash, channel, version, releaseDate];
 }

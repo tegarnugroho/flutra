@@ -121,11 +121,14 @@ class _FlutterSdkView extends StatelessWidget {
     }
     final info = state.info;
     if (info == null) return const SizedBox.shrink();
-    return SingleChildScrollView(
-            padding: kPageBodyPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 if (state.updateAvailable) ...[
                   _UpdateLine(state: state),
                   const SizedBox(height: 12),
@@ -187,10 +190,14 @@ class _FlutterSdkView extends StatelessWidget {
                   current: info.channel,
                   browsing: state.browsingChannel ?? info.channel,
                 ),
-                const SizedBox(height: 22),
-                _VersionsSection(state: state),
-              ],
-            ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              // Only the version list scrolls; the SDK card and channel picker
+              // stay put.
+              Expanded(child: _VersionsSection(state: state)),
+            ],
           );
   }
 
@@ -624,24 +631,40 @@ class _VersionsSection extends StatefulWidget {
 }
 
 class _VersionsSectionState extends State<_VersionsSection> {
+  final _scroll = ScrollController();
   String _query = '';
-  bool _showLegacy = false;
 
-  /// Rows rendered at once; the list is inside the page's scroll view.
-  static const _maxShown = 80;
+  @override
+  void didUpdateWidget(covariant _VersionsSection old) {
+    super.didUpdateWidget(old);
+    // A different channel is a different list — start it at the top.
+    if (old.state.browsingChannel != widget.state.browsingChannel &&
+        _scroll.hasClients) {
+      _scroll.jumpTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
 
     if (!state.canSwitchVersion) {
-      return InfoBar(
-        title: const Text('Version switching unavailable'),
-        content: const Text(
-            'This Flutter SDK is not a git checkout, so specific versions '
-            'cannot be selected. Use channels above.'),
-        severity: InfoBarSeverity.info,
-        isLong: true,
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: InfoBar(
+          title: Text('Version switching unavailable'),
+          content: Text(
+              'This Flutter SDK is not a git checkout, so specific versions '
+              'cannot be selected. Use channels above.'),
+          severity: InfoBarSeverity.info,
+          isLong: true,
+        ),
       );
     }
 
@@ -649,109 +672,111 @@ class _VersionsSectionState extends State<_VersionsSection> {
     // master is a rolling branch: the release index publishes no versioned
     // entries for it, so there is nothing to list.
     if (channel == 'master') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          SectionLabel('Versions'),
-          SizedBox(height: 6),
-          Text(
-            'master is a rolling branch with no versioned releases. Switch to '
-            'it above, then use Upgrade to move to its tip.',
-            style: AppTextStyles.caption,
-          ),
-        ],
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SectionLabel('Versions'),
+            SizedBox(height: 6),
+            Text(
+              'master is a rolling branch with no versioned releases. Switch '
+              'to it above, then use Upgrade to move to its tip.',
+              style: AppTextStyles.caption,
+            ),
+          ],
+        ),
       );
     }
     final query = _query.trim();
-    final matching = query.isEmpty
+    // Every release the official index publishes is listed — for stable that
+    // reaches back to v1.0.0, same as the archive on the Flutter site. The list
+    // is lazy, so length costs nothing.
+    final shown = query.isEmpty
         ? state.releases
         : state.releases
             .where((r) => r.displayVersion.contains(query))
             .toList();
-    // Pre-3.0 releases are kept but folded away — cheap to keep, and someone
-    // still needs 2.x now and then.
-    final legacy = matching.where((r) => r.isLegacy).toList();
-    final current = _showLegacy
-        ? matching
-        : matching.where((r) => !r.isLegacy).toList();
-    final shown = current.take(_maxShown).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            SectionLabel('Versions', meta: '${current.length} available'),
-            const SizedBox(width: 10),
-            if (state.versionsLoading)
-              const SizedBox(
-                  width: 12, height: 12, child: ProgressRing(strokeWidth: 2)),
-            const Spacer(),
-            CompactField(
-              width: 200,
-              placeholder: 'Filter versions',
-              onChanged: (v) => setState(() => _query = v),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(_sourceCaption(state), style: AppTextStyles.caption),
-        if (state.isUnlistedCommit) ...[
-          const SizedBox(height: 4),
-          Text(
-            'Local SDK is on an unlisted commit ${state.shortHeadHash} — no '
-            'row is marked current.',
-            style: AppTextStyles.caption,
-          ),
-        ],
-        const SizedBox(height: 10),
-        if (shown.isEmpty && !state.versionsLoading)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              query.isNotEmpty
-                  ? 'No versions match "$query".'
-                  : 'No releases found for the "$channel" channel.',
-              style: AppTextStyles.caption,
-            ),
-          )
-        else
-          GroupedList(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var i = 0; i < shown.length; i++)
-                _VersionTile(
-                  release: shown[i],
-                  isCurrent: _isCurrent(state, shown[i]),
-                  onSwitch: () => _switch(context, shown[i].gitTag),
-                  loadChangelog: () => context.read<FlutterSdkCubit>().changelog(
-                        shown[i].gitTag,
-                        _previousOf(i, shown),
-                      ),
-                  onOpenGitHub: () => context
-                      .read<FlutterSdkCubit>()
-                      .openReleasePage(shown[i].gitTag),
+              Row(
+                children: [
+                  SectionLabel('Versions', meta: '${shown.length} available'),
+                  const SizedBox(width: 10),
+                  if (state.versionsLoading)
+                    const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: ProgressRing(strokeWidth: 2)),
+                  const Spacer(),
+                  CompactField(
+                    width: 200,
+                    placeholder: 'Filter versions',
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(_sourceCaption(state), style: AppTextStyles.caption),
+              if (state.isUnlistedCommit) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Local SDK is on an unlisted commit ${state.shortHeadHash} — '
+                  'no row is marked current.',
+                  style: AppTextStyles.caption,
                 ),
+              ],
             ],
           ),
-        if (current.length > shown.length)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Showing first ${shown.length} of ${current.length}. Filter to '
-              'narrow down.',
-              style: AppTextStyles.caption,
-            ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: shown.isEmpty
+                ? Align(
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      query.isNotEmpty
+                          ? 'No versions match "$query".'
+                          : state.versionsLoading
+                              ? 'Loading releases…'
+                              : 'No releases found for the "$channel" channel.',
+                      style: AppTextStyles.caption,
+                    ),
+                  )
+                : GroupedListView(
+                    controller: _scroll,
+                    itemCount: shown.length,
+                    itemBuilder: (context, i) => _VersionTile(
+                      // Keyed by release identity so a row's expanded state and
+                      // loaded changelog follow the release, not its position —
+                      // otherwise switching channel leaves whatever row sat at
+                      // that index expanded.
+                      key: ValueKey('${shown[i].channel}/${shown[i].version}/'
+                          '${shown[i].hash}'),
+                      release: shown[i],
+                      isCurrent: _isCurrent(state, shown[i]),
+                      onSwitch: () => _switch(context, shown[i].gitTag),
+                      loadChangelog: () =>
+                          context.read<FlutterSdkCubit>().changelog(
+                                shown[i].gitTag,
+                                _previousOf(i, shown),
+                              ),
+                      onOpenGitHub: () => context
+                          .read<FlutterSdkCubit>()
+                          .openReleasePage(shown[i].gitTag),
+                    ),
+                  ),
           ),
-        if (!_showLegacy && legacy.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: OutlinedActionButton(
-              icon: FluentIcons.chevron_down,
-              label: 'Show older versions (${legacy.length})',
-              dense: true,
-              onPressed: () => setState(() => _showLegacy = true),
-            ),
-          ),
+        ),
       ],
     );
   }
@@ -803,6 +828,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
 
 class _VersionTile extends StatefulWidget {
   const _VersionTile({
+    super.key,
     required this.release,
     required this.isCurrent,
     required this.onSwitch,

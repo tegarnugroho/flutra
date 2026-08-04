@@ -110,16 +110,6 @@ void main() {
       expect(modern.displayVersion, '3.13.3');
       expect(modern.gitTag, '3.13.3');
     });
-
-    test('pre-3.0 releases are flagged legacy', () {
-      final index = _index();
-      expect(
-          index.forChannel('stable').firstWhere((r) => r.version == '2.5.0').isLegacy,
-          isTrue);
-      expect(
-          index.forChannel('stable').firstWhere((r) => r.version == '3.13.3').isLegacy,
-          isFalse);
-    });
   });
 
   group('current release', () {
