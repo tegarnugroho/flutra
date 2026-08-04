@@ -15,10 +15,13 @@ class DashboardCubit extends Cubit<DashboardState> {
   final EnvironmentRepository _repository;
 
   /// Runs (or re-runs) toolchain detection.
-  Future<void> refresh() async {
+  ///
+  /// [forceRefresh] is what the header Refresh button sends: it also bypasses
+  /// the cached Flutter release index.
+  Future<void> refresh({bool forceRefresh = false}) async {
     emit(state.copyWith(status: DashboardStatus.loading));
     try {
-      final snapshot = await _repository.detect();
+      final snapshot = await _repository.detect(forceRefresh: forceRefresh);
       emit(
         DashboardState(
           status: DashboardStatus.ready,

@@ -9,5 +9,8 @@ abstract class EnvironmentRepository {
   ///
   /// Never throws for individual tool failures — a missing or broken tool is
   /// reported as a failing [ToolStatus] within the snapshot.
-  Future<EnvironmentSnapshot> detect();
+  ///
+  /// [forceRefresh] re-downloads the Flutter release index instead of using
+  /// the 6h cache, so an explicit Refresh really re-checks for updates.
+  Future<EnvironmentSnapshot> detect({bool forceRefresh = false});
 }

@@ -8,7 +8,8 @@ class _FakeRepo implements EnvironmentRepository {
   _FakeRepo(this._snapshot);
   final EnvironmentSnapshot _snapshot;
   @override
-  Future<EnvironmentSnapshot> detect() async => _snapshot;
+  Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) async =>
+      _snapshot;
 }
 
 EnvironmentSnapshot _snapshot({required bool ready}) {

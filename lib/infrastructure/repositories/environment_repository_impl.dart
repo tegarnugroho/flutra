@@ -26,12 +26,12 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
   static const _probeTimeout = Duration(seconds: 30);
 
   @override
-  Future<EnvironmentSnapshot> detect() async {
+  Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) async {
     // Run every probe concurrently for a fast dashboard refresh.
     final results = await Future.wait([
       _detectSdk(),
       _detectJava(),
-      _detectFlutter(),
+      _detectFlutter(forceRefresh: forceRefresh),
       _detectEmulator(),
       _detectAdb(),
     ]);
@@ -121,7 +121,7 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
 
   // ---- Flutter -------------------------------------------------------------
 
-  Future<ToolStatus> _detectFlutter() async {
+  Future<ToolStatus> _detectFlutter({bool forceRefresh = false}) async {
     try {
       final result = await _runner.run(
         Platform.isWindows ? 'flutter.bat' : 'flutter',
@@ -150,7 +150,8 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
       // strings can't see hotfix re-releases.
       final update = channel == null
           ? null
-          : await _flutterUpdates.check(channel: channel);
+          : await _flutterUpdates.check(
+              channel: channel, forceRefresh: forceRefresh);
       final outdated = update?.updateAvailable ?? false;
       return ToolStatus(
         kind: ToolKind.flutter,

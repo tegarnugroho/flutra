@@ -39,7 +39,11 @@
       "Bash(grep -v \"// \")",
       "Bash(awk -F: '{print $1}')",
       "Bash(/tmp/shot.sh 5 updates_cubit 24)",
-      "Bash(cmd //c sdkmanager.bat --version)"
+      "Bash(cmd //c sdkmanager.bat --version)",
+      "Bash(python \"C:/Temp/patch_settings.py\")",
+      "Bash(/tmp/shot.sh 9 settings_paths 14)",
+      "Bash(/tmp/shot.sh 9 settings_paths2 16)",
+      "Bash(rm -f C:/Temp/pg_*.png C:/Temp/patch_settings.py)"
     ]
   }
 }

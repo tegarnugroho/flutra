@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/address/address_cubit.dart';
 import '../../application/settings/app_settings.dart';
+import '../../application/settings/detected_paths_cubit.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
@@ -15,6 +16,7 @@ import '../../main.dart' show kDevLogsWindow;
 import '../common/app_badge.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
+import '../common/copy_icon_button.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
@@ -29,8 +31,11 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: getIt<SettingsCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: getIt<SettingsCubit>()),
+        BlocProvider(create: (_) => getIt<DetectedPathsCubit>()..detect()),
+      ],
       child: const _SettingsView(),
     );
   }
@@ -79,34 +84,50 @@ class _SettingsView extends StatelessWidget {
                 const SizedBox(height: 20),
                 const SectionLabel('Paths'),
                 const SizedBox(height: 8),
-                GroupedList(
-                  children: [
-                    _PathSetting(
-                      label: 'Android SDK',
-                      description: 'Override the auto-detected SDK location. '
-                          'Leave empty to auto-detect.',
-                      placeholder:
-                          r'e.g. C:\Users\you\AppData\Local\Android\Sdk',
-                      path: settings.androidSdkPath,
-                      onApply: cubit.setAndroidSdkPath,
-                    ),
-                    _PathSetting(
-                      label: 'Flutter SDK',
-                      description: 'Point at a specific Flutter checkout. '
-                          'Leave empty to use the one on your PATH.',
-                      placeholder: r'e.g. C:\Dev\SDK\flutter',
-                      path: settings.flutterSdkPath,
-                      onApply: cubit.setFlutterSdkPath,
-                    ),
-                    _PathSetting(
-                      label: 'API base URL',
-                      description: 'Base URL for the settings API — addresses '
-                          'come from "<base>/api/settings/addresses".',
-                      placeholder: 'e.g. https://api.example.com',
-                      path: settings.apiBaseUrl,
-                      onApply: cubit.setApiBaseUrl,
-                    ),
-                  ],
+                BlocBuilder<DetectedPathsCubit, DetectedPathsState>(
+                  builder: (context, detected) {
+                    return GroupedList(
+                      children: [
+                        _PathSetting(
+                          label: 'Android SDK',
+                          description: 'Override the auto-detected SDK '
+                              'location. Leave empty to auto-detect.',
+                          placeholder: r'e.g. C:\Users\you\AppData\Local'
+                              r'\Android\Sdk',
+                          path: settings.androidSdkPath,
+                          resolved: detected.androidSdk,
+                          loading: detected.isLoading,
+                          onApply: cubit.setAndroidSdkPath,
+                        ),
+                        _PathSetting(
+                          label: 'Flutter SDK',
+                          description: 'Point at a specific Flutter checkout. '
+                              'Leave empty to use the one on your PATH.',
+                          placeholder: r'e.g. C:\Dev\SDK\flutter',
+                          path: settings.flutterSdkPath,
+                          resolved: detected.flutter,
+                          loading: detected.isLoading,
+                          onApply: cubit.setFlutterSdkPath,
+                        ),
+                        // Java has no override — it is read from JAVA_HOME or
+                        // PATH — so this row only reports where it was found.
+                        _ResolvedPathRow(
+                          label: 'Java',
+                          path: detected.java,
+                          loading: detected.isLoading,
+                        ),
+                        _PathSetting(
+                          label: 'API base URL',
+                          description: 'Base URL for the settings API — '
+                              'addresses come from '
+                              '"<base>/api/settings/addresses".',
+                          placeholder: 'e.g. https://api.example.com',
+                          path: settings.apiBaseUrl,
+                          onApply: cubit.setApiBaseUrl,
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 const SectionLabel('Behaviour'),
@@ -327,13 +348,24 @@ class _PathSetting extends StatefulWidget {
     required this.placeholder,
     required this.path,
     required this.onApply,
+    this.resolved,
+    this.loading = false,
   });
 
   final String label;
   final String description;
   final String placeholder;
+
+  /// The configured override; empty means auto-detect.
   final String? path;
+
   final ValueChanged<String> onApply;
+
+  /// Where the tool actually resolved to, so this group answers "where is it?"
+  /// as well as "where should it be?".
+  final String? resolved;
+
+  final bool loading;
 
   @override
   State<_PathSetting> createState() => _PathSettingState();
@@ -367,6 +399,10 @@ class _PathSettingState extends State<_PathSetting> {
     return GroupedListRow(
       title: widget.label,
       subtitle: widget.description,
+      trailing: [
+        if (widget.resolved != null || widget.loading)
+          _PathValue(path: widget.resolved, loading: widget.loading),
+      ],
       below: Padding(
         padding: const EdgeInsets.only(top: 10),
         child: Row(
@@ -398,6 +434,69 @@ class _PathSettingState extends State<_PathSetting> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The resolved location of a tool: ellipsized mono path plus copy.
+///
+/// Same row anatomy as the Paths list that used to sit on the Dashboard.
+class _PathValue extends StatelessWidget {
+  const _PathValue({required this.path, this.loading = false});
+
+  static const _maxWidth = 300.0;
+
+  final String? path;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final value = path;
+    if (value == null || value.isEmpty) {
+      return Text(
+        // A quiet ellipsis while resolving, an em dash when there is nothing.
+        loading ? '\u2026' : '\u2014',
+        style: AppTextStyles.monoPath.copyWith(color: palette.textMuted),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
+          child: Text(
+            value,
+            style: AppTextStyles.monoPath,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        CopyIconButton(value: value, label: 'Path'),
+      ],
+    );
+  }
+}
+
+/// A path the app only reports — there is no override to edit.
+class _ResolvedPathRow extends StatelessWidget {
+  const _ResolvedPathRow({
+    required this.label,
+    required this.path,
+    this.loading = false,
+  });
+
+  final String label;
+  final String? path;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return GroupedListRow(
+      title: label,
+      subtitle: 'Detected from JAVA_HOME, or from PATH when that is unset.',
+      trailing: [_PathValue(path: path, loading: loading)],
     );
   }
 }

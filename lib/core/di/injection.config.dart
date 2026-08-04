@@ -31,6 +31,8 @@ import 'package:android_sdk_manager/application/log/logcat_devices_cubit.dart'
     as _i643;
 import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
     as _i740;
+import 'package:android_sdk_manager/application/settings/detected_paths_cubit.dart'
+    as _i775;
 import 'package:android_sdk_manager/application/settings/settings_cubit.dart'
     as _i698;
 import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
@@ -134,6 +136,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i1013.AddressRepository>(
       () => _i886.AddressRepositoryImpl(gh<_i517.SettingsService>()),
+    );
+    gh.factory<_i775.DetectedPathsCubit>(
+      () => _i775.DetectedPathsCubit(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+      ),
     );
     gh.factory<_i915.FlutterDoctorCubit>(
       () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),

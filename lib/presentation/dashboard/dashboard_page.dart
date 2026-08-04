@@ -12,7 +12,6 @@ import '../common/page_scaffold.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import 'widgets/paths_list.dart';
 import 'widgets/toolchain_list.dart';
 
 /// The dashboard screen: an at-a-glance health view of the toolchain.
@@ -42,7 +41,8 @@ class _DashboardView extends StatelessWidget {
               icon: FluentIcons.refresh,
               label: 'Refresh',
               busy: state.isLoading,
-              onPressed: () => context.read<DashboardCubit>().refresh(),
+              onPressed: () =>
+                  context.read<DashboardCubit>().refresh(forceRefresh: true),
             ),
           ],
           child: _body(context, state),
@@ -90,10 +90,7 @@ class _DashboardContent extends StatelessWidget {
           const SectionLabel('Toolchain'),
           const SizedBox(height: 8),
           ToolchainList(snapshot: snapshot),
-          const SizedBox(height: 20),
-          const SectionLabel('Paths'),
-          const SizedBox(height: 8),
-          PathsList(snapshot: snapshot),
+          // Paths moved to Settings > Paths, merged with the override rows.
           if (lastUpdated != null) ...[
             const SizedBox(height: 14),
             Text(
