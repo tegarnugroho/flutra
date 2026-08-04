@@ -60,7 +60,7 @@ class ToolStatus extends Equatable {
         ToolKind.java => 'Java (JDK)',
         ToolKind.flutter => 'Flutter',
         ToolKind.emulator => 'Emulator',
-        ToolKind.adb => 'ADB (Platform Tools)',
+        ToolKind.adb => 'ADB (platform tools)',
       };
 
   ToolStatus copyWith({

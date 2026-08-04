@@ -7,6 +7,7 @@ import '../../domain/entities/avd_create_request.dart';
 import '../../domain/entities/device_definition.dart';
 import '../../domain/entities/system_image.dart';
 import 'widgets/select_tile.dart';
+import '../theme/app_colors.dart';
 
 /// Multi-step wizard for creating a new AVD.
 ///
@@ -616,7 +617,7 @@ class _WizardFooter extends StatelessWidget {
             Expanded(
               child: Text(
                 state.errorMessage!,
-                style: const TextStyle(color: Color(0xFFC42B1C)),
+                style: const TextStyle(color: AppColors.statusError),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

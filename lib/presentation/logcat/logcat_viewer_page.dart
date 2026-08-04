@@ -7,6 +7,7 @@ import '../../domain/entities/device.dart';
 import '../../domain/repositories/device_repository.dart';
 import '../common/live_log_view.dart';
 import '../common/log_toolbar.dart';
+import '../theme/app_colors.dart';
 
 /// Logcat Viewer: streams `adb logcat` from a selected device with live
 /// priority/tag/text filtering.
@@ -164,11 +165,11 @@ class _StatusLine extends StatelessWidget {
     final theme = FluentTheme.of(context);
     final (color, label) = switch (state.status) {
       LiveLogStatus.running =>
-        (const Color(0xFF3DDC84), state.paused ? 'Paused' : 'Streaming'),
-      LiveLogStatus.starting => (const Color(0xFFFFB900), 'Starting'),
-      LiveLogStatus.stopped => (const Color(0xFF767676), 'Stopped'),
-      LiveLogStatus.failure => (const Color(0xFFE81123), 'Error'),
-      LiveLogStatus.idle => (const Color(0xFF767676), 'Idle'),
+        (AppColors.statusOk, state.paused ? 'Paused' : 'Streaming'),
+      LiveLogStatus.starting => (AppColors.statusWarn, 'Starting'),
+      LiveLogStatus.stopped => (AppColors.textMuted, 'Stopped'),
+      LiveLogStatus.failure => (AppColors.statusError, 'Error'),
+      LiveLogStatus.idle => (AppColors.textMuted, 'Idle'),
     };
     return Row(
       children: [
@@ -191,7 +192,7 @@ class _StatusLine extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.typography.caption
-                    ?.copyWith(color: const Color(0xFFE81123))),
+                    ?.copyWith(color: AppColors.statusError)),
           ),
         ],
       ],

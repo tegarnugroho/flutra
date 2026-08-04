@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/avd.dart';
+import '../../theme/app_colors.dart';
 
 /// A single AVD row with status and action controls.
 class AvdCard extends StatelessWidget {
@@ -53,7 +54,7 @@ class AvdCard extends StatelessWidget {
   }
 
   Widget _deviceIcon(FluentThemeData theme) {
-    final color = avd.isRunning ? const Color(0xFF3DDC84) : theme.accentColor;
+    final color = avd.isRunning ? AppColors.statusOk : theme.accentColor;
     return Container(
       width: 46,
       height: 46,
@@ -120,16 +121,16 @@ class AvdCard extends StatelessWidget {
   Widget _runningBadge() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFF3DDC84).withValues(alpha: 0.18),
+          color: AppColors.statusOk.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(FluentIcons.streaming, size: 10, color: Color(0xFF2A7345)),
+            Icon(FluentIcons.streaming, size: 10, color: AppColors.statusOk),
             SizedBox(width: 4),
             Text('Running',
-                style: TextStyle(fontSize: 11, color: Color(0xFF2A7345))),
+                style: TextStyle(fontSize: 11, color: AppColors.statusOk)),
           ],
         ),
       );
@@ -151,7 +152,7 @@ class AvdCard extends StatelessWidget {
           Tooltip(
             message: 'Stop',
             child: IconButton(
-              icon: const Icon(FluentIcons.stop, color: Color(0xFFC42B1C)),
+              icon: const Icon(FluentIcons.stop, color: AppColors.statusError),
               onPressed: onStop,
             ),
           )
@@ -193,9 +194,9 @@ class AvdCard extends StatelessWidget {
               onPressed: avd.isRunning ? null : onWipe,
             ),
             MenuFlyoutItem(
-              leading: const Icon(FluentIcons.delete, color: Color(0xFFC42B1C)),
+              leading: const Icon(FluentIcons.delete, color: AppColors.statusError),
               text: const Text('Delete',
-                  style: TextStyle(color: Color(0xFFC42B1C))),
+                  style: TextStyle(color: AppColors.statusError)),
               onPressed: avd.isRunning ? null : onDelete,
             ),
           ],

@@ -8,6 +8,7 @@ import '../../domain/entities/sdk_package.dart';
 import '../emulator/widgets/avd_dialogs.dart';
 import 'widgets/package_progress.dart';
 import 'widgets/sdk_package_tile.dart';
+import '../theme/app_colors.dart';
 
 /// Package Manager: browse, search, install, update and remove Android SDK
 /// packages with a category sidebar, details panel and streamed console.
@@ -585,7 +586,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(FluentIcons.error_badge,
-                size: 40, color: Color(0xFFC42B1C)),
+                size: 40, color: AppColors.statusError),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),

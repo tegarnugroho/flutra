@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import '../../theme/app_colors.dart';
 
 /// Shows a destructive-action confirmation dialog. Returns true if confirmed.
 Future<bool> showConfirmDialog(
@@ -22,7 +23,7 @@ Future<bool> showConfirmDialog(
           style: destructive
               ? ButtonStyle(
                   backgroundColor: WidgetStateProperty.all(
-                    const Color(0xFFC42B1C),
+                    AppColors.statusError,
                   ),
                   foregroundColor: WidgetStateProperty.all(Colors.white),
                 )

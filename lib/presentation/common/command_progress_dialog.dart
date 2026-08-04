@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/common/command_log_cubit.dart';
 import '../../core/command/command_runner.dart';
 import 'command_log_view.dart';
+import '../theme/app_colors.dart';
 
 /// Runs [start], streams its output in a modal dialog, and resolves to whether
 /// the command succeeded (exit code 0). The dialog cannot be dismissed until the
@@ -76,9 +77,9 @@ class _CommandProgressDialogState extends State<_CommandProgressDialog> {
                     width: 18, height: 18, child: ProgressRing(strokeWidth: 2))
               else if (state.isSuccess)
                 const Icon(FluentIcons.completed_solid,
-                    color: Color(0xFF3DDC84))
+                    color: AppColors.statusOk)
               else
-                const Icon(FluentIcons.error_badge, color: Color(0xFFC42B1C)),
+                const Icon(FluentIcons.error_badge, color: AppColors.statusError),
             ],
           ),
           content: const CommandLogView(),

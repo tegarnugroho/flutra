@@ -5,6 +5,7 @@ import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
 import 'widgets/package_progress.dart';
+import '../theme/app_colors.dart';
 
 /// Updates: checks the SDK catalogue and lists packages with a newer version,
 /// with per-package Update and Update-all. Reuses the shared install queue.
@@ -78,7 +79,7 @@ class _UpdatesView extends StatelessWidget {
               state.packages.isEmpty) {
             return _Message(
               icon: FluentIcons.error_badge,
-              iconColor: const Color(0xFFC42B1C),
+              iconColor: AppColors.statusError,
               title: 'Could not check for updates',
               message: state.errorMessage ?? 'Unknown error.',
               actionLabel: 'Retry',
@@ -94,7 +95,7 @@ class _UpdatesView extends StatelessWidget {
                 child: updates.isEmpty
                     ? _Message(
                         icon: FluentIcons.completed_solid,
-                        iconColor: const Color(0xFF3DDC84),
+                        iconColor: AppColors.statusOk,
                         title: "You're up to date",
                         message:
                             'All installed SDK packages are on their latest '
@@ -162,7 +163,7 @@ class _UpdateList extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: const BoxDecoration(
-                              color: Color(0xFFFFB900),
+                              color: AppColors.statusWarn,
                               shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 12),
@@ -189,7 +190,7 @@ class _UpdateList extends StatelessWidget {
                         Text(
                           '${pkg.installedVersion ?? '?'} → ${pkg.availableVersion ?? '?'}',
                           style: theme.typography.caption
-                              ?.copyWith(color: const Color(0xFFFFB900)),
+                              ?.copyWith(color: AppColors.statusWarn),
                         ),
                         const SizedBox(width: 14),
                         SizedBox(

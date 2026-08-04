@@ -10,6 +10,7 @@ import '../../infrastructure/trash/trash_entry.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
 import '../emulator/widgets/avd_dialogs.dart';
+import '../theme/app_colors.dart';
 
 /// Checks the SDK checkout before a git-backed command (upgrade, channel or
 /// version switch), which Flutter refuses to run while the tree is dirty.
@@ -372,10 +373,10 @@ class _CurrentSdkCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(FluentIcons.delete,
-                              size: 14, color: Color(0xFFC42B1C)),
+                              size: 14, color: AppColors.statusError),
                           SizedBox(width: 6),
                           Text('Uninstall',
-                              style: TextStyle(color: Color(0xFFC42B1C))),
+                              style: TextStyle(color: AppColors.statusError)),
                         ],
                       ),
                     ),
@@ -529,11 +530,11 @@ class _ChannelChoice extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3DDC84).withValues(alpha: 0.15),
+                  color: AppColors.statusOk.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text('Active',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF3DDC84))),
+                    style: TextStyle(fontSize: 10, color: AppColors.statusOk)),
               ),
             ],
           ],
@@ -744,7 +745,7 @@ class _VersionTileState extends State<_VersionTile> {
                       : FluentIcons.product,
                   size: 16,
                   color: widget.isCurrent
-                      ? const Color(0xFF3DDC84)
+                      ? AppColors.statusOk
                       : theme.resources.textFillColorSecondary,
                 ),
                 const SizedBox(width: 12),
@@ -761,7 +762,7 @@ class _VersionTileState extends State<_VersionTile> {
                 if (widget.isCurrent)
                   Text('Current',
                       style: theme.typography.caption
-                          ?.copyWith(color: const Color(0xFF3DDC84)))
+                          ?.copyWith(color: AppColors.statusOk))
                 else
                   Button(
                       onPressed: widget.onSwitch, child: const Text('Switch')),
@@ -853,10 +854,10 @@ class _ChannelPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (channel) {
-      'stable' => const Color(0xFF3DDC84),
+      'stable' => AppColors.statusOk,
       'beta' => const Color(0xFF54C5F8),
-      'master' => const Color(0xFFFFB900),
-      _ => const Color(0xFF767676),
+      'master' => AppColors.statusWarn,
+      _ => AppColors.textMuted,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -1128,7 +1129,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(FluentIcons.error_badge,
-                size: 40, color: Color(0xFFE81123)),
+                size: 40, color: AppColors.statusError),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),

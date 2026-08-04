@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/doctor/flutter_doctor_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/doctor_report.dart';
+import '../theme/app_colors.dart';
 
 /// Flutter Doctor: runs `flutter doctor -v` on demand and shows a health-score
 /// dashboard of the results.
@@ -166,10 +167,10 @@ class _HealthHeader extends StatelessWidget {
     final err = report.count(DoctorStatus.error);
     final ratio = ok / total;
     final color = err > 0
-        ? const Color(0xFFE81123)
+        ? AppColors.statusError
         : warn > 0
-            ? const Color(0xFFFFB900)
-            : const Color(0xFF3DDC84);
+            ? AppColors.statusWarn
+            : AppColors.statusOk;
     final headline = err > 0
         ? 'Action required'
         : warn > 0
@@ -201,15 +202,15 @@ class _HealthHeader extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     _LegendDot(
-                        color: const Color(0xFF3DDC84),
+                        color: AppColors.statusOk,
                         label: 'Passed',
                         count: ok),
                     _LegendDot(
-                        color: const Color(0xFFFFB900),
+                        color: AppColors.statusWarn,
                         label: 'Warnings',
                         count: warn),
                     _LegendDot(
-                        color: const Color(0xFFE81123),
+                        color: AppColors.statusError,
                         label: 'Errors',
                         count: err),
                   ],
@@ -498,13 +499,13 @@ class _CheckRowState extends State<_CheckRow> {
 
   _Visuals _visualsFor(DoctorStatus status) => switch (status) {
         DoctorStatus.ok => const _Visuals(
-            FluentIcons.completed_solid, Color(0xFF3DDC84)),
+            FluentIcons.completed_solid, AppColors.statusOk),
         DoctorStatus.warning =>
-          const _Visuals(FluentIcons.warning, Color(0xFFFFB900)),
+          const _Visuals(FluentIcons.warning, AppColors.statusWarn),
         DoctorStatus.error =>
-          const _Visuals(FluentIcons.status_error_full, Color(0xFFE81123)),
+          const _Visuals(FluentIcons.status_error_full, AppColors.statusError),
         DoctorStatus.info =>
-          const _Visuals(FluentIcons.info, Color(0xFF767676)),
+          const _Visuals(FluentIcons.info, AppColors.textMuted),
       };
 }
 
@@ -618,7 +619,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(FluentIcons.error_badge,
-                size: 40, color: Color(0xFFE81123)),
+                size: 40, color: AppColors.statusError),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),

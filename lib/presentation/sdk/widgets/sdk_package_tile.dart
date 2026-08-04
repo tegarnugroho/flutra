@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/sdk_package.dart';
+import '../../theme/app_colors.dart';
 
 /// A single package row: checkbox, status dot, name/path, version, per-row
 /// action, and an inline progress bar while installing.
@@ -114,9 +115,9 @@ class SdkPackageTile extends StatelessWidget {
 
   Widget _statusDot() {
     final color = switch (package.state) {
-      PackageState.installed => const Color(0xFF3DDC84),
-      PackageState.updatable => const Color(0xFFFFB900),
-      PackageState.available => const Color(0xFF767676),
+      PackageState.installed => AppColors.statusOk,
+      PackageState.updatable => AppColors.statusWarn,
+      PackageState.available => AppColors.textMuted,
     };
     return Container(
       width: 10,
@@ -132,7 +133,7 @@ class SdkPackageTile extends StatelessWidget {
           ? Text(
               '${package.installedVersion ?? '?'} → ${package.availableVersion ?? '?'}',
               style: theme.typography.caption
-                  ?.copyWith(color: const Color(0xFFFFB900)),
+                  ?.copyWith(color: AppColors.statusWarn),
               textAlign: TextAlign.end,
             )
           : Text(package.displayVersion ?? '—',
@@ -163,7 +164,7 @@ class SdkPackageTile extends StatelessWidget {
           child: Tooltip(
             message: 'Uninstall',
             child: IconButton(
-              icon: const Icon(FluentIcons.delete, color: Color(0xFFC42B1C)),
+              icon: const Icon(FluentIcons.delete, color: AppColors.statusError),
               onPressed: onUninstall,
             ),
           ),

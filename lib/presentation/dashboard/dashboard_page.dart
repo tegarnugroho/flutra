@@ -4,7 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/dashboard/dashboard_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/environment_snapshot.dart';
-import 'widgets/status_card.dart';
+import '../../domain/entities/tool_status.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+import 'widgets/grouped_list.dart';
+import 'widgets/paths_list.dart';
+import 'widgets/status_dot.dart';
+import 'widgets/toolchain_list.dart';
 
 /// The dashboard screen: an at-a-glance health view of the toolchain.
 class DashboardPage extends StatelessWidget {
@@ -25,46 +31,46 @@ class _DashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('Dashboard'),
-        commandBar: BlocBuilder<DashboardCubit, DashboardState>(
-          builder: (context, state) => CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: state.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2),
-                      )
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('Refresh'),
-                onPressed: state.isLoading
-                    ? null
-                    : () => context.read<DashboardCubit>().refresh(),
-              ),
-            ],
-          ),
-        ),
-      ),
+      padding: EdgeInsets.zero,
       content: BlocBuilder<DashboardCubit, DashboardState>(
         builder: (context, state) {
-          if (state.status == DashboardStatus.failure) {
-            return _ErrorView(
-              message: state.errorMessage ?? 'Something went wrong.',
-              onRetry: () => context.read<DashboardCubit>().refresh(),
-            );
-          }
-          if (state.snapshot == null) {
-            return const Center(child: ProgressRing());
-          }
-          return _DashboardContent(
-            snapshot: state.snapshot!,
-            lastUpdated: state.lastUpdated,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    const Text('Dashboard', style: AppTextStyles.pageTitle),
+                    const Spacer(),
+                    _RefreshButton(
+                      isRefreshing: state.isLoading,
+                      onPressed: () => context.read<DashboardCubit>().refresh(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _body(context, state)),
+            ],
           );
         },
       ),
+    );
+  }
+
+  Widget _body(BuildContext context, DashboardState state) {
+    if (state.status == DashboardStatus.failure) {
+      return _ErrorView(
+        message: state.errorMessage ?? 'Something went wrong.',
+        onRetry: () => context.read<DashboardCubit>().refresh(),
+      );
+    }
+    if (state.snapshot == null) {
+      return const Center(child: ProgressRing());
+    }
+    return _DashboardContent(
+      snapshot: state.snapshot!,
+      lastUpdated: state.lastUpdated,
     );
   }
 }
@@ -77,50 +83,25 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ReadinessBanner(snapshot: snapshot),
+          _StatusLine(snapshot: snapshot),
+          const SizedBox(height: 18),
+          const SectionLabel('Toolchain'),
+          const SizedBox(height: 8),
+          ToolchainList(snapshot: snapshot),
           const SizedBox(height: 20),
-          Text('Toolchain', style: theme.typography.subtitle),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Responsive grid: as many ~320px columns as fit.
-              final columns =
-                  (constraints.maxWidth / 340).floor().clamp(1, 4);
-              final cards = snapshot.all
-                  .map((s) => StatusCard(status: s))
-                  .toList();
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final card in cards)
-                    SizedBox(
-                      width: (constraints.maxWidth - (columns - 1) * 12) /
-                          columns,
-                      child: card,
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          Text('Details', style: theme.typography.subtitle),
-          const SizedBox(height: 12),
-          _DetailsTable(snapshot: snapshot),
+          const SectionLabel('Paths'),
+          const SizedBox(height: 8),
+          PathsList(snapshot: snapshot),
           if (lastUpdated != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               'Last checked ${_formatTime(lastUpdated!)}',
-              style: theme.typography.caption?.copyWith(
-                color: theme.resources.textFillColorTertiary,
-              ),
+              style: AppTextStyles.caption,
             ),
           ],
         ],
@@ -134,85 +115,142 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
-class _ReadinessBanner extends StatelessWidget {
-  const _ReadinessBanner({required this.snapshot});
+/// One-line readiness summary: a dot plus a sentence, driven entirely by the
+/// existing detection state.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.snapshot});
 
   final EnvironmentSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
-    final ready = snapshot.isReady;
-    final missing = snapshot.all.where((t) => !t.isInstalled).length;
-    return InfoBar(
-      title: Text(ready
-          ? 'Your environment is ready'
-          : 'Your environment needs attention'),
-      content: Text(ready
-          ? 'All core Android & Flutter tools were detected.'
-          : '$missing tool(s) missing or need setup. Use the SDK Installer to fix.'),
-      severity: ready ? InfoBarSeverity.success : InfoBarSeverity.warning,
-      isLong: true,
-    );
-  }
-}
+    final palette = AppPalette.of(context);
+    final tools = snapshot.all;
 
-class _DetailsTable extends StatelessWidget {
-  const _DetailsTable({required this.snapshot});
+    final broken = tools
+        .where((t) =>
+            t.state == ToolState.missing || t.state == ToolState.error)
+        .toList();
+    final outdated =
+        tools.where((t) => t.state == ToolState.needsUpdate).toList();
+    final checking =
+        tools.where((t) => t.state == ToolState.checking).toList();
 
-  final EnvironmentSnapshot snapshot;
+    final Color color;
+    final String message;
+    if (broken.isNotEmpty) {
+      color = palette.statusError;
+      message = '${_count(broken.length)} not detected — ${_names(broken)}';
+    } else if (outdated.isNotEmpty) {
+      color = palette.statusWarn;
+      message = 'Updates available for ${_names(outdated)}';
+    } else if (checking.isNotEmpty) {
+      color = palette.textMuted;
+      message = 'Checking your environment…';
+    } else {
+      color = palette.statusOk;
+      message = 'Environment ready — all core Android and Flutter tools detected';
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final rows = <(String, String?)>[
-      ('Android SDK Path', snapshot.sdkPath),
-      ('Java Path', snapshot.javaPath),
-      ('Flutter Path', snapshot.flutterPath),
-      ('Platform Tools Version', snapshot.platformToolsVersion),
-      ('Build Tools Version', snapshot.buildToolsVersion),
-      ('Emulator Version', snapshot.emulatorVersion),
-    ];
-    return Card(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(),
-            _DetailRow(label: rows[i].$1, value: rows[i].$2),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String? value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 200,
-            child: Text(label, style: theme.typography.bodyStrong),
+    return Row(
+      children: [
+        StatusDot(color: color, size: 7),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: AppTextStyles.statusLine,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          Expanded(
-            child: Text(
-              value?.isNotEmpty == true ? value! : '—',
-              style: theme.typography.body?.copyWith(
-                color: value == null
-                    ? theme.resources.textFillColorTertiary
-                    : null,
+        ),
+      ],
+    );
+  }
+
+  static String _count(int n) => n == 1 ? '1 tool' : '$n tools';
+
+  static String _names(List<ToolStatus> tools) =>
+      tools.map((t) => t.displayName).join(', ');
+}
+
+/// Outlined refresh button. The icon spins while a detection run is in flight;
+/// the button keeps its enabled look so the header doesn't flicker.
+class _RefreshButton extends StatefulWidget {
+  const _RefreshButton({required this.isRefreshing, required this.onPressed});
+
+  final bool isRefreshing;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RefreshButton> createState() => _RefreshButtonState();
+}
+
+class _RefreshButtonState extends State<_RefreshButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isRefreshing) _spin.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RefreshButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isRefreshing && !_spin.isAnimating) {
+      _spin.repeat();
+    } else if (!widget.isRefreshing && _spin.isAnimating) {
+      _spin
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.isRefreshing ? null : widget.onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: _hovered ? palette.surfaceRaised : Colors.transparent,
+            border:
+                Border.all(color: palette.borderStrong, width: AppShape.hairline),
+            borderRadius: BorderRadius.circular(AppShape.radiusControl),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RotationTransition(
+                turns: _spin,
+                child: Icon(
+                  FluentIcons.refresh,
+                  size: 13,
+                  color: palette.textTertiary,
+                ),
               ),
-            ),
+              const SizedBox(width: 7),
+              const Text('Refresh', style: AppTextStyles.buttonLabel),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -226,15 +264,20 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(FluentIcons.error_badge, size: 40, color: Color(0xFFE81123)),
+          Icon(FluentIcons.error_badge, size: 24, color: palette.statusError),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.statusLine,
+          ),
           const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          Button(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

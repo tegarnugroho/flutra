@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/device.dart';
+import '../../theme/app_colors.dart';
 
 /// Callbacks for the actions a [DeviceCard] can trigger.
 class DeviceActions {
@@ -64,7 +65,7 @@ class DeviceCard extends StatelessWidget {
 
   Widget _icon(FluentThemeData theme) {
     final color =
-        device.state.isOnline ? const Color(0xFF3DDC84) : const Color(0xFF767676);
+        device.state.isOnline ? AppColors.statusOk : AppColors.textMuted;
     return Container(
       width: 46,
       height: 46,
@@ -134,10 +135,10 @@ class DeviceCard extends StatelessWidget {
 
   Widget _battery(int level) {
     final color = level <= 15
-        ? const Color(0xFFE81123)
+        ? AppColors.statusError
         : level <= 40
-            ? const Color(0xFFFFB900)
-            : const Color(0xFF3DDC84);
+            ? AppColors.statusWarn
+            : AppColors.statusOk;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -226,9 +227,9 @@ class DeviceCard extends StatelessWidget {
             const MenuFlyoutSeparator(),
             MenuFlyoutItem(
               leading: const Icon(FluentIcons.plug_disconnected,
-                  color: Color(0xFFC42B1C)),
+                  color: AppColors.statusError),
               text: Text(device.isEmulator ? 'Stop emulator' : 'Disconnect',
-                  style: const TextStyle(color: Color(0xFFC42B1C))),
+                  style: const TextStyle(color: AppColors.statusError)),
               onPressed: actions.onDisconnect,
             ),
           ],
@@ -246,10 +247,10 @@ class _StatePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (state) {
-      DeviceState.device => const Color(0xFF3DDC84),
-      DeviceState.unauthorized => const Color(0xFFFFB900),
-      DeviceState.offline => const Color(0xFF767676),
-      _ => const Color(0xFFE81123),
+      DeviceState.device => AppColors.statusOk,
+      DeviceState.unauthorized => AppColors.statusWarn,
+      DeviceState.offline => AppColors.textMuted,
+      _ => AppColors.statusError,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

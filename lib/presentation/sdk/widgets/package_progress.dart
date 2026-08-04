@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../application/sdk/sdk_manager_cubit.dart';
+import '../../theme/app_colors.dart';
 
 /// A bottom bar showing the active install and its progress, with cancel.
 /// Shared by the SDK Manager and Package Downloader.
@@ -134,7 +135,7 @@ class _PackageConsoleState extends State<PackageConsole> {
                     fontSize: 12,
                     height: 1.35,
                     color: isCmd
-                        ? const Color(0xFF63E39C)
+                        ? AppColors.statusOk
                         : isErr
                             ? const Color(0xFFFF6B6B)
                             : const Color(0xFFD4D4D4),

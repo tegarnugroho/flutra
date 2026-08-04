@@ -14,6 +14,7 @@ import '../../domain/entities/address.dart';
 import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
 import '../emulator/widgets/avd_dialogs.dart';
+import '../theme/app_colors.dart';
 
 /// Settings: theme, Android SDK path override and run-at-startup.
 class SettingsPage extends StatelessWidget {
@@ -152,7 +153,7 @@ class _SettingsView extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(FluentIcons.blocked2,
-                                  size: 14, color: Color(0xFFC42B1C)),
+                                  size: 14, color: AppColors.statusError),
                               SizedBox(width: 6),
                               Text('Stop all'),
                             ],
@@ -336,7 +337,7 @@ class _AddressTile extends StatelessWidget {
               _pill(theme, address.type, const Color(0xFF54C5F8)),
               if (address.isDefault) ...[
                 const SizedBox(width: 6),
-                _pill(theme, 'Default', const Color(0xFF3DDC84)),
+                _pill(theme, 'Default', AppColors.statusOk),
               ],
             ],
           ),

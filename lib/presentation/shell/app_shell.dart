@@ -10,11 +10,14 @@ import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import '../sdk/updates_page.dart';
 import '../settings/settings_page.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
 ///
-/// Only the Dashboard is fully implemented in this milestone; the remaining
-/// destinations render a [PlaceholderPage] so the full IA is navigable.
+/// The groups are always expanded, so they are plain [PaneItemHeader]s rather
+/// than expanders — no chevrons, just a muted section label. Item colours and
+/// text styles come from the navigation pane theme in `AppTheme`.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -25,104 +28,85 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
+  /// A nav destination: 15px icon, 12px sentence-case label, raised tile when
+  /// active.
+  static PaneItem _item(IconData icon, String label, Widget body) {
+    return PaneItem(
+      icon: Icon(icon, size: 15),
+      title: Text(label),
+      selectedTileColor: WidgetStateProperty.all(AppColors.surfaceRaised),
+      body: body,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return NavigationView(
       titleBar: const _TitleBar(),
+      // Hairline outline around the content area — this is what draws the
+      // divider between the sidebar and the page.
+      contentShape: const RoundedRectangleBorder(
+        side: BorderSide(color: AppColors.border, width: AppShape.hairline),
+      ),
       pane: NavigationPane(
         selected: _index,
         onChanged: (i) => setState(() => _index = i),
         displayMode: PaneDisplayMode.auto,
+        size: const NavigationPaneSize(openWidth: 190),
+        // The active item is marked by its raised tile, not an accent bar.
+        indicator: null,
         items: [
-          PaneItem(
-            icon: const Icon(FluentIcons.view_dashboard),
-            title: const Text('Dashboard'),
-            body: const DashboardPage(),
-          ),
-          PaneItemExpander(
-            icon: const Icon(FluentIcons.cell_phone),
-            title: const Text('Android'),
-            initiallyExpanded: true,
-            items: [
-              PaneItem(
-                icon: const Icon(FluentIcons.packages),
-                title: const Text('SDK Manager'),
-                body: const SdkManagerPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.cell_phone),
-                title: const Text('Virtual Device Manager'),
-                body: const EmulatorManagerPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.permissions),
-                title: const Text('License Manager'),
-                body: const LicenseManagerPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.text_document),
-                title: const Text('Logcat'),
-                body: const LogcatViewerPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.sync),
-                title: const Text('Updates'),
-                body: const UpdatesPage(),
-              ),
-            ],
-          ),
-          PaneItemExpander(
-            icon: const Icon(FluentIcons.developer_tools),
-            title: const Text('Flutter'),
-            initiallyExpanded: true,
-            items: [
-              PaneItem(
-                icon: const Icon(FluentIcons.developer_tools),
-                title: const Text('Flutter SDK'),
-                body: const FlutterSdkPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.health),
-                title: const Text('Flutter Doctor'),
-                body: const FlutterDoctorPage(),
-              ),
-              PaneItem(
-                icon: const Icon(FluentIcons.plug_connected),
-                title: const Text('Device Manager'),
-                body: const DeviceManagerPage(),
-              ),
-            ],
-          ),
+          _item(FluentIcons.view_dashboard, 'Dashboard', const DashboardPage()),
+          PaneItemHeader(header: const Text('Android')),
+          _item(FluentIcons.packages, 'SDK manager', const SdkManagerPage()),
+          _item(FluentIcons.cell_phone, 'Virtual devices',
+              const EmulatorManagerPage()),
+          _item(FluentIcons.permissions, 'Licenses',
+              const LicenseManagerPage()),
+          _item(FluentIcons.text_document, 'Logcat',
+              const LogcatViewerPage()),
+          _item(FluentIcons.sync, 'Updates', const UpdatesPage()),
+          PaneItemHeader(header: const Text('Flutter')),
+          _item(FluentIcons.developer_tools, 'Flutter SDK',
+              const FlutterSdkPage()),
+          _item(FluentIcons.health, 'Flutter doctor',
+              const FlutterDoctorPage()),
+          _item(FluentIcons.plug_connected, 'Devices',
+              const DeviceManagerPage()),
         ],
         footerItems: [
-          PaneItem(
-            icon: const Icon(FluentIcons.settings),
-            title: const Text('Settings'),
-            body: const SettingsPage(),
+          PaneItemSeparator(
+            color: AppColors.border,
+            thickness: AppShape.hairline,
           ),
+          _item(FluentIcons.settings, 'Settings', const SettingsPage()),
         ],
       ),
     );
   }
-
 }
 
-/// Custom title bar shown at the top of the [NavigationView].
+/// Custom title bar drawn at the top of the [NavigationView].
+///
+/// It shares the sidebar surface so the two read as one chrome band. The OS
+/// window frame around it is native (`WS_OVERLAPPEDWINDOW` + DWM dark mode) and
+/// is left untouched.
 class _TitleBar extends StatelessWidget {
   const _TitleBar();
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
+    final palette = AppPalette.of(context);
     return Container(
       height: 40,
+      color: palette.sidebarBg,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       child: Row(
         children: [
-          Icon(FluentIcons.cell_phone, size: 18, color: theme.accentColor),
+          Icon(FluentIcons.cell_phone, size: 15, color: palette.textSecondary),
           const SizedBox(width: 8),
-          Text('Flutter SDK Manager', style: theme.typography.bodyStrong),
+          const Text('Flutter SDK Manager', style: AppTextStyles.titleBar),
         ],
       ),
     );
