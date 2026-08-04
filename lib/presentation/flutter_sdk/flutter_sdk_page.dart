@@ -9,8 +9,13 @@ import '../../domain/entities/flutter_sdk_info.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
+import '../common/copy_icon_button.dart';
+import '../common/grouped_list.dart';
+import '../common/outlined_action_button.dart';
+import '../common/status_dot.dart';
 import '../emulator/widgets/avd_dialogs.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
 /// Checks the SDK checkout before a git-backed command (upgrade, channel or
 /// version switch), which Flutter refuses to run while the tree is dirty.
@@ -63,38 +68,8 @@ class _FlutterSdkView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<FlutterSdkCubit>();
     return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('Flutter SDK'),
-        commandBar: BlocBuilder<FlutterSdkCubit, FlutterSdkState>(
-          builder: (context, state) => CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: const Icon(FluentIcons.up),
-                label: const Text('Upgrade'),
-                onPressed: state.info == null
-                    ? null
-                    : () => _run(
-                        context,
-                        'Upgrading Flutter (${state.info!.channel})',
-                        (stash) => cubit.upgrade(stashLocalChanges: stash)),
-              ),
-              CommandBarButton(
-                icon: state.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2))
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('Refresh'),
-                onPressed: state.isLoading ? null : cubit.load,
-              ),
-            ],
-          ),
-        ),
-      ),
+      padding: EdgeInsets.zero,
       content: BlocConsumer<FlutterSdkCubit, FlutterSdkState>(
         listenWhen: (p, c) =>
             c.errorMessage != null && p.errorMessage != c.errorMessage,
@@ -110,34 +85,54 @@ class _FlutterSdkView extends StatelessWidget {
           });
         },
         builder: (context, state) {
-          if (state.isLoading && state.info == null) {
-            return const Center(child: ProgressRing());
-          }
-          if (state.status == FlutterSdkStatus.notInstalled) {
-            return _InstallView(
-              onInstalled: cubit.load,
-              restorable: state.restorable,
-              onRestore: cubit.restore,
-            );
-          }
-          if (state.status == FlutterSdkStatus.failure && state.info == null) {
-            return _ErrorView(
-              message: state.errorMessage ?? 'Unknown error.',
-              onRetry: cubit.load,
-            );
-          }
-          final info = state.info;
-          if (info == null) return const SizedBox.shrink();
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    const Text('Flutter SDK', style: AppTextStyles.pageTitle),
+                    const Spacer(),
+                    _HeaderActions(state: state),
+                  ],
+                ),
+              ),
+              Expanded(child: _body(context, state)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, FlutterSdkState state) {
+    final cubit = context.read<FlutterSdkCubit>();
+    if (state.isLoading && state.info == null) {
+      return const Center(child: ProgressRing());
+    }
+    if (state.status == FlutterSdkStatus.notInstalled) {
+      return _InstallView(
+        onInstalled: cubit.load,
+        restorable: state.restorable,
+        onRestore: cubit.restore,
+      );
+    }
+    if (state.status == FlutterSdkStatus.failure && state.info == null) {
+      return _ErrorView(
+        message: state.errorMessage ?? 'Unknown error.',
+        onRetry: cubit.load,
+      );
+    }
+    final info = state.info;
+    if (info == null) return const SizedBox.shrink();
+    return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CurrentSdkCard(
                   info: info,
-                  onUninstall: info.sdkPath == null
-                      ? null
-                      : () => _uninstall(context, info.sdkPath!),
                   onAddToPath: info.sdkPath == null
                       ? null
                       : () => _addToPath(context, info.sdkPath!),
@@ -181,29 +176,23 @@ class _FlutterSdkView extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 20),
-                Text('Channel', style: FluentTheme.of(context).typography.subtitle),
+                const SectionLabel('Channel'),
                 const SizedBox(height: 4),
-                Text(
-                  'Switch release channel, then Upgrade to fetch its latest build.',
-                  style: FluentTheme.of(context).typography.caption?.copyWith(
-                        color: FluentTheme.of(context)
-                            .resources
-                            .textFillColorSecondary,
-                      ),
+                const Text(
+                  'Switch release channel, then Upgrade to fetch its latest '
+                  'build.',
+                  style: AppTextStyles.caption,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _ChannelSection(
                   current: info.channel,
                   browsing: state.browsingChannel ?? info.channel,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 _VersionsSection(state: state),
               ],
             ),
           );
-        },
-      ),
-    );
   }
 
   /// Runs a streaming SDK command and reloads on success.
@@ -223,11 +212,15 @@ class _FlutterSdkView extends StatelessWidget {
     if (ok) cubit.load();
   }
 
-  static Future<void> _uninstall(BuildContext context, String path) async {
+  static Future<void> _uninstall(
+    BuildContext context,
+    String path,
+    String version,
+  ) async {
     final cubit = context.read<FlutterSdkCubit>();
     final ok = await showConfirmDialog(
       context,
-      title: 'Uninstall Flutter SDK?',
+      title: 'Uninstall Flutter $version',
       message: 'This permanently deletes the SDK folder:\n$path\n\nRemove its '
           '"\\bin" entry from PATH afterwards. This cannot be undone.',
       confirmLabel: 'Uninstall',
@@ -272,133 +265,186 @@ class _FlutterSdkView extends StatelessWidget {
   }
 }
 
-class _CurrentSdkCard extends StatelessWidget {
-  const _CurrentSdkCard({
-    required this.info,
-    this.onUninstall,
-    this.onAddToPath,
-  });
+/// Page-header actions: Upgrade, Refresh and an overflow menu holding the
+/// rarely-used (and destructive) commands.
+class _HeaderActions extends StatefulWidget {
+  const _HeaderActions({required this.state});
 
-  final FlutterSdkInfo info;
-  final VoidCallback? onUninstall;
-  final VoidCallback? onAddToPath;
+  final FlutterSdkState state;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Card(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF54C5F8).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
+  State<_HeaderActions> createState() => _HeaderActionsState();
+}
+
+class _HeaderActionsState extends State<_HeaderActions> {
+  final _overflow = FlyoutController();
+
+  @override
+  void dispose() {
+    _overflow.dispose();
+    super.dispose();
+  }
+
+  void _showOverflow(BuildContext context) {
+    final info = widget.state.info;
+    _overflow.showFlyout(
+      builder: (flyoutContext) => MenuFlyout(
+        items: [
+          if (info != null)
+            MenuFlyoutItem(
+              text: Text(
+                'Git repo: ${info.isGitRepo ? 'yes' : 'no'}',
+                style: AppTextStyles.inlineNote,
+              ),
+              // Diagnostic only — kept out of the card, not actionable here.
+              onPressed: null,
             ),
-            child: const Icon(FluentIcons.developer_tools,
-                size: 30, color: Color(0xFF54C5F8)),
+          const MenuFlyoutSeparator(),
+          MenuFlyoutItem(
+            leading: const Icon(FluentIcons.delete,
+                size: 14, color: AppColors.statusError),
+            text: const Text('Uninstall this SDK',
+                style: TextStyle(color: AppColors.statusError)),
+            onPressed: info?.sdkPath == null
+                ? null
+                : () {
+                    Navigator.of(flyoutContext).pop();
+                    _FlutterSdkView._uninstall(
+                        context, info!.sdkPath!, info.version);
+                  },
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text('Flutter ${info.version}',
-                        style: theme.typography.title),
-                    const SizedBox(width: 10),
-                    _ChannelPill(channel: info.channel),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 20,
-                  runSpacing: 4,
-                  children: [
-                    if (info.dartVersion != null)
-                      _kv(theme, 'Dart', info.dartVersion!),
-                    if (info.frameworkRevision != null)
-                      _kv(theme, 'Revision', info.frameworkRevision!),
-                    _kv(theme, 'Git repo', info.isGitRepo ? 'yes' : 'no'),
-                  ],
-                ),
-                if (info.sdkPath != null) ...[
-                  const SizedBox(height: 8),
-                  Text(info.sdkPath!,
-                      style: theme.typography.caption?.copyWith(
-                        fontFamily: 'Consolas',
-                        color: theme.resources.textFillColorTertiary,
-                      )),
-                ],
-              ],
-            ),
-          ),
-          if (onAddToPath != null || onUninstall != null) ...[
-            const SizedBox(width: 12),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (onAddToPath != null)
-                  Tooltip(
-                    message: 'Add Flutter to PATH so "flutter" works in any '
-                        'terminal',
-                    child: Button(
-                      onPressed: onAddToPath,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(FluentIcons.command_prompt, size: 14),
-                          SizedBox(width: 6),
-                          Text('Add to PATH'),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (onAddToPath != null && onUninstall != null)
-                  const SizedBox(height: 8),
-                if (onUninstall != null)
-                  Tooltip(
-                    message: 'Uninstall this Flutter SDK',
-                    child: Button(
-                      onPressed: onUninstall,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(FluentIcons.delete,
-                              size: 14, color: AppColors.statusError),
-                          SizedBox(width: 6),
-                          Text('Uninstall',
-                              style: TextStyle(color: AppColors.statusError)),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _kv(FluentThemeData theme, String k, String v) => Row(
-        mainAxisSize: MainAxisSize.min,
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<FlutterSdkCubit>();
+    final state = widget.state;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedActionButton(
+          icon: FluentIcons.up,
+          label: 'Upgrade',
+          onPressed: state.info == null
+              ? null
+              : () => _FlutterSdkView._run(
+                  context,
+                  'Upgrading Flutter (${state.info!.channel})',
+                  (stash) => cubit.upgrade(stashLocalChanges: stash)),
+        ),
+        const SizedBox(width: 8),
+        OutlinedActionButton(
+          icon: FluentIcons.refresh,
+          label: 'Refresh',
+          busy: state.isLoading,
+          onPressed: cubit.load,
+        ),
+        const SizedBox(width: 8),
+        FlyoutTarget(
+          controller: _overflow,
+          child: OutlinedActionButton(
+            icon: FluentIcons.more,
+            tooltip: 'More actions',
+            onPressed: () => _showOverflow(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CurrentSdkCard extends StatelessWidget {
+  const _CurrentSdkCard({required this.info, this.onAddToPath});
+
+  /// Revisions are 40-char hashes; this is what git itself shows.
+  static const _shortRevisionLength = 8;
+
+  final FlutterSdkInfo info;
+  final VoidCallback? onAddToPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final revision = info.frameworkRevision;
+    return GroupedBox(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$k: ',
-              style: theme.typography.caption?.copyWith(
-                color: theme.resources.textFillColorSecondary,
-              )),
-          Text(v, style: theme.typography.caption),
+          Row(
+            children: [
+              Icon(FluentIcons.developer_tools,
+                  size: 18, color: palette.textSecondary),
+              const SizedBox(width: 10),
+              Text('Flutter ${info.version}', style: AppTextStyles.heroTitle),
+              const SizedBox(width: 8),
+              _ChannelBadge(channel: info.channel),
+              const Spacer(),
+              if (onAddToPath != null)
+                OutlinedActionButton(
+                  icon: FluentIcons.command_prompt,
+                  label: 'Add to PATH',
+                  tooltip:
+                      'Add Flutter to PATH so "flutter" works in any terminal',
+                  onPressed: onAddToPath,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 18,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (info.dartVersion != null)
+                _meta(label: 'Dart', value: info.dartVersion!),
+              if (revision != null)
+                _meta(
+                  label: 'Revision',
+                  value: revision.length > _shortRevisionLength
+                      ? revision.substring(0, _shortRevisionLength)
+                      : revision,
+                  copyValue: revision,
+                  copyLabel: 'Revision',
+                ),
+              if (info.sdkPath != null)
+                _meta(
+                  value: info.sdkPath!,
+                  copyValue: info.sdkPath!,
+                  copyLabel: 'SDK path',
+                ),
+            ],
+          ),
         ],
-      );
+      ),
+    );
+  }
+
+  /// One metadata fragment: muted label, mono value, optional copy action.
+  Widget _meta({
+    String? label,
+    required String value,
+    String? copyValue,
+    String? copyLabel,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null) ...[
+          Text(label, style: AppTextStyles.rowSecondary),
+          const SizedBox(width: 6),
+        ],
+        Text(value, style: AppTextStyles.monoValue),
+        if (copyValue != null) ...[
+          const SizedBox(width: 4),
+          CopyIconButton(value: copyValue, label: copyLabel ?? 'Value'),
+        ],
+      ],
+    );
+  }
 }
 
 class _ChannelSection extends StatelessWidget {
@@ -412,21 +458,20 @@ class _ChannelSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
+    final palette = AppPalette.of(context);
     final cubit = context.read<FlutterSdkCubit>();
     final pendingSwitch = browsing != current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             for (final channel in kFlutterChannels)
               _ChannelChoice(
                 channel: channel,
                 selected: channel == browsing,
-                isCurrent: channel == current,
                 onTap: () => cubit.browseChannel(channel),
               ),
           ],
@@ -435,21 +480,20 @@ class _ChannelSection extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(FluentIcons.info, size: 14, color: theme.accentColor),
+              Icon(FluentIcons.info, size: 13, color: palette.textMuted),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Browsing "$browsing". Your SDK is still on '
                   '"$current". Switch to apply.',
-                  style: theme.typography.caption?.copyWith(
-                    color: theme.resources.textFillColorSecondary,
-                  ),
+                  style: AppTextStyles.caption,
                 ),
               ),
               const SizedBox(width: 12),
-              FilledButton(
+              OutlinedActionButton(
+                icon: FluentIcons.switch_widget,
+                label: 'Switch to $browsing',
                 onPressed: () => _switch(context, browsing),
-                child: Text('Switch to $browsing'),
               ),
             ],
           ),
@@ -480,65 +524,70 @@ class _ChannelSection extends StatelessWidget {
   }
 }
 
+/// A compact channel chip. The selected one carries the app's only accent.
 class _ChannelChoice extends StatelessWidget {
   const _ChannelChoice({
     required this.channel,
     required this.selected,
-    required this.isCurrent,
     required this.onTap,
   });
 
   final String channel;
   final bool selected;
-  final bool isCurrent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    final accent = theme.accentColor;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.14)
-              : theme.resources.cardBackgroundFillColorDefault,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? accent : theme.resources.controlStrokeColorDefault,
-            width: selected ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected ? FluentIcons.radio_btn_on : FluentIcons.radio_btn_off,
-              size: 16,
-              color: selected ? accent : theme.resources.textFillColorSecondary,
+    final palette = AppPalette.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? palette.accentBgTint : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppShape.radiusControl),
+            border: Border.all(
+              color: selected ? palette.accent : palette.border,
+              width: AppShape.hairline,
             ),
-            const SizedBox(width: 10),
-            Text(channel,
-                style: theme.typography.bodyStrong?.copyWith(
-                  color: selected ? accent : null,
-                )),
-            if (isCurrent) ...[
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.statusOk.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('Active',
-                    style: TextStyle(fontSize: 10, color: AppColors.statusOk)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ChannelChoiceDot(selected: selected),
+              const SizedBox(width: 9),
+              Text(
+                channel,
+                style: selected
+                    ? AppTextStyles.rowTitle
+                    : AppTextStyles.navItem,
               ),
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Filled accent dot when selected, hollow muted ring when not.
+class _ChannelChoiceDot extends StatelessWidget {
+  const _ChannelChoiceDot({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    if (selected) return StatusDot(color: palette.accent);
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.textMuted, width: AppShape.hairline),
       ),
     );
   }
@@ -558,7 +607,6 @@ class _VersionsSectionState extends State<_VersionsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
     final state = widget.state;
 
     if (!state.canSwitchVersion) {
@@ -580,46 +628,30 @@ class _VersionsSectionState extends State<_VersionsSection> {
             .toList();
     final current = state.info?.version;
 
+    // Bounded so the outer scroll view stays usable.
+    final shown = versions.take(80).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Versions', style: theme.typography.subtitle),
-            const SizedBox(width: 8),
-            if (channel.isNotEmpty) _ChannelPill(channel: channel),
+            SectionLabel('Versions · ${state.versions.length} available'),
             const SizedBox(width: 10),
             if (state.versionsLoading)
               const SizedBox(
-                  width: 14, height: 14, child: ProgressRing(strokeWidth: 2))
-            else
-              Text('${state.versions.length} available',
-                  style: theme.typography.caption?.copyWith(
-                    color: theme.resources.textFillColorTertiary,
-                  )),
+                  width: 12, height: 12, child: ProgressRing(strokeWidth: 2)),
             const Spacer(),
-            SizedBox(
-              width: 200,
-              child: TextBox(
-                placeholder: 'Filter versions…',
-                prefix: const Padding(
-                  padding: EdgeInsets.only(left: 8),
-                  child: Icon(FluentIcons.search, size: 14),
-                ),
-                onChanged: (v) => setState(() => _query = v),
-              ),
-            ),
+            _VersionFilterBox(onChanged: (v) => setState(() => _query = v)),
           ],
         ),
         const SizedBox(height: 6),
-        Text(
+        const Text(
           'Checks out a release tag in the SDK git repo. Commit or stash any '
           'local SDK changes first.',
-          style: theme.typography.caption?.copyWith(
-            color: theme.resources.textFillColorSecondary,
-          ),
+          style: AppTextStyles.caption,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         if (versions.isEmpty && !state.versionsLoading)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -628,33 +660,33 @@ class _VersionsSectionState extends State<_VersionsSection> {
                   ? 'No versions match "$_query".'
                   : 'No version tags found for the "$channel" channel. '
                       'Run "git fetch --tags" in the SDK folder to pull them.',
-              style: theme.typography.caption?.copyWith(
-                color: theme.resources.textFillColorTertiary,
-              ),
+              style: AppTextStyles.caption,
             ),
+          )
+        else
+          GroupedList(
+            children: [
+              for (final v in shown)
+                _VersionTile(
+                  version: v,
+                  isCurrent: v == current,
+                  onSwitch: () => _switch(context, v),
+                  loadChangelog: () => context
+                      .read<FlutterSdkCubit>()
+                      .changelog(v, _previousOf(v, state.versions)),
+                  onOpenGitHub: () =>
+                      context.read<FlutterSdkCubit>().openReleasePage(v),
+                ),
+            ],
           ),
-        // Bounded height so the outer scroll view stays usable.
-        ...versions.take(80).map((v) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: _VersionTile(
-                version: v,
-                isCurrent: v == current,
-                onSwitch: () => _switch(context, v),
-                loadChangelog: () => context
-                    .read<FlutterSdkCubit>()
-                    .changelog(v, _previousOf(v, state.versions)),
-                onOpenGitHub: () =>
-                    context.read<FlutterSdkCubit>().openReleasePage(v),
-              ),
-            )),
-        if (versions.length > 80)
+        if (versions.length > shown.length)
           Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('Showing first 80 of ${versions.length}. Filter to '
-                'narrow down.',
-                style: theme.typography.caption?.copyWith(
-                  color: theme.resources.textFillColorTertiary,
-                )),
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Showing first ${shown.length} of ${versions.length}. Filter to '
+              'narrow down.',
+              style: AppTextStyles.caption,
+            ),
           ),
       ],
     );
@@ -710,7 +742,13 @@ class _VersionTile extends StatefulWidget {
 class _VersionTileState extends State<_VersionTile> {
   bool _expanded = false;
   bool _loading = false;
+  bool _hovered = false;
+  bool _focused = false;
   List<String>? _lines;
+
+  /// Row actions stay hidden until the row is pointed at or focused, so the
+  /// list doesn't become a wall of identical buttons.
+  bool get _showActions => _hovered || _focused;
 
   Future<void> _toggle() async {
     setState(() => _expanded = !_expanded);
@@ -729,71 +767,90 @@ class _VersionTileState extends State<_VersionTile> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Card(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: Column(
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _toggle,
-            child: Row(
-              children: [
-                Icon(
-                  widget.isCurrent
-                      ? FluentIcons.completed_solid
-                      : FluentIcons.product,
-                  size: 16,
-                  color: widget.isCurrent
-                      ? AppColors.statusOk
-                      : theme.resources.textFillColorSecondary,
-                ),
-                const SizedBox(width: 12),
-                Text(widget.version, style: theme.typography.bodyStrong),
-                const SizedBox(width: 10),
-                Tooltip(
-                  message: 'Open release notes on GitHub',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.globe, size: 13),
-                    onPressed: widget.onOpenGitHub,
+    final palette = AppPalette.of(context);
+    return FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      onShowHoverHighlight: (v) => setState(() => _hovered = v),
+      onShowFocusHighlight: (v) => setState(() => _focused = v),
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            _toggle();
+            return null;
+          },
+        ),
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          color: _hovered ? palette.surfaceRaised : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Fixed slot so every version number starts on the same x.
+                  StatusDot(
+                      color: widget.isCurrent ? palette.statusOk : null),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.version,
+                    style: widget.isCurrent
+                        ? AppTextStyles.monoRowActive
+                        : AppTextStyles.monoRow,
                   ),
-                ),
-                const Spacer(),
-                if (widget.isCurrent)
-                  Text('Current',
-                      style: theme.typography.caption
-                          ?.copyWith(color: AppColors.statusOk))
-                else
-                  Button(
-                      onPressed: widget.onSwitch, child: const Text('Switch')),
-                const SizedBox(width: 8),
-                AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 160),
-                  child: Icon(FluentIcons.chevron_down,
-                      size: 10,
-                      color: theme.resources.textFillColorSecondary),
-                ),
-              ],
-            ),
+                  if (widget.isCurrent) ...[
+                    const SizedBox(width: 8),
+                    const Text('current', style: AppTextStyles.inlineNote),
+                  ],
+                  const Spacer(),
+                  if (_showActions) ...[
+                    OutlinedActionButton(
+                      icon: FluentIcons.globe,
+                      dense: true,
+                      tooltip: 'Open release notes on GitHub',
+                      onPressed: widget.onOpenGitHub,
+                    ),
+                    const SizedBox(width: 8),
+                    if (!widget.isCurrent) ...[
+                      OutlinedActionButton(
+                        icon: FluentIcons.switch_widget,
+                        label: 'Switch',
+                        dense: true,
+                        onPressed: widget.onSwitch,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(FluentIcons.chevron_down,
+                        size: 13, color: palette.textMuted),
+                  ),
+                ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: _expanded
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 10, left: 16),
+                        child: _changelog(palette),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+            ],
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: _expanded
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 10, left: 28),
-                    child: _changelog(theme),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _changelog(FluentThemeData theme) {
+  Widget _changelog(AppPalette palette) {
     if (_loading) {
       return const Align(
         alignment: Alignment.centerLeft,
@@ -806,68 +863,86 @@ class _VersionTileState extends State<_VersionTile> {
     }
     final lines = _lines ?? const [];
     if (lines.isEmpty) {
-      return Align(
+      return const Align(
         alignment: Alignment.centerLeft,
         child: Text(
           'No changelog available from the local git history. Use the GitHub '
           'link for full release notes.',
-          style: theme.typography.caption?.copyWith(
-            color: theme.resources.textFillColorTertiary,
-          ),
+          style: AppTextStyles.caption,
         ),
       );
     }
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(left: 12),
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Color(0xFF54C5F8), width: 2)),
+      padding: const EdgeInsets.only(left: 10),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: palette.border, width: 2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${lines.length} commits since previous version',
-              style: theme.typography.caption?.copyWith(
-                color: theme.resources.textFillColorSecondary,
-              )),
-          const SizedBox(height: 6),
+              style: AppTextStyles.rowSecondary),
+          const SizedBox(height: 4),
           for (final line in lines.take(200))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1),
-              child: Text('• $line',
-                  style: theme.typography.caption?.copyWith(
-                    fontFamily: 'Consolas',
-                    color: theme.resources.textFillColorSecondary,
-                  )),
-            ),
+            Text(line, style: AppTextStyles.monoBody),
         ],
       ),
     );
   }
 }
 
-class _ChannelPill extends StatelessWidget {
-  const _ChannelPill({required this.channel});
+/// The channel as a quiet outline pill — no fill, no per-channel colour.
+class _ChannelBadge extends StatelessWidget {
+  const _ChannelBadge({required this.channel});
 
   final String channel;
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (channel) {
-      'stable' => AppColors.statusOk,
-      'beta' => const Color(0xFF54C5F8),
-      'master' => AppColors.statusWarn,
-      _ => AppColors.textMuted,
-    };
+    final palette = AppPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(999),
+        border:
+            Border.all(color: palette.borderStrong, width: AppShape.hairline),
       ),
-      child: Text(channel,
-          style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+      child: Text(channel, style: AppTextStyles.badge),
+    );
+  }
+}
+
+/// Compact search box for the versions list.
+class _VersionFilterBox extends StatelessWidget {
+  const _VersionFilterBox({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return SizedBox(
+      width: 200,
+      height: 30,
+      child: TextBox(
+        placeholder: 'Filter versions',
+        style: AppTextStyles.input,
+        placeholderStyle: AppTextStyles.input.copyWith(color: palette.textMuted),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        prefix: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Icon(FluentIcons.search, size: 12, color: palette.textMuted),
+        ),
+        decoration: WidgetStateProperty.all(
+          BoxDecoration(
+            borderRadius: BorderRadius.circular(AppShape.radiusControl),
+            border:
+                Border.all(color: palette.border, width: AppShape.hairline),
+          ),
+        ),
+        onChanged: onChanged,
+      ),
     );
   }
 }
@@ -949,20 +1024,11 @@ class _InstallViewState extends State<_InstallView> {
               ),
               const SizedBox(height: 18),
             ],
-            Container(
-              width: 80,
-              height: 80,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF54C5F8).withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(FluentIcons.download,
-                  size: 36, color: Color(0xFF54C5F8)),
-            ),
-            const SizedBox(height: 18),
-            Text('No Flutter SDK found',
-                textAlign: TextAlign.center, style: theme.typography.subtitle),
+            Icon(FluentIcons.download,
+                size: 24, color: AppPalette.of(context).textSecondary),
+            const SizedBox(height: 14),
+            const Text('No Flutter SDK found',
+                textAlign: TextAlign.center, style: AppTextStyles.heroTitle),
             const SizedBox(height: 8),
             Text(
               'Flutter is not on your PATH. Clone the SDK from GitHub into a '
@@ -1129,9 +1195,11 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(FluentIcons.error_badge,
-                size: 40, color: AppColors.statusError),
+                size: 24, color: AppColors.statusError),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.statusLine),
             const SizedBox(height: 16),
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],

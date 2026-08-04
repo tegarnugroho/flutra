@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -NoProfile -Command 'Add-Type @'\\\\'' *)",
+      "Bash(powershell -NoProfile -Command 'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; Add-Type @'\\\\'' *)"
+    ]
+  }
+}

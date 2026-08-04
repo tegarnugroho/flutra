@@ -26,7 +26,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _index = 0;
+  int _index = 6; // TEMP-SCREENSHOT
 
   /// A nav destination: 15px icon, 12px sentence-case label, raised tile when
   /// active.

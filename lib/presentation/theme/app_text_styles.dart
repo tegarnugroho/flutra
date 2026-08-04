@@ -53,6 +53,62 @@ class AppTextStyles {
     color: AppColors.textSecondary,
   );
 
+  /// Card heading, e.g. "Flutter 3.44.8".
+  static const heroTitle = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textPrimary,
+  );
+
+  /// Outline pill text (channel badge).
+  static const badge = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+  );
+
+  /// Small trailing/inline note, e.g. "current".
+  static const inlineNote = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+  );
+
+  /// Mono list value, e.g. a version tag in the versions list.
+  static const monoRow = TextStyle(
+    fontSize: 12.5,
+    fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    color: AppColors.textTertiary,
+  );
+
+  /// [monoRow] for the active entry.
+  static const monoRowActive = TextStyle(
+    fontSize: 12.5,
+    fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    color: AppColors.textPrimary,
+  );
+
+  /// Mono body copy, e.g. changelog commit lines.
+  static const monoBody = TextStyle(
+    fontSize: 11.5,
+    fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    height: 1.7,
+    color: AppColors.textSecondary,
+  );
+
+  /// Text typed into a compact input.
+  static const input = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textTertiary,
+  );
+
   /// Right-aligned version numbers.
   static const monoValue = TextStyle(
     fontSize: 11.5,

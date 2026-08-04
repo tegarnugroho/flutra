@@ -5,11 +5,12 @@ import '../../application/dashboard/dashboard_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
+import '../common/grouped_list.dart';
+import '../common/outlined_action_button.dart';
+import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import 'widgets/grouped_list.dart';
 import 'widgets/paths_list.dart';
-import 'widgets/status_dot.dart';
 import 'widgets/toolchain_list.dart';
 
 /// The dashboard screen: an at-a-glance health view of the toolchain.
@@ -43,8 +44,10 @@ class _DashboardView extends StatelessWidget {
                   children: [
                     const Text('Dashboard', style: AppTextStyles.pageTitle),
                     const Spacer(),
-                    _RefreshButton(
-                      isRefreshing: state.isLoading,
+                    OutlinedActionButton(
+                      icon: FluentIcons.refresh,
+                      label: 'Refresh',
+                      busy: state.isLoading,
                       onPressed: () => context.read<DashboardCubit>().refresh(),
                     ),
                   ],
@@ -172,88 +175,6 @@ class _StatusLine extends StatelessWidget {
 
   static String _names(List<ToolStatus> tools) =>
       tools.map((t) => t.displayName).join(', ');
-}
-
-/// Outlined refresh button. The icon spins while a detection run is in flight;
-/// the button keeps its enabled look so the header doesn't flicker.
-class _RefreshButton extends StatefulWidget {
-  const _RefreshButton({required this.isRefreshing, required this.onPressed});
-
-  final bool isRefreshing;
-  final VoidCallback onPressed;
-
-  @override
-  State<_RefreshButton> createState() => _RefreshButtonState();
-}
-
-class _RefreshButtonState extends State<_RefreshButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spin = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  );
-  bool _hovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isRefreshing) _spin.repeat();
-  }
-
-  @override
-  void didUpdateWidget(covariant _RefreshButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isRefreshing && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!widget.isRefreshing && _spin.isAnimating) {
-      _spin
-        ..stop()
-        ..value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _spin.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.isRefreshing ? null : widget.onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: _hovered ? palette.surfaceRaised : Colors.transparent,
-            border:
-                Border.all(color: palette.borderStrong, width: AppShape.hairline),
-            borderRadius: BorderRadius.circular(AppShape.radiusControl),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RotationTransition(
-                turns: _spin,
-                child: Icon(
-                  FluentIcons.refresh,
-                  size: 13,
-                  color: palette.textTertiary,
-                ),
-              ),
-              const SizedBox(width: 7),
-              const Text('Refresh', style: AppTextStyles.buttonLabel),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ErrorView extends StatelessWidget {

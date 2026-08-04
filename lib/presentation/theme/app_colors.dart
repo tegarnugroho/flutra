@@ -52,6 +52,15 @@ class AppColors {
 
   /// Missing required tool, failure.
   static const statusError = Color(0xFFF85149);
+
+  // ---- Accent --------------------------------------------------------------
+
+  /// The one accent in the app. Reserved for the selected channel chip on the
+  /// Flutter SDK screen — do not spend it anywhere else.
+  static const accent = Color(0xFF4B7BEC);
+
+  /// Barely-there tint behind an accent-selected control.
+  static const accentBgTint = Color(0xFF22262E);
 }
 
 /// Shared geometry so radii and hairlines stay consistent.
@@ -92,6 +101,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.statusOk,
     required this.statusWarn,
     required this.statusError,
+    required this.accent,
+    required this.accentBgTint,
   });
 
   final Color windowBg;
@@ -106,6 +117,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color statusOk;
   final Color statusWarn;
   final Color statusError;
+  final Color accent;
+  final Color accentBgTint;
 
   static const dark = AppPalette(
     windowBg: AppColors.windowBg,
@@ -120,6 +133,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusOk: AppColors.statusOk,
     statusWarn: AppColors.statusWarn,
     statusError: AppColors.statusError,
+    accent: AppColors.accent,
+    accentBgTint: AppColors.accentBgTint,
   );
 
   /// TODO(design): no light palette has been designed for the neutral theme.
@@ -146,6 +161,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? statusOk,
     Color? statusWarn,
     Color? statusError,
+    Color? accent,
+    Color? accentBgTint,
   }) {
     return AppPalette(
       windowBg: windowBg ?? this.windowBg,
@@ -160,6 +177,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusOk: statusOk ?? this.statusOk,
       statusWarn: statusWarn ?? this.statusWarn,
       statusError: statusError ?? this.statusError,
+      accent: accent ?? this.accent,
+      accentBgTint: accentBgTint ?? this.accentBgTint,
     );
   }
 
@@ -180,6 +199,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusOk: c(statusOk, other.statusOk),
       statusWarn: c(statusWarn, other.statusWarn),
       statusError: c(statusError, other.statusError),
+      accent: c(accent, other.accent),
+      accentBgTint: c(accentBgTint, other.accentBgTint),
     );
   }
 }

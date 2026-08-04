@@ -1,10 +1,10 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/services.dart';
 
 import '../../../domain/entities/environment_snapshot.dart';
+import '../../common/copy_icon_button.dart';
+import '../../common/grouped_list.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
-import 'grouped_list.dart';
 
 /// Resolved filesystem locations. Versions live in the toolchain list, so this
 /// group only carries paths.
@@ -61,61 +61,8 @@ class PathRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (hasPath) _CopyButton(value: path!, label: label),
+          if (hasPath) CopyIconButton(value: path!, label: '$label path'),
         ],
-      ),
-    );
-  }
-}
-
-/// Copies a path to the clipboard and confirms via the app's usual info bar.
-class _CopyButton extends StatefulWidget {
-  const _CopyButton({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  State<_CopyButton> createState() => _CopyButtonState();
-}
-
-class _CopyButtonState extends State<_CopyButton> {
-  bool _hovered = false;
-
-  Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.value));
-    if (!mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: Text('${widget.label} path copied'),
-        content: Text(widget.value),
-        severity: InfoBarSeverity.info,
-        isLong: true,
-        onClose: close,
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Tooltip(
-      message: 'Copy path',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: _copy,
-          child: Padding(
-            padding: const EdgeInsets.all(2),
-            child: Icon(
-              FluentIcons.copy,
-              size: 13,
-              color: _hovered ? palette.textPrimary : palette.textMuted,
-            ),
-          ),
-        ),
       ),
     );
   }

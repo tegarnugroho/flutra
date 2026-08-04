@@ -2,10 +2,19 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/environment_snapshot.dart';
 import '../../../domain/entities/tool_status.dart';
+import '../../common/grouped_list.dart';
+import '../../common/status_dot.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
-import 'grouped_list.dart';
-import 'status_dot.dart';
+
+/// Maps a detected [ToolState] onto a semantic status token.
+Color statusColorOf(ToolState state, AppPalette palette) => switch (state) {
+      ToolState.installed => palette.statusOk,
+      ToolState.needsUpdate => palette.statusWarn,
+      ToolState.missing => palette.statusError,
+      ToolState.error => palette.statusError,
+      ToolState.checking => palette.textMuted,
+    };
 
 /// The toolchain as a single dense row list: icon, name, inline detail,
 /// right-aligned version and a status dot.
