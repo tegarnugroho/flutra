@@ -867,7 +867,7 @@ class _ChannelPill extends StatelessWidget {
       ),
       child: Text(channel,
           style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+              fontSize: 12, color: color, fontWeight: FontWeight.w500)),
     );
   }
 }

@@ -255,7 +255,7 @@ class _HealthRing extends StatelessWidget {
                     '${(value * 100).round()}%',
                     style: theme.typography.titleLarge?.copyWith(
                       color: color,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text('healthy',

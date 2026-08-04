@@ -15,9 +15,9 @@ import '../theme/app_text_styles.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
 ///
-/// The groups are always expanded, so they are plain [PaneItemHeader]s rather
-/// than expanders — no chevrons, just a muted section label. Item colours and
-/// text styles come from the navigation pane theme in `AppTheme`.
+/// The groups are always expanded, so they are plain section labels rather than
+/// expanders — no chevrons. Item colours and text styles come from the
+/// navigation pane theme in `AppTheme`.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -39,6 +39,21 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// A group label ("Android", "Flutter").
+  ///
+  /// [PaneItemHeader] is not an option: fluent_ui 4.16 renders it as an empty
+  /// [SizedBox] in the open pane, so the label is drawn through a widget
+  /// adapter instead.
+  static PaneItemWidgetAdapter _sectionLabel(String text) {
+    return PaneItemWidgetAdapter(
+      applyPadding: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
+        child: Text(text, style: AppTextStyles.sectionLabel),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return NavigationView(
@@ -57,7 +72,7 @@ class _AppShellState extends State<AppShell> {
         indicator: null,
         items: [
           _item(FluentIcons.view_dashboard, 'Dashboard', const DashboardPage()),
-          PaneItemHeader(header: const Text('Android')),
+          _sectionLabel('Android'),
           _item(FluentIcons.packages, 'SDK manager', const SdkManagerPage()),
           _item(FluentIcons.cell_phone, 'Virtual devices',
               const EmulatorManagerPage()),
@@ -66,7 +81,7 @@ class _AppShellState extends State<AppShell> {
           _item(FluentIcons.text_document, 'Logcat',
               const LogcatViewerPage()),
           _item(FluentIcons.sync, 'Updates', const UpdatesPage()),
-          PaneItemHeader(header: const Text('Flutter')),
+          _sectionLabel('Flutter'),
           _item(FluentIcons.developer_tools, 'Flutter SDK',
               const FlutterSdkPage()),
           _item(FluentIcons.health, 'Flutter doctor',
