@@ -22,7 +22,8 @@
       "Bash(/tmp/shot.sh 1 sdkmgr3 26)",
       "Bash(/tmp/shot.sh 3 lic2 12)",
       "Bash(/tmp/shot.sh 4 logcat2 18)",
-      "Bash(/tmp/shot.sh 4 logcat3 20)"
+      "Bash(/tmp/shot.sh 4 logcat3 20)",
+      "Bash(powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2\")"
     ]
   }
 }

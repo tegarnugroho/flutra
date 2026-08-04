@@ -1,5 +1,3 @@
-import 'dart:io'; // TEMP-SCREENSHOT
-
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../dashboard/dashboard_page.dart';
@@ -28,8 +26,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  // TEMP-SCREENSHOT: lets the verification pass open a page without clicking.
-  int _index = int.tryParse(Platform.environment['SDKMGR_PAGE'] ?? '') ?? 0;
+  int _index = 0;
 
   /// A nav destination: 15px icon, 12px sentence-case label, raised tile when
   /// active.
