@@ -14,6 +14,7 @@ class AppSettings extends Equatable {
     this.windowY,
     this.windowWidth,
     this.windowHeight,
+    this.apiBaseUrl,
   });
 
   final ThemeMode themeMode;
@@ -37,6 +38,9 @@ class AppSettings extends Equatable {
   final double? windowY;
   final double? windowWidth;
   final double? windowHeight;
+
+  /// Base URL for the settings API (e.g. addresses), without trailing slash.
+  final String? apiBaseUrl;
 
   bool get hasWindowBounds =>
       windowX != null &&
@@ -63,6 +67,7 @@ class AppSettings extends Equatable {
       windowY: (json['windowY'] as num?)?.toDouble(),
       windowWidth: (json['windowWidth'] as num?)?.toDouble(),
       windowHeight: (json['windowHeight'] as num?)?.toDouble(),
+      apiBaseUrl: _str(json['apiBaseUrl']),
     );
   }
 
@@ -81,6 +86,7 @@ class AppSettings extends Equatable {
         'windowY': windowY,
         'windowWidth': windowWidth,
         'windowHeight': windowHeight,
+        'apiBaseUrl': apiBaseUrl,
       };
 
   AppSettings copyWith({
@@ -96,6 +102,8 @@ class AppSettings extends Equatable {
     double? windowY,
     double? windowWidth,
     double? windowHeight,
+    String? apiBaseUrl,
+    bool clearApiBaseUrl = false,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -112,6 +120,7 @@ class AppSettings extends Equatable {
       windowY: windowY ?? this.windowY,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
+      apiBaseUrl: clearApiBaseUrl ? null : (apiBaseUrl ?? this.apiBaseUrl),
     );
   }
 
@@ -127,5 +136,6 @@ class AppSettings extends Equatable {
         windowY,
         windowWidth,
         windowHeight,
+        apiBaseUrl,
       ];
 }

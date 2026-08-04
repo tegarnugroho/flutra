@@ -9,6 +9,8 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:android_sdk_manager/application/address/address_cubit.dart'
+    as _i510;
 import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart'
     as _i75;
 import 'package:android_sdk_manager/application/device/device_manager_cubit.dart'
@@ -30,6 +32,8 @@ import 'package:android_sdk_manager/application/settings/settings_cubit.dart'
 import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
     as _i245;
 import 'package:android_sdk_manager/core/command/command_runner.dart' as _i144;
+import 'package:android_sdk_manager/domain/repositories/address_repository.dart'
+    as _i1013;
 import 'package:android_sdk_manager/domain/repositories/device_repository.dart'
     as _i720;
 import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart'
@@ -42,6 +46,8 @@ import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
 import 'package:android_sdk_manager/infrastructure/logging/dev_log_service.dart'
     as _i848;
+import 'package:android_sdk_manager/infrastructure/repositories/address_repository_impl.dart'
+    as _i886;
 import 'package:android_sdk_manager/infrastructure/repositories/device_repository_impl.dart'
     as _i775;
 import 'package:android_sdk_manager/infrastructure/repositories/emulator_repository_impl.dart'
@@ -121,6 +127,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i839.SdkLocator>(),
       ),
     );
+    gh.lazySingleton<_i1013.AddressRepository>(
+      () => _i886.AddressRepositoryImpl(gh<_i517.SettingsService>()),
+    );
     gh.factory<_i915.FlutterDoctorCubit>(
       () => _i915.FlutterDoctorCubit(gh<_i606.FlutterRepository>()),
     );
@@ -138,6 +147,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i740.SdkManagerCubit>(
       () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
+    );
+    gh.factory<_i510.AddressCubit>(
+      () => _i510.AddressCubit(gh<_i1013.AddressRepository>()),
     );
     gh.factory<_i622.CreateEmulatorCubit>(
       () => _i622.CreateEmulatorCubit(gh<_i277.EmulatorRepository>()),

@@ -75,6 +75,14 @@ class SettingsCubit extends Cubit<AppSettings> {
   Future<void> setDeveloperMode(bool value) =>
       _persist(state.copyWith(developerMode: value));
 
+  Future<void> setApiBaseUrl(String url) {
+    final trimmed = url.trim().replaceAll(RegExp(r'/+$'), '');
+    return _persist(state.copyWith(
+      apiBaseUrl: trimmed.isEmpty ? null : trimmed,
+      clearApiBaseUrl: trimmed.isEmpty,
+    ));
+  }
+
   void _apply(AppSettings s) {
     _theme.setMode(s.themeMode);
     _locator.overrideSdkRoot = s.androidSdkPath;

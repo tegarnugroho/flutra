@@ -5,10 +5,12 @@ import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
+import '../../application/address/address_cubit.dart';
 import '../../application/settings/app_settings.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
+import '../../domain/entities/address.dart';
 import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
 import '../emulator/widgets/avd_dialogs.dart';
@@ -89,6 +91,26 @@ class _SettingsView extends StatelessWidget {
                     placeholder: r'e.g. C:\Dev\SDK\flutter',
                     path: settings.flutterSdkPath,
                     onApply: cubit.setFlutterSdkPath,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _Section(
+                  title: 'API',
+                  child: _PathSetting(
+                    label: 'API base URL',
+                    description: 'Base URL for the settings API '
+                        '(addresses are fetched from '
+                        '"<base>/api/settings/addresses").',
+                    placeholder: 'e.g. https://api.example.com',
+                    path: settings.apiBaseUrl,
+                    onApply: cubit.setApiBaseUrl,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _Section(
+                  title: 'Addresses',
+                  child: _AddressesSection(
+                    hasBaseUrl: settings.apiBaseUrl != null,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -206,6 +228,137 @@ Future<void> _stopProcesses(BuildContext context) async {
       onClose: close,
     );
   });
+}
+
+/// Fetches and lists addresses from the settings API.
+class _AddressesSection extends StatelessWidget {
+  const _AddressesSection({required this.hasBaseUrl});
+
+  final bool hasBaseUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<AddressCubit>(),
+      child: Builder(
+        builder: (context) {
+          final cubit = context.read<AddressCubit>();
+          final theme = FluentTheme.of(context);
+          return BlocBuilder<AddressCubit, AddressState>(
+            builder: (context, state) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(FluentIcons.location, size: 18,
+                          color: theme.accentColor),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text('Saved addresses',
+                            style: theme.typography.bodyStrong),
+                      ),
+                      Button(
+                        onPressed: !hasBaseUrl || state.isLoading
+                            ? null
+                            : cubit.load,
+                        child: state.isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: ProgressRing(strokeWidth: 2))
+                            : const Text('Load'),
+                      ),
+                    ],
+                  ),
+                  if (!hasBaseUrl)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text('Set the API base URL above first.',
+                          style: theme.typography.caption?.copyWith(
+                            color: theme.resources.textFillColorTertiary,
+                          )),
+                    )
+                  else if (state.status == AddressStatus.failure)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: InfoBar(
+                        title: const Text('Could not load addresses'),
+                        content: Text(state.errorMessage ?? 'Unknown error.'),
+                        severity: InfoBarSeverity.error,
+                        isLong: true,
+                      ),
+                    )
+                  else if (state.addresses.isEmpty &&
+                      state.status == AddressStatus.ready)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text('No addresses.',
+                          style: theme.typography.caption),
+                    )
+                  else
+                    for (final a in state.addresses)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _AddressTile(address: a),
+                      ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AddressTile extends StatelessWidget {
+  const _AddressTile({required this.address});
+
+  final Address address;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FluentTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.resources.subtleFillColorSecondary,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(address.label, style: theme.typography.bodyStrong),
+              const SizedBox(width: 8),
+              _pill(theme, address.type, const Color(0xFF54C5F8)),
+              if (address.isDefault) ...[
+                const SizedBox(width: 6),
+                _pill(theme, 'Default', const Color(0xFF3DDC84)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(address.formatted,
+              style: theme.typography.caption?.copyWith(
+                color: theme.resources.textFillColorSecondary,
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(FluentThemeData theme, String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(text,
+            style: TextStyle(fontSize: 11, color: color)),
+      );
 }
 
 /// Opens the Developer Logs as a separate OS window.
