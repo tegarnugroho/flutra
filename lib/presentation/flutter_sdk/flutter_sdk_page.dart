@@ -11,6 +11,39 @@ import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
 import '../emulator/widgets/avd_dialogs.dart';
 
+/// Checks the SDK checkout before a git-backed command (upgrade, channel or
+/// version switch), which Flutter refuses to run while the tree is dirty.
+///
+/// Returns `false` when the checkout is clean, `true` when the user agreed to
+/// stash the local changes, and `null` when they cancelled.
+Future<bool?> _resolveLocalChanges(BuildContext context) async {
+  final cubit = context.read<FlutterSdkCubit>();
+  var changes = const <String>[];
+  await showBusyDialog(
+    context,
+    title: 'Checking the SDK checkout',
+    message: 'Looking for local changes that would block the command.',
+    task: () async => changes = await cubit.localChanges(),
+  );
+  if (changes.isEmpty) return false;
+  if (!context.mounted) return null;
+
+  const maxShown = 8;
+  final preview = changes.take(maxShown).join('\n');
+  final extra = changes.length - maxShown;
+  final ok = await showConfirmDialog(
+    context,
+    title: 'The Flutter SDK has local changes',
+    message: 'Flutter will not upgrade or switch while its checkout is dirty:'
+        '\n\n$preview${extra > 0 ? '\n… and $extra more' : ''}\n\n'
+        'Stash them and continue? They stay recoverable by running '
+        '"git stash pop" in the SDK folder.',
+    confirmLabel: 'Stash & continue',
+    destructive: false,
+  );
+  return ok ? true : null;
+}
+
 /// Flutter SDK management: view the active SDK, switch channels and versions.
 class FlutterSdkPage extends StatelessWidget {
   const FlutterSdkPage({super.key});
@@ -42,8 +75,10 @@ class _FlutterSdkView extends StatelessWidget {
                 label: const Text('Upgrade'),
                 onPressed: state.info == null
                     ? null
-                    : () => _run(context, 'Upgrading Flutter (${state.info!.channel})',
-                        () => cubit.upgrade()),
+                    : () => _run(
+                        context,
+                        'Upgrading Flutter (${state.info!.channel})',
+                        (stash) => cubit.upgrade(stashLocalChanges: stash)),
               ),
               CommandBarButton(
                 icon: state.isLoading
@@ -121,7 +156,7 @@ class _FlutterSdkView extends StatelessWidget {
                       onPressed: () => _run(
                         context,
                         'Resetting to stable channel',
-                        () => cubit.resetToStable(),
+                        (stash) => cubit.resetToStable(stashLocalChanges: stash),
                       ),
                       child: const Text('Reset to stable'),
                     ),
@@ -171,13 +206,19 @@ class _FlutterSdkView extends StatelessWidget {
   }
 
   /// Runs a streaming SDK command and reloads on success.
+  /// Runs a git-backed SDK command, first clearing any local changes in the
+  /// checkout that would make it fail. [start] receives whether those changes
+  /// were stashed.
   static Future<void> _run(
     BuildContext context,
     String title,
-    Future<RunningCommand> Function() start,
+    Future<RunningCommand> Function(bool stashLocalChanges) start,
   ) async {
     final cubit = context.read<FlutterSdkCubit>();
-    final ok = await showCommandProgressDialog(context, title: title, start: start);
+    final stash = await _resolveLocalChanges(context);
+    if (stash == null || !context.mounted) return;
+    final ok = await showCommandProgressDialog(context,
+        title: title, start: () => start(stash));
     if (ok) cubit.load();
   }
 
@@ -427,10 +468,12 @@ class _ChannelSection extends StatelessWidget {
       destructive: false,
     );
     if (!ok || !context.mounted) return;
+    final stash = await _resolveLocalChanges(context);
+    if (stash == null || !context.mounted) return;
     final done = await showCommandProgressDialog(
       context,
       title: 'Switching to $channel',
-      start: () => cubit.switchChannel(channel),
+      start: () => cubit.switchChannel(channel, stashLocalChanges: stash),
     );
     if (done) cubit.load();
   }
@@ -633,10 +676,12 @@ class _VersionsSectionState extends State<_VersionsSection> {
       destructive: false,
     );
     if (!ok || !context.mounted) return;
+    final stash = await _resolveLocalChanges(context);
+    if (stash == null || !context.mounted) return;
     final done = await showCommandProgressDialog(
       context,
       title: 'Switching to Flutter $version',
-      start: () => cubit.switchVersion(version),
+      start: () => cubit.switchVersion(version, stashLocalChanges: stash),
     );
     if (done) cubit.load();
   }

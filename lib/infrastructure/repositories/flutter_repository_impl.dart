@@ -221,19 +221,75 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
-  Future<RunningCommand> switchChannel(String channel) =>
-      _runner.start(_flutter, ['channel', channel]);
+  Future<RunningCommand> switchChannel(String channel,
+      {bool stashLocalChanges = false}) async {
+    if (stashLocalChanges) await _stashCurrentSdk();
+    return _runner.start(_flutter, ['channel', channel]);
+  }
 
   @override
-  Future<RunningCommand> upgrade() =>
-      _runner.start(_flutter, ['upgrade']);
+  Future<List<String>> localChanges() async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) return const [];
+    final result = await _runner.run(
+      'git',
+      ['-C', root, 'status', '--porcelain'],
+      timeout: const Duration(seconds: 60),
+    );
+    if (!result.isSuccess) return const [];
+    return const LineSplitter()
+        .convert(result.stdout)
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+  }
+
+  /// Moves every uncommitted change in the SDK checkout into a git stash so
+  /// `flutter upgrade` (which refuses to run on a dirty tree) can proceed. The
+  /// changes stay recoverable via `git stash pop`.
+  Future<void> _stashLocalChanges(String root) async {
+    final result = await _runner.run(
+      'git',
+      [
+        '-C', root, 'stash', 'push', '--include-untracked',
+        '-m', 'flutter-sdk-manager: local changes before upgrade',
+      ],
+      timeout: const Duration(minutes: 2),
+    );
+    if (!result.isSuccess) {
+      throw ProcessFailure(
+        'Failed to stash local changes in the Flutter SDK.',
+        exitCode: result.exitCode,
+        output: result.combinedOutput,
+        suggestion: 'Clean the SDK checkout manually with "git -C $root '
+            'checkout -- .", then upgrade again.',
+      );
+    }
+  }
+
+  /// Stashes the active SDK's local changes, resolving its root first. No-op
+  /// when the SDK is not a git checkout.
+  Future<void> _stashCurrentSdk() async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root != null && info.isGitRepo) await _stashLocalChanges(root);
+  }
 
   @override
-  Future<RunningCommand> resetToStable() async {
+  Future<RunningCommand> upgrade({bool stashLocalChanges = false}) async {
+    if (stashLocalChanges) await _stashCurrentSdk();
+    return _runner.start(_flutter, ['upgrade']);
+  }
+
+  @override
+  Future<RunningCommand> resetToStable({bool stashLocalChanges = false}) async {
     final info = await getSdkInfo();
     final root = info.sdkPath;
 
     if (root != null && info.isGitRepo) {
+      // A dirty tree blocks both the checkout below and the closing upgrade.
+      if (stashLocalChanges) await _stashLocalChanges(root);
       // Do it via git so it works even from a detached/"unknown" state that the
       // `flutter channel` command refuses to fix:
       //  1) point origin at the official repo,
@@ -300,7 +356,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
-  Future<RunningCommand> switchVersion(String version) async {
+  Future<RunningCommand> switchVersion(String version,
+      {bool stashLocalChanges = false}) async {
     final info = await getSdkInfo();
     final root = info.sdkPath;
     if (root == null || !info.isGitRepo) {
@@ -309,6 +366,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
         'switched. Use channels or reinstall Flutter via git.',
       );
     }
+    // Uncommitted SDK changes make the checkout below fail; park them first.
+    if (stashLocalChanges) await _stashLocalChanges(root);
     // If the requested version's commit is the tip of a local channel branch,
     // check out the BRANCH instead of the tag. Same version, but it stays on an
     // official channel (no "[user-branch]"/"unknown source" doctor warnings).

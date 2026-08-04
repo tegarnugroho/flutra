@@ -19,21 +19,34 @@ abstract class FlutterRepository {
   Future<List<String>> listVersions(String channel);
 
   /// Switches the SDK to [channel] (e.g. "stable"). Streaming handle.
-  Future<RunningCommand> switchChannel(String channel);
+  /// See [upgrade] for [stashLocalChanges].
+  Future<RunningCommand> switchChannel(String channel,
+      {bool stashLocalChanges = false});
+
+  /// Lists uncommitted changes in the SDK checkout as `git status --porcelain`
+  /// lines (e.g. `M pubspec.lock`). `flutter upgrade` refuses to run while any
+  /// exist. Empty when the SDK is clean or is not a git repo.
+  Future<List<String>> localChanges();
 
   /// Upgrades the current channel to its latest build. Streaming handle.
-  Future<RunningCommand> upgrade();
+  ///
+  /// With [stashLocalChanges], uncommitted SDK changes are moved to a git stash
+  /// first (recoverable with `git stash pop`) so the upgrade is not blocked.
+  Future<RunningCommand> upgrade({bool stashLocalChanges = false});
 
   /// Returns the SDK to the official `stable` channel and upgrades it. Useful
   /// after a version checkout left the SDK on an "unknown"/user branch.
-  Future<RunningCommand> resetToStable();
+  /// See [upgrade] for [stashLocalChanges].
+  Future<RunningCommand> resetToStable({bool stashLocalChanges = false});
 
   /// Points the SDK's `origin` remote at the official Flutter repository,
   /// clearing the "not a standard remote" doctor warning.
   Future<void> fixUpstreamRemote();
 
   /// Checks out release [version] (a git tag) and rebuilds the tool. Streaming.
-  Future<RunningCommand> switchVersion(String version);
+  /// See [upgrade] for [stashLocalChanges].
+  Future<RunningCommand> switchVersion(String version,
+      {bool stashLocalChanges = false});
 
   /// Returns the commit subjects introduced in [version] relative to
   /// [previousVersion] (a de-facto changelog from the SDK git history). When

@@ -121,15 +121,31 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
     }
   }
 
-  Future<RunningCommand> switchChannel(String channel) =>
-      _repository.switchChannel(channel);
+  Future<RunningCommand> switchChannel(String channel,
+          {bool stashLocalChanges = false}) =>
+      _repository.switchChannel(channel,
+          stashLocalChanges: stashLocalChanges);
 
-  Future<RunningCommand> upgrade() => _repository.upgrade();
+  /// Uncommitted changes in the SDK checkout, as `git status --porcelain`
+  /// lines. Non-empty means `flutter upgrade`/version switches would fail.
+  Future<List<String>> localChanges() async {
+    try {
+      return await _repository.localChanges();
+    } on Failure {
+      return const [];
+    }
+  }
 
-  Future<RunningCommand> resetToStable() => _repository.resetToStable();
+  Future<RunningCommand> upgrade({bool stashLocalChanges = false}) =>
+      _repository.upgrade(stashLocalChanges: stashLocalChanges);
 
-  Future<RunningCommand> switchVersion(String version) =>
-      _repository.switchVersion(version);
+  Future<RunningCommand> resetToStable({bool stashLocalChanges = false}) =>
+      _repository.resetToStable(stashLocalChanges: stashLocalChanges);
+
+  Future<RunningCommand> switchVersion(String version,
+          {bool stashLocalChanges = false}) =>
+      _repository.switchVersion(version,
+          stashLocalChanges: stashLocalChanges);
 
   Future<List<String>> changelog(String version, String? previousVersion) =>
       _repository.changelog(version, previousVersion);
