@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../../application/flutter_sdk/flutter_sdk_cubit.dart';
 import '../../core/command/command_runner.dart';
 import '../../core/di/injection.dart';
+import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../common/busy_dialog.dart';
@@ -125,6 +126,10 @@ class _FlutterSdkView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (state.updateAvailable) ...[
+                  _UpdateLine(state: state),
+                  const SizedBox(height: 12),
+                ],
                 _CurrentSdkCard(
                   info: info,
                   onAddToPath: info.sdkPath == null
@@ -334,7 +339,8 @@ class _HeaderActionsState extends State<_HeaderActions> {
           icon: FluentIcons.refresh,
           label: 'Refresh',
           busy: state.isLoading,
-          onPressed: cubit.load,
+          // Refresh always re-downloads the release index.
+          onPressed: () => cubit.load(forceRefresh: true),
         ),
         const SizedBox(width: 8),
         FlyoutTarget(
@@ -346,6 +352,27 @@ class _HeaderActionsState extends State<_HeaderActions> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "You are behind the channel tip", driven by the release index's
+/// `current_release` hash rather than a version-string comparison.
+class _UpdateLine extends StatelessWidget {
+  const _UpdateLine({required this.state});
+
+  final FlutterSdkState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final latest = state.latestRelease;
+    return StatusLine(
+      color: palette.statusWarn,
+      message: latest == null
+          ? 'An update is available on this channel'
+          : 'Flutter ${latest.displayVersion} is available on '
+              '${state.info?.channel ?? latest.channel} — use Upgrade',
     );
   }
 }
@@ -598,6 +625,10 @@ class _VersionsSection extends StatefulWidget {
 
 class _VersionsSectionState extends State<_VersionsSection> {
   String _query = '';
+  bool _showLegacy = false;
+
+  /// Rows rendered at once; the list is inside the page's scroll view.
+  static const _maxShown = 80;
 
   @override
   Widget build(BuildContext context) {
@@ -615,22 +646,42 @@ class _VersionsSectionState extends State<_VersionsSection> {
     }
 
     final channel = state.browsingChannel ?? '';
-    final versions = _query.isEmpty
-        ? state.versions
-        : state.versions
-            .where((v) => v.contains(_query.trim()))
+    // master is a rolling branch: the release index publishes no versioned
+    // entries for it, so there is nothing to list.
+    if (channel == 'master') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          SectionLabel('Versions'),
+          SizedBox(height: 6),
+          Text(
+            'master is a rolling branch with no versioned releases. Switch to '
+            'it above, then use Upgrade to move to its tip.',
+            style: AppTextStyles.caption,
+          ),
+        ],
+      );
+    }
+    final query = _query.trim();
+    final matching = query.isEmpty
+        ? state.releases
+        : state.releases
+            .where((r) => r.displayVersion.contains(query))
             .toList();
-    final current = state.info?.version;
-
-    // Bounded so the outer scroll view stays usable.
-    final shown = versions.take(80).toList();
+    // Pre-3.0 releases are kept but folded away — cheap to keep, and someone
+    // still needs 2.x now and then.
+    final legacy = matching.where((r) => r.isLegacy).toList();
+    final current = _showLegacy
+        ? matching
+        : matching.where((r) => !r.isLegacy).toList();
+    final shown = current.take(_maxShown).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            SectionLabel('Versions · ${state.versions.length} available'),
+            SectionLabel('Versions', meta: '${current.length} available'),
             const SizedBox(width: 10),
             if (state.versionsLoading)
               const SizedBox(
@@ -644,57 +695,89 @@ class _VersionsSectionState extends State<_VersionsSection> {
           ],
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Checks out a release tag in the SDK git repo. Commit or stash any '
-          'local SDK changes first.',
-          style: AppTextStyles.caption,
-        ),
+        Text(_sourceCaption(state), style: AppTextStyles.caption),
+        if (state.isUnlistedCommit) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Local SDK is on an unlisted commit ${state.shortHeadHash} — no '
+            'row is marked current.',
+            style: AppTextStyles.caption,
+          ),
+        ],
         const SizedBox(height: 10),
-        if (versions.isEmpty && !state.versionsLoading)
+        if (shown.isEmpty && !state.versionsLoading)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              _query.isNotEmpty
-                  ? 'No versions match "$_query".'
-                  : 'No version tags found for the "$channel" channel. '
-                      'Run "git fetch --tags" in the SDK folder to pull them.',
+              query.isNotEmpty
+                  ? 'No versions match "$query".'
+                  : 'No releases found for the "$channel" channel.',
               style: AppTextStyles.caption,
             ),
           )
         else
           GroupedList(
             children: [
-              for (final v in shown)
+              for (var i = 0; i < shown.length; i++)
                 _VersionTile(
-                  version: v,
-                  isCurrent: v == current,
-                  onSwitch: () => _switch(context, v),
-                  loadChangelog: () => context
+                  release: shown[i],
+                  isCurrent: _isCurrent(state, shown[i]),
+                  onSwitch: () => _switch(context, shown[i].gitTag),
+                  loadChangelog: () => context.read<FlutterSdkCubit>().changelog(
+                        shown[i].gitTag,
+                        _previousOf(i, shown),
+                      ),
+                  onOpenGitHub: () => context
                       .read<FlutterSdkCubit>()
-                      .changelog(v, _previousOf(v, state.versions)),
-                  onOpenGitHub: () =>
-                      context.read<FlutterSdkCubit>().openReleasePage(v),
+                      .openReleasePage(shown[i].gitTag),
                 ),
             ],
           ),
-        if (versions.length > shown.length)
+        if (current.length > shown.length)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Showing first ${shown.length} of ${versions.length}. Filter to '
+              'Showing first ${shown.length} of ${current.length}. Filter to '
               'narrow down.',
               style: AppTextStyles.caption,
+            ),
+          ),
+        if (!_showLegacy && legacy.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: OutlinedActionButton(
+              icon: FluentIcons.chevron_down,
+              label: 'Show older versions (${legacy.length})',
+              dense: true,
+              onPressed: () => setState(() => _showLegacy = true),
             ),
           ),
       ],
     );
   }
 
-  /// The next-older version in the sorted list, used as the changelog baseline.
-  String? _previousOf(String version, List<String> all) {
-    final i = all.indexOf(version);
-    return (i >= 0 && i + 1 < all.length) ? all[i + 1] : null;
+  /// The current row is decided by commit, not version string — a re-released
+  /// version shares its number with an older build.
+  static bool _isCurrent(FlutterSdkState state, FlutterRelease release) {
+    final head = state.headHash;
+    if (head == null || head.isEmpty || release.hash.isEmpty) return false;
+    return release.hash == head;
   }
+
+  static String _sourceCaption(FlutterSdkState state) => switch (
+      state.versionSource) {
+        VersionSource.releaseIndex =>
+          'Official Flutter releases. Switching checks out that release tag in '
+              'the SDK git repo — commit or stash local SDK changes first.',
+        VersionSource.staleCache =>
+          'Offline — showing the cached release list. Press Refresh to retry.',
+        VersionSource.gitTags =>
+          'Offline — showing release tags from the local git checkout.',
+      };
+
+  /// The next-older release in the list, used as the changelog baseline.
+  String? _previousOf(int index, List<FlutterRelease> all) =>
+      index + 1 < all.length ? all[index + 1].gitTag : null;
 
   Future<void> _switch(BuildContext context, String version) async {
     final cubit = context.read<FlutterSdkCubit>();
@@ -720,14 +803,14 @@ class _VersionsSectionState extends State<_VersionsSection> {
 
 class _VersionTile extends StatefulWidget {
   const _VersionTile({
-    required this.version,
+    required this.release,
     required this.isCurrent,
     required this.onSwitch,
     required this.loadChangelog,
     required this.onOpenGitHub,
   });
 
-  final String version;
+  final FlutterRelease release;
   final bool isCurrent;
   final VoidCallback onSwitch;
   final Future<List<String>> Function() loadChangelog;
@@ -767,7 +850,7 @@ class _VersionTileState extends State<_VersionTile> {
       titleWidget: Row(
         children: [
           Text(
-            widget.version,
+            widget.release.displayVersion,
             style: widget.isCurrent
                 ? AppTextStyles.monoRowActive
                 : AppTextStyles.monoRow,
@@ -775,6 +858,11 @@ class _VersionTileState extends State<_VersionTile> {
           if (widget.isCurrent) ...[
             const SizedBox(width: 8),
             const Text('current', style: AppTextStyles.inlineNote),
+          ],
+          if (widget.release.displayDartVersion != null) ...[
+            const SizedBox(width: 8),
+            Text('· Dart ${widget.release.displayDartVersion}',
+                style: AppTextStyles.rowSecondary),
           ],
         ],
       ),
@@ -794,6 +882,9 @@ class _VersionTileState extends State<_VersionTile> {
           ),
       ],
       trailing: [
+        if (widget.release.releaseDate != null)
+          Text(_formatDate(widget.release.releaseDate!),
+              style: AppTextStyles.caption),
         AnimatedRotation(
           turns: _expanded ? 0.5 : 0,
           duration: const Duration(milliseconds: 160),
@@ -813,6 +904,16 @@ class _VersionTileState extends State<_VersionTile> {
             : const SizedBox(width: double.infinity),
       ),
     );
+  }
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  static String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    return '${_months[local.month - 1]} ${local.day}, ${local.year}';
   }
 
   Widget _changelog(AppPalette palette) {

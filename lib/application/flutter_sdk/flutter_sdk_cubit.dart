@@ -4,8 +4,10 @@ import 'package:injectable/injectable.dart';
 
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
+import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../../infrastructure/flutter/flutter_releases_service.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../../infrastructure/trash/trash_service.dart';
 
@@ -15,13 +17,17 @@ part 'flutter_sdk_state.dart';
 /// channels/versions.
 @injectable
 class FlutterSdkCubit extends Cubit<FlutterSdkState> {
-  FlutterSdkCubit(this._repository, this._trash)
+  FlutterSdkCubit(this._repository, this._trash, this._releases)
       : super(const FlutterSdkState());
 
   final FlutterRepository _repository;
   final TrashService _trash;
+  final FlutterReleasesService _releases;
 
-  Future<void> load() async {
+  /// Cached across channel switches so browsing doesn't re-hit the network.
+  FlutterReleasesIndex? _index;
+
+  Future<void> load({bool forceRefresh = false}) async {
     if (isClosed) return;
     emit(state.copyWith(status: FlutterSdkStatus.loading, clearError: true));
     // Recently-uninstalled SDKs that can still be restored (24h window).
@@ -31,15 +37,22 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
       if (isClosed) return;
       // Default browsing to the active channel, or stable if it's unknown.
       final channel = info.isKnownChannel ? info.channel : 'stable';
-      final versions = await _versionsFor(channel);
+      final head = await _repository.sdkHeadHash();
+      final releases = await _releasesFor(channel, forceRefresh: forceRefresh);
       if (isClosed) return;
+      final index = _index;
       emit(state.copyWith(
         status: FlutterSdkStatus.ready,
         info: info,
-        versions: versions,
+        releases: releases,
         browsingChannel: channel,
         versionsLoading: false,
         restorable: restorable,
+        headHash: head,
+        installedRelease: head == null ? null : index?.byHash(head),
+        latestRelease: index?.latestFor(channel),
+        clearReleaseMatches: true,
+        versionSource: _source,
       ));
     } on ExecutableNotFoundFailure {
       // No Flutter on PATH — offer to install (or restore a recent one).
@@ -57,8 +70,15 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
   Future<RunningCommand> installSdk(String directory, String ref) =>
       _repository.installSdk(directory, ref);
 
-  Future<List<String>> listInstallableVersions(String channel) =>
-      _repository.listInstallableVersions(channel);
+  /// Versions installable from scratch (no local SDK yet), newest first.
+  Future<List<String>> listInstallableVersions(String channel) async {
+    try {
+      final index = await _releases.getReleases();
+      return index.forChannel(channel).map((r) => r.gitTag).toList();
+    } catch (_) {
+      return _repository.listInstallableVersions(channel);
+    }
+  }
 
   Future<void> addToPath(String sdkDir) => _repository.addSdkToPath(sdkDir);
 
@@ -108,16 +128,46 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
   Future<void> browseChannel(String channel) async {
     if (isClosed || channel == state.browsingChannel) return;
     emit(state.copyWith(browsingChannel: channel, versionsLoading: true));
-    final versions = await _versionsFor(channel);
+    final releases = await _releasesFor(channel);
     if (isClosed) return;
-    emit(state.copyWith(versions: versions, versionsLoading: false));
+    final head = state.headHash;
+    emit(state.copyWith(
+      releases: releases,
+      versionsLoading: false,
+      // The current marker follows the commit, so it only shows on the channel
+      // that actually publishes it.
+      installedRelease: head == null ? null : _index?.byHash(head),
+      clearReleaseMatches: true,
+      latestRelease: state.latestRelease,
+      versionSource: _source,
+    ));
   }
 
-  Future<List<String>> _versionsFor(String channel) async {
+  /// Where the last list came from, for the offline caption.
+  VersionSource _source = VersionSource.releaseIndex;
+
+  /// Releases for [channel] from the official index, falling back to local git
+  /// tags when the index is unreachable and nothing is cached.
+  Future<List<FlutterRelease>> _releasesFor(
+    String channel, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      return await _repository.listVersions(channel);
-    } on Failure {
-      return const [];
+      final index = await _releases.getReleases(forceRefresh: forceRefresh);
+      _index = index;
+      _source = _releases.servingStaleCache
+          ? VersionSource.staleCache
+          : VersionSource.releaseIndex;
+      return index.forChannel(channel);
+    } catch (_) {
+      _index = null;
+      _source = VersionSource.gitTags;
+      try {
+        final tags = await _repository.listVersions(channel);
+        return tags.map((t) => FlutterRelease.fromTag(t, channel)).toList();
+      } on Failure {
+        return const [];
+      }
     }
   }
 

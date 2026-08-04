@@ -44,6 +44,10 @@ import 'package:android_sdk_manager/domain/repositories/flutter_repository.dart'
     as _i606;
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart'
     as _i374;
+import 'package:android_sdk_manager/infrastructure/flutter/flutter_releases_service.dart'
+    as _i961;
+import 'package:android_sdk_manager/infrastructure/flutter/flutter_update_service.dart'
+    as _i147;
 import 'package:android_sdk_manager/infrastructure/logging/dev_log_service.dart'
     as _i848;
 import 'package:android_sdk_manager/infrastructure/repositories/address_repository_impl.dart'
@@ -86,6 +90,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i245.ThemeCubit>(() => _i245.ThemeCubit());
     gh.lazySingleton<_i144.CommandRunner>(() => _i144.CommandRunner());
+    gh.lazySingleton<_i961.FlutterReleasesService>(
+      () => _i961.FlutterReleasesService(),
+    );
     gh.lazySingleton<_i848.DevLogService>(() => _i848.DevLogService());
     gh.lazySingleton<_i1034.FlutterLocator>(() => _i1034.FlutterLocator());
     gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
@@ -121,12 +128,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i839.SdkLocator>(),
       ),
     );
-    gh.lazySingleton<_i595.EnvironmentRepository>(
-      () => _i465.EnvironmentRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-      ),
-    );
     gh.lazySingleton<_i1013.AddressRepository>(
       () => _i886.AddressRepositoryImpl(gh<_i517.SettingsService>()),
     );
@@ -151,16 +152,30 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i510.AddressCubit>(
       () => _i510.AddressCubit(gh<_i1013.AddressRepository>()),
     );
+    gh.factory<_i502.FlutterSdkCubit>(
+      () => _i502.FlutterSdkCubit(
+        gh<_i606.FlutterRepository>(),
+        gh<_i95.TrashService>(),
+        gh<_i961.FlutterReleasesService>(),
+      ),
+    );
+    gh.lazySingleton<_i147.FlutterUpdateService>(
+      () => _i147.FlutterUpdateService(
+        gh<_i961.FlutterReleasesService>(),
+        gh<_i606.FlutterRepository>(),
+      ),
+    );
     gh.factory<_i622.CreateEmulatorCubit>(
       () => _i622.CreateEmulatorCubit(gh<_i277.EmulatorRepository>()),
     );
     gh.factory<_i6.EmulatorListCubit>(
       () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
     );
-    gh.factory<_i502.FlutterSdkCubit>(
-      () => _i502.FlutterSdkCubit(
-        gh<_i606.FlutterRepository>(),
-        gh<_i95.TrashService>(),
+    gh.lazySingleton<_i595.EnvironmentRepository>(
+      () => _i465.EnvironmentRepositoryImpl(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+        gh<_i147.FlutterUpdateService>(),
       ),
     );
     gh.factory<_i75.DashboardCubit>(

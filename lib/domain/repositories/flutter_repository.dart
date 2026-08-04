@@ -14,9 +14,16 @@ abstract class FlutterRepository {
   /// Reads the active Flutter SDK version, channel and path.
   Future<FlutterSdkInfo> getSdkInfo();
 
-  /// Lists installable release versions for [channel] (git tags reachable from
-  /// that channel branch), newest first. Empty when the SDK is not a git repo.
+  /// Lists release versions for [channel] from the local git tags, newest
+  /// first. Empty when the SDK is not a git repo.
+  ///
+  /// This is the offline fallback for the official release index; see
+  /// [FlutterReleasesService].
   Future<List<String>> listVersions(String channel);
+
+  /// The commit the local SDK checkout is on (`git rev-parse HEAD`), or null
+  /// when there is no SDK or it is not a git checkout.
+  Future<String?> sdkHeadHash();
 
   /// Switches the SDK to [channel] (e.g. "stable"). Streaming handle.
   /// See [upgrade] for [stashLocalChanges].

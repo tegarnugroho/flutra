@@ -3,7 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
+import '../../domain/entities/flutter_update_status.dart';
 import '../../domain/entities/sdk_package.dart';
+import '../../domain/repositories/flutter_repository.dart';
+import '../../infrastructure/flutter/flutter_update_service.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
@@ -104,6 +107,10 @@ class _UpdatesView extends StatelessWidget {
                 ? 'Up to date — all installed SDK packages are on their latest version'
                 : '${updates.length} update${updates.length == 1 ? '' : 's'} available',
           ),
+          const SizedBox(height: 18),
+          const SectionLabel('Flutter SDK'),
+          const SizedBox(height: 8),
+          const _FlutterUpdateRow(),
           if (updates.isNotEmpty) ...[
             const SizedBox(height: 18),
             const SectionLabel('Available updates'),
@@ -195,6 +202,114 @@ class _UpdateRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The Flutter SDK's own update state, from the official release index.
+///
+/// Kept out of [SdkManagerCubit], which only knows about Android SDK packages.
+class _FlutterUpdateRow extends StatefulWidget {
+  const _FlutterUpdateRow();
+
+  @override
+  State<_FlutterUpdateRow> createState() => _FlutterUpdateRowState();
+}
+
+class _FlutterUpdateRowState extends State<_FlutterUpdateRow> {
+  late Future<FlutterUpdateStatus?> _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = _check();
+  }
+
+  Future<FlutterUpdateStatus?> _check({bool forceRefresh = false}) async {
+    try {
+      final info = await getIt<FlutterRepository>().getSdkInfo();
+      return getIt<FlutterUpdateService>()
+          .check(channel: info.channel, forceRefresh: forceRefresh);
+    } catch (_) {
+      // No Flutter SDK installed, or it isn't readable.
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return FutureBuilder<FlutterUpdateStatus?>(
+      future: _status,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const GroupedList(
+            children: [
+              GroupedListRow(
+                title: 'Flutter SDK',
+                subtitle: 'Checking the release channel…',
+              ),
+            ],
+          );
+        }
+        final status = snapshot.data;
+        if (status == null) {
+          return const GroupedList(
+            children: [
+              GroupedListRow(
+                title: 'Flutter SDK',
+                subtitle: 'Could not reach the Flutter release list.',
+              ),
+            ],
+          );
+        }
+        final latest = status.latest;
+        final installed = status.installed;
+        return GroupedList(
+          children: [
+            GroupedListRow(
+              statusColor: status.updateAvailable
+                  ? palette.statusWarn
+                  : palette.statusOk,
+              showStatusSlot: true,
+              title: 'Flutter SDK',
+              secondary: status.channel,
+              trailing: [
+                if (status.updateAvailable && latest != null)
+                  Text.rich(
+                    TextSpan(
+                      style: AppTextStyles.monoValue,
+                      children: [
+                        TextSpan(
+                            text: installed?.displayVersion ??
+                                status.shortHash ??
+                                '?'),
+                        TextSpan(
+                          text: ' → ',
+                          style: AppTextStyles.monoValue
+                              .copyWith(color: palette.textMuted),
+                        ),
+                        TextSpan(text: latest.displayVersion),
+                      ],
+                    ),
+                  )
+                else
+                  Text(installed?.displayVersion ?? status.shortHash ?? '—',
+                      style: AppTextStyles.monoValue),
+              ],
+              hoverActions: [
+                OutlinedActionButton(
+                  icon: FluentIcons.refresh,
+                  label: 'Check again',
+                  dense: true,
+                  onPressed: () => setState(
+                      () => _status = _check(forceRefresh: true)),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

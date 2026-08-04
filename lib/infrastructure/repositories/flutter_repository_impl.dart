@@ -193,6 +193,24 @@ class FlutterRepositoryImpl implements FlutterRepository {
         includePreRelease: channel != 'stable');
   }
 
+  @override
+  Future<String?> sdkHeadHash() async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) return null;
+    try {
+      final result = await _runner.run(
+        'git',
+        ['-C', root, 'rev-parse', 'HEAD'],
+        timeout: const Duration(seconds: 15),
+      );
+      final hash = result.stdout.trim();
+      return result.isSuccess && hash.isNotEmpty ? hash : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Resolves a usable git ref for [channel] (remote first, then local).
   Future<String?> _channelRef(String root, String channel) async {
     for (final ref in ['origin/$channel', channel]) {

@@ -8,6 +8,7 @@ import '../../core/error/failures.dart';
 import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
 import '../../domain/repositories/environment_repository.dart';
+import '../flutter/flutter_update_service.dart';
 import '../sdk/sdk_locator.dart';
 
 /// Concrete [EnvironmentRepository] that probes the real toolchain.
@@ -16,10 +17,11 @@ import '../sdk/sdk_locator.dart';
 /// never aborts the others — it surfaces as an error/missing [ToolStatus].
 @LazySingleton(as: EnvironmentRepository)
 class EnvironmentRepositoryImpl implements EnvironmentRepository {
-  EnvironmentRepositoryImpl(this._runner, this._locator);
+  EnvironmentRepositoryImpl(this._runner, this._locator, this._flutterUpdates);
 
   final CommandRunner _runner;
   final SdkLocator _locator;
+  final FlutterUpdateService _flutterUpdates;
 
   static const _probeTimeout = Duration(seconds: 30);
 
@@ -131,12 +133,34 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
         result.combinedOutput,
         RegExp(r'"frameworkVersion"\s*:\s*"([^"]+)"'),
       );
+      final channel = _firstMatch(
+        result.combinedOutput,
+        RegExp(r'"channel"\s*:\s*"([^"]+)"'),
+      );
       final path = await _runner.which('flutter');
+      if (!result.isSuccess) {
+        return ToolStatus(
+          kind: ToolKind.flutter,
+          state: ToolState.error,
+          version: version,
+          path: path,
+        );
+      }
+      // Compare the checkout's HEAD with the channel's published tip; version
+      // strings can't see hotfix re-releases.
+      final update = channel == null
+          ? null
+          : await _flutterUpdates.check(channel: channel);
+      final outdated = update?.updateAvailable ?? false;
       return ToolStatus(
         kind: ToolKind.flutter,
-        state: result.isSuccess ? ToolState.installed : ToolState.error,
+        state: outdated ? ToolState.needsUpdate : ToolState.installed,
         version: version,
         path: path,
+        detail: outdated
+            ? 'update available: ${update!.latest!.displayVersion}'
+            : null,
+        latestVersion: outdated ? update!.latest!.displayVersion : null,
       );
     } on ExecutableNotFoundFailure {
       return const ToolStatus(
