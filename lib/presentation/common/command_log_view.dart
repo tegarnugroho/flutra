@@ -1,6 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+
 import '../../application/common/command_log_cubit.dart';
 
 /// A terminal-style, auto-scrolling view of a streaming command's output.
@@ -32,22 +35,22 @@ class _CommandLogViewState extends State<CommandLogView> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return Container(
       height: widget.height,
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C0C0C),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        color: AppColors.logBg,
+        borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+        border: Border.all(color: palette.border, width: AppShape.hairline),
       ),
       child: BlocBuilder<CommandLogCubit, CommandLogState>(
         builder: (context, state) {
           _autoScroll();
           if (state.lines.isEmpty && state.running) {
             return const Center(
-              child: Text('Starting…',
-                  style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12)),
+              child: Text('Starting…', style: AppTextStyles.caption),
             );
           }
           return ListView.builder(
@@ -57,13 +60,10 @@ class _CommandLogViewState extends State<CommandLogView> {
               final line = state.lines[i];
               return Text(
                 line.text,
-                style: TextStyle(
-                  fontFamily: 'Consolas',
-                  fontSize: 12,
-                  height: 1.4,
+                style: AppTextStyles.monoLog.copyWith(
                   color: line.isError
-                      ? const Color(0xFFFF6B6B)
-                      : const Color(0xFFD4D4D4),
+                      ? palette.statusError
+                      : palette.textSecondary,
                 ),
               );
             },

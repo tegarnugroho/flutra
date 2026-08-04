@@ -1,16 +1,22 @@
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
-import '../emulator/widgets/avd_dialogs.dart';
+import '../common/compact_field.dart';
+import '../common/confirm_dialog.dart';
+import '../common/copy_icon_button.dart';
+import '../common/empty_state.dart';
+import '../common/grouped_list.dart';
+import '../common/outlined_action_button.dart';
+import '../common/page_scaffold.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 import 'widgets/package_progress.dart';
 import 'widgets/sdk_package_tile.dart';
-import '../theme/app_colors.dart';
 
-/// Package Manager: browse, search, install, update and remove Android SDK
+/// SDK manager: browse, search, install, update and remove Android SDK
 /// packages with a category sidebar, details panel and streamed console.
 class SdkManagerPage extends StatelessWidget {
   const SdkManagerPage({super.key});
@@ -29,88 +35,88 @@ class _SdkManagerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<SdkManagerCubit>();
-    return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('SDK Manager'),
-        commandBar: BlocBuilder<SdkManagerCubit, SdkManagerState>(
-          builder: (context, state) => CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: const Icon(FluentIcons.sync),
-                label: Text(
-                    'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}'),
-                onPressed:
-                    state.busy || state.updateCount == 0 ? null : cubit.updateAll,
-              ),
-              CommandBarButton(
-                icon: Icon(state.consoleVisible
-                    ? FluentIcons.chevron_down
-                    : FluentIcons.command_prompt),
-                label: const Text('Console'),
-                onPressed: cubit.toggleConsole,
-              ),
-              CommandBarButton(
-                icon: state.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2))
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('Refresh'),
-                onPressed: state.isLoading ? null : cubit.load,
-              ),
+    return BlocBuilder<SdkManagerCubit, SdkManagerState>(
+      builder: (context, state) {
+        final cubit = context.read<SdkManagerCubit>();
+        return PageScaffold(
+          title: 'SDK manager',
+          actions: [
+            _QuickSetupButton(state: state, cubit: cubit),
+            OutlinedActionButton(
+              icon: FluentIcons.sync,
+              label:
+                  'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}',
+              onPressed:
+                  state.busy || state.updateCount == 0 ? null : cubit.updateAll,
+            ),
+            OutlinedActionButton(
+              icon: FluentIcons.command_prompt,
+              label: 'Console',
+              onPressed: cubit.toggleConsole,
+            ),
+            OutlinedActionButton(
+              icon: FluentIcons.refresh,
+              label: 'Refresh',
+              busy: state.isLoading,
+              onPressed: cubit.load,
+            ),
+          ],
+          child: _body(context, state, cubit),
+        );
+      },
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    SdkManagerState state,
+    SdkManagerCubit cubit,
+  ) {
+    if (state.isLoading && state.packages.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ProgressRing(),
+            SizedBox(height: 12),
+            Text('Querying sdkmanager…', style: AppTextStyles.statusLine),
+          ],
+        ),
+      );
+    }
+    if (state.status == SdkManagerStatus.failure && state.packages.isEmpty) {
+      return EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Could not query the SDK',
+        message: state.errorMessage ?? 'Unknown error.',
+        actionLabel: 'Retry',
+        onAction: cubit.load,
+      );
+    }
+
+    final palette = AppPalette.of(context);
+    return Column(
+      children: [
+        _Toolbar(state: state, cubit: cubit),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CategorySidebar(state: state, cubit: cubit),
+              Container(width: AppShape.hairline, color: palette.border),
+              Expanded(child: _PackageList(state: state, cubit: cubit)),
+              if (state.selectedPackage != null) ...[
+                Container(width: AppShape.hairline, color: palette.border),
+                _DetailsPanel(package: state.selectedPackage!, cubit: cubit),
+              ],
             ],
           ),
         ),
-      ),
-      content: BlocBuilder<SdkManagerCubit, SdkManagerState>(
-        builder: (context, state) {
-          if (state.isLoading && state.packages.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProgressRing(),
-                  SizedBox(height: 12),
-                  Text('Querying sdkmanager…'),
-                ],
-              ),
-            );
-          }
-          if (state.status == SdkManagerStatus.failure &&
-              state.packages.isEmpty) {
-            return _ErrorView(
-                message: state.errorMessage ?? 'Unknown error.',
-                onRetry: cubit.load);
-          }
-          return Column(
-            children: [
-              _Toolbar(state: state, cubit: cubit),
-              const Divider(),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Sidebar(state: state, cubit: cubit),
-                    const Divider(direction: Axis.vertical),
-                    Expanded(child: _PackageList(state: state, cubit: cubit)),
-                    if (state.selectedPackage != null) ...[
-                      const Divider(direction: Axis.vertical),
-                      _DetailsPanel(package: state.selectedPackage!, cubit: cubit),
-                    ],
-                  ],
-                ),
-              ),
-              if (state.queuedCount > 0 || state.busy)
-                PackageQueueBar(state: state, cubit: cubit),
-              if (state.consoleVisible)
-                PackageConsole(state: state, cubit: cubit),
-            ],
-          );
-        },
-      ),
+        if (state.queuedCount > 0 || state.busy)
+          PackageQueueBar(state: state, cubit: cubit),
+        if (state.consoleVisible) PackageConsole(state: state, cubit: cubit),
+      ],
     );
   }
 }
@@ -126,63 +132,54 @@ class _Toolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Wrap(
-        spacing: 10,
+        spacing: 8,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          SizedBox(
-            width: 240,
-            child: TextBox(
-              placeholder: 'Search packages…',
-              prefix: const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Icon(FluentIcons.search, size: 14),
-              ),
-              onChanged: cubit.setQuery,
-            ),
+          CompactField(
+            width: 220,
+            placeholder: 'Search packages',
+            onChanged: cubit.setQuery,
           ),
-          SizedBox(
+          CompactCombo<PackageSort>(
             width: 150,
-            child: ComboBox<PackageSort>(
-              isExpanded: true,
-              value: state.sort,
-              items: [
-                for (final s in PackageSort.values)
-                  ComboBoxItem(value: s, child: Text('Sort: ${s.label}')),
-              ],
-              onChanged: (v) => v == null ? null : cubit.setSort(v),
-            ),
+            value: state.sort,
+            items: [
+              for (final s in PackageSort.values)
+                CompactComboItem(value: s, label: 'Sort: ${s.label}'),
+            ],
+            onChanged: cubit.setSort,
           ),
-          DropDownButton(
-            leading: const Icon(FluentIcons.toolbox, size: 14),
-            title: const Text('Quick setup'),
-            items: _quickSetupItems(context),
-          ),
-          ToggleButton(
+          ToggleChip(
+            label: 'Updates',
             checked: state.updatesOnly,
             onChanged: cubit.toggleUpdatesOnly,
-            child: const Text('Updates'),
           ),
-          ToggleButton(
+          ToggleChip(
+            label: 'Installed',
             checked: state.installedOnly,
             onChanged: cubit.toggleInstalledOnly,
-            child: const Text('Installed'),
           ),
           if (state.selected.isNotEmpty) ...[
-            const SizedBox(width: 4),
             if (state.installableSelectedCount > 0)
-              FilledButton(
+              OutlinedActionButton(
+                icon: FluentIcons.download,
+                label: 'Install (${state.installableSelectedCount})',
                 onPressed: state.busy ? null : cubit.installSelected,
-                child: Text('Install (${state.installableSelectedCount})'),
               ),
             if (state.removableSelectedCount > 0)
-              Button(
+              OutlinedActionButton(
+                icon: FluentIcons.delete,
+                label: 'Remove (${state.removableSelectedCount})',
                 onPressed: state.busy ? null : () => _removeSelected(context),
-                child: Text('Remove (${state.removableSelectedCount})'),
               ),
-            Button(onPressed: cubit.clearChecks, child: const Text('Clear')),
+            OutlinedActionButton(
+              icon: FluentIcons.clear,
+              label: 'Clear',
+              onPressed: cubit.clearChecks,
+            ),
           ],
         ],
       ),
@@ -199,30 +196,67 @@ class _Toolbar extends StatelessWidget {
     );
     if (ok) cubit.removeSelected();
   }
+}
 
-  // ---- Quick setup presets -------------------------------------------------
+/// Header action offering one-click installs of common package sets.
+class _QuickSetupButton extends StatefulWidget {
+  const _QuickSetupButton({required this.state, required this.cubit});
 
-  List<MenuFlyoutItemBase> _quickSetupItems(BuildContext context) {
+  final SdkManagerState state;
+  final SdkManagerCubit cubit;
+
+  @override
+  State<_QuickSetupButton> createState() => _QuickSetupButtonState();
+}
+
+class _QuickSetupButtonState extends State<_QuickSetupButton> {
+  final _flyout = FlyoutController();
+
+  @override
+  void dispose() {
+    _flyout.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FlyoutTarget(
+      controller: _flyout,
+      child: OutlinedActionButton(
+        icon: FluentIcons.toolbox,
+        label: 'Quick setup',
+        onPressed: () => _flyout.showFlyout(
+          builder: (flyoutContext) => MenuFlyout(items: _items(flyoutContext)),
+        ),
+      ),
+    );
+  }
+
+  List<MenuFlyoutItemBase> _items(BuildContext flyoutContext) {
     final bt = _latestBuildTools;
+    void install(List<String> paths) {
+      Navigator.of(flyoutContext).pop();
+      _installPreset(paths);
+    }
+
     return [
       MenuFlyoutItem(
-        leading: const Icon(FluentIcons.toolbox),
+        leading: const Icon(FluentIcons.toolbox, size: 14),
         text: const Text('Essential tools'),
-        onPressed: () => _installPreset(
-            context, const ['platform-tools', 'emulator', 'cmdline-tools;latest']),
+        onPressed: () => install(
+            const ['platform-tools', 'emulator', 'cmdline-tools;latest']),
       ),
       MenuFlyoutItem(
-        leading: const Icon(FluentIcons.plug_connected),
-        text: const Text('Google USB Driver'),
-        onPressed: () =>
-            _installPreset(context, const ['extras;google;usb_driver']),
+        leading: const Icon(FluentIcons.plug_connected, size: 14),
+        text: const Text('Google USB driver'),
+        onPressed: () => install(const ['extras;google;usb_driver']),
       ),
       if (_apis.isNotEmpty) const MenuFlyoutSeparator(),
       for (final api in _apis)
         MenuFlyoutItem(
-          leading: const Icon(FluentIcons.cell_phone),
+          leading: const Icon(FluentIcons.cell_phone, size: 14),
           text: Text('Android $api environment'),
-          onPressed: () => _installPreset(context, [
+          onPressed: () => install([
             'platforms;android-$api',
             'system-images;android-$api;google_apis;x86_64',
             ?bt,
@@ -231,10 +265,10 @@ class _Toolbar extends StatelessWidget {
     ];
   }
 
-  bool _has(String path) => state.packages.any((p) => p.path == path);
+  bool _has(String path) => widget.state.packages.any((p) => p.path == path);
 
   String? get _latestBuildTools {
-    final bt = state.packages
+    final bt = widget.state.packages
         .where((p) => p.category == PackageCategory.buildTools)
         .map((p) => p.path)
         .toList()
@@ -244,7 +278,7 @@ class _Toolbar extends StatelessWidget {
 
   List<int> get _apis {
     final set = <int>{};
-    for (final p in state.packages) {
+    for (final p in widget.state.packages) {
       if (p.category != PackageCategory.platforms) continue;
       final m = RegExp(r'android-(\d+)').firstMatch(p.path);
       if (m != null) set.add(int.parse(m.group(1)!));
@@ -252,7 +286,7 @@ class _Toolbar extends StatelessWidget {
     return set.toList()..sort((a, b) => b.compareTo(a));
   }
 
-  void _installPreset(BuildContext context, List<String> paths) {
+  void _installPreset(List<String> paths) {
     final present = paths.where(_has).toList();
     if (present.isEmpty) {
       displayInfoBar(context, builder: (context, close) {
@@ -267,15 +301,15 @@ class _Toolbar extends StatelessWidget {
       return;
     }
     for (final p in present) {
-      cubit.enqueueInstall(p);
+      widget.cubit.enqueueInstall(p);
     }
   }
 }
 
-// ---- Sidebar ----------------------------------------------------------------
+// ---- Category sidebar -------------------------------------------------------
 
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.state, required this.cubit});
+class _CategorySidebar extends StatelessWidget {
+  const _CategorySidebar({required this.state, required this.cubit});
 
   final SdkManagerState state;
   final SdkManagerCubit cubit;
@@ -284,9 +318,9 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final counts = state.categoryCounts;
     return SizedBox(
-      width: 210,
+      width: 196,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         children: [
           _CategoryItem(
             label: 'All packages',
@@ -295,7 +329,6 @@ class _Sidebar extends StatelessWidget {
             selected: state.category == null,
             onTap: () => cubit.setCategory(null),
           ),
-          const SizedBox(height: 4),
           for (final c in state.availableCategories)
             _CategoryItem(
               label: c.label,
@@ -323,7 +356,8 @@ class _Sidebar extends StatelessWidget {
       };
 }
 
-class _CategoryItem extends StatelessWidget {
+/// A category filter, styled like a navigation pane item.
+class _CategoryItem extends StatefulWidget {
   const _CategoryItem({
     required this.label,
     required this.icon,
@@ -339,40 +373,51 @@ class _CategoryItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_CategoryItem> createState() => _CategoryItemState();
+}
+
+class _CategoryItemState extends State<_CategoryItem> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        margin: const EdgeInsets.only(bottom: 2),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.accentColor.withValues(alpha: 0.14)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          children: [
-            Icon(icon,
-                size: 15,
-                color: selected
-                    ? theme.accentColor
-                    : theme.resources.textFillColorSecondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(label,
-                  style: theme.typography.body?.copyWith(
-                    color: selected ? theme.accentColor : null,
-                  ),
+    final palette = AppPalette.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          margin: const EdgeInsets.only(bottom: 2),
+          decoration: BoxDecoration(
+            color: widget.selected || _hovered
+                ? palette.surfaceRaised
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppShape.radiusControl),
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon,
+                  size: 15,
+                  color: widget.selected
+                      ? palette.textPrimary
+                      : palette.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: widget.selected
+                      ? AppTextStyles.navItemSelected
+                      : AppTextStyles.navItem,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-            ),
-            Text('$count',
-                style: theme.typography.caption?.copyWith(
-                  color: theme.resources.textFillColorTertiary,
-                )),
-          ],
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text('${widget.count}', style: AppTextStyles.caption),
+            ],
+          ),
         ),
       ),
     );
@@ -394,48 +439,50 @@ class _PackageList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Row(
             children: [
-              Button(
-                onPressed: cubit.checkAllVisible,
-                child: const Text('Select all'),
+              SectionLabel(
+                'Packages',
+                meta: '${packages.length} shown, '
+                    '${state.installedCount} installed',
               ),
               const Spacer(),
-              Text('${packages.length} shown • ${state.installedCount} installed',
-                  style: FluentTheme.of(context).typography.caption),
+              OutlinedActionButton(
+                icon: FluentIcons.check_mark,
+                label: 'Select all',
+                dense: true,
+                onPressed: cubit.checkAllVisible,
+              ),
             ],
           ),
         ),
         Expanded(
           child: packages.isEmpty
-              ? Center(
-                  child: Text('No packages match the current filters.',
-                      style: FluentTheme.of(context).typography.body?.copyWith(
-                            color: FluentTheme.of(context)
-                                .resources
-                                .textFillColorSecondary,
-                          )),
+              ? const EmptyState(
+                  icon: FluentIcons.packages,
+                  title: 'No packages match',
+                  message: 'Adjust the search or filters above.',
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  itemCount: packages.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, i) {
-                    final pkg = packages[i];
-                    return SdkPackageTile(
-                      package: pkg,
-                      checked: state.selected.contains(pkg.path),
-                      selected: state.selectedPath == pkg.path,
-                      queued: state.isQueued(pkg.path),
-                      active: state.isActive(pkg.path),
-                      progress: state.progress,
-                      onCheck: (_) => cubit.toggleCheck(pkg.path),
-                      onSelect: () => cubit.select(pkg.path),
-                      onInstall: () => cubit.enqueueInstall(pkg.path),
-                      onUninstall: () => _uninstall(context, pkg),
-                    );
-                  },
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: GroupedList(
+                    children: [
+                      for (final pkg in packages)
+                        SdkPackageTile(
+                          package: pkg,
+                          checked: state.selected.contains(pkg.path),
+                          selected: state.selectedPath == pkg.path,
+                          queued: state.isQueued(pkg.path),
+                          active: state.isActive(pkg.path),
+                          progress: state.progress,
+                          onCheck: (_) => cubit.toggleCheck(pkg.path),
+                          onSelect: () => cubit.select(pkg.path),
+                          onInstall: () => cubit.enqueueInstall(pkg.path),
+                          onUninstall: () => _uninstall(context, pkg),
+                        ),
+                    ],
+                  ),
                 ),
         ),
       ],
@@ -468,31 +515,101 @@ class _DetailsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
     return SizedBox(
-      width: 320,
+      width: 300,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(package.description, style: theme.typography.subtitle),
+            Text(package.description, style: AppTextStyles.heroTitle),
             const SizedBox(height: 4),
-            Text(package.category.label,
-                style: theme.typography.caption?.copyWith(
-                  color: theme.resources.textFillColorSecondary,
-                )),
-            const SizedBox(height: 16),
-            _kv(theme, 'Status', _statusLabel),
-            _kv(theme, 'Repository path', package.path, mono: true),
-            if (package.installedVersion != null)
-              _kv(theme, 'Installed version', package.installedVersion!),
-            if (package.availableVersion != null)
-              _kv(theme, 'Latest version', package.availableVersion!),
-            if (package.location != null)
-              _kv(theme, 'Location', package.location!, mono: true),
-            const SizedBox(height: 16),
-            _actions(context),
+            Text(package.category.label, style: AppTextStyles.caption),
+            const SizedBox(height: 14),
+            const SectionLabel('Details'),
+            const SizedBox(height: 8),
+            GroupedList(
+              children: [
+                GroupedListRow(
+                  title: 'Status',
+                  trailing: [
+                    Text(_statusLabel, style: AppTextStyles.monoValue),
+                  ],
+                ),
+                GroupedListRow(
+                  title: 'Path',
+                  trailing: [
+                    Flexible(
+                      child: Text(
+                        package.path,
+                        style: AppTextStyles.monoValue,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    CopyIconButton(value: package.path, label: 'Package path'),
+                  ],
+                ),
+                if (package.installedVersion != null)
+                  GroupedListRow(
+                    title: 'Installed',
+                    trailing: [
+                      Text(package.installedVersion!,
+                          style: AppTextStyles.monoValue),
+                    ],
+                  ),
+                if (package.availableVersion != null)
+                  GroupedListRow(
+                    title: 'Latest',
+                    trailing: [
+                      Text(package.availableVersion!,
+                          style: AppTextStyles.monoValue),
+                    ],
+                  ),
+                if (package.location != null)
+                  GroupedListRow(
+                    title: 'Location',
+                    trailing: [
+                      Flexible(
+                        child: Text(
+                          package.location!,
+                          style: AppTextStyles.monoValue,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      CopyIconButton(
+                          value: package.location!, label: 'Location'),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (!package.isInstalled)
+                  OutlinedActionButton(
+                    icon: FluentIcons.download,
+                    label: 'Install',
+                    onPressed: () => cubit.enqueueInstall(package.path),
+                  )
+                else ...[
+                  if (package.hasUpdate)
+                    OutlinedActionButton(
+                      icon: FluentIcons.sync,
+                      label: 'Update',
+                      onPressed: () => cubit.enqueueInstall(package.path),
+                    ),
+                  OutlinedActionButton(
+                    icon: FluentIcons.refresh,
+                    label: 'Reinstall',
+                    onPressed: () => cubit.enqueueInstall(package.path),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -500,100 +617,8 @@ class _DetailsPanel extends StatelessWidget {
   }
 
   String get _statusLabel => switch (package.state) {
-        PackageState.installed => 'Installed',
-        PackageState.updatable => 'Update available',
-        PackageState.available => 'Not installed',
+        PackageState.installed => 'installed',
+        PackageState.updatable => 'update available',
+        PackageState.available => 'not installed',
       };
-
-  Widget _actions(BuildContext context) {
-    final buttons = <Widget>[];
-    if (!package.isInstalled) {
-      buttons.add(FilledButton(
-          onPressed: () => cubit.enqueueInstall(package.path),
-          child: const Text('Install')));
-    } else {
-      if (package.hasUpdate) {
-        buttons.add(FilledButton(
-            onPressed: () => cubit.enqueueInstall(package.path),
-            child: const Text('Update')));
-      }
-      buttons.add(Button(
-          onPressed: () => cubit.enqueueInstall(package.path),
-          child: const Text('Reinstall')));
-    }
-    buttons.add(Button(
-      onPressed: () => _copyPath(context),
-      child: const Text('Copy path'),
-    ));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < buttons.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
-          buttons[i],
-        ],
-      ],
-    );
-  }
-
-  Future<void> _copyPath(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: package.path));
-    if (!context.mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: const Text('Copied'),
-        content: Text(package.path),
-        severity: InfoBarSeverity.success,
-        onClose: close,
-      );
-    });
-  }
-
-  Widget _kv(FluentThemeData theme, String k, String v, {bool mono = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(k,
-              style: theme.typography.caption?.copyWith(
-                color: theme.resources.textFillColorSecondary,
-              )),
-          const SizedBox(height: 2),
-          SelectableText(v,
-              style: mono
-                  ? theme.typography.caption
-                      ?.copyWith(fontFamily: 'Consolas')
-                  : theme.typography.body),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(FluentIcons.error_badge,
-                size: 40, color: AppColors.statusError),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
-  }
 }

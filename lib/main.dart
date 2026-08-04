@@ -34,6 +34,8 @@ Future<void> main(List<String> args) async {
   // still boots instead of throwing an unhandled MissingPluginException.
   try {
     await windowManager.ensureInitialized();
+    // Below this the two-pane pages (SDK manager) start to overflow.
+    await windowManager.setMinimumSize(const Size(960, 640));
   } on MissingPluginException catch (e) {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }

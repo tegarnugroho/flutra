@@ -6,6 +6,8 @@ import 'package:logging/logging.dart';
 
 import '../../core/di/injection.dart';
 import '../../infrastructure/logging/dev_log_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
 /// Developer request-log viewer. Reads the file-backed log so it works in a
 /// standalone window (separate isolate) and tails the main window's flow.
@@ -129,15 +131,15 @@ class _DevLogsPageState extends State<DevLogsPage> {
             child: Container(
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               decoration: BoxDecoration(
-                color: const Color(0xFF0C0C0C),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF2A2A2A)),
+                color: AppColors.logBg,
+                borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+                border: Border.all(
+                    color: AppColors.border, width: AppShape.hairline),
               ),
               child: records.isEmpty
                   ? const Center(
                       child: Text('No log records yet.',
-                          style: TextStyle(
-                              color: Color(0xFF7A7A7A), fontSize: 12)),
+                          style: AppTextStyles.caption),
                     )
                   : SelectionArea(
                       child: ListView.builder(
@@ -178,24 +180,20 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     final color = record.level >= Level.SEVERE
-        ? const Color(0xFFFF6B6B)
+        ? palette.statusError
         : record.level >= Level.WARNING
-            ? const Color(0xFFFFB454)
+            ? palette.statusWarn
             : record.level >= Level.INFO
-                ? const Color(0xFF9ECE6A)
-                : const Color(0xFF9AA5B1);
+                ? palette.textSecondary
+                : palette.textMuted;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.5),
       child: Text(
         '${record.timeStr}  ${record.level.name.padRight(7)} '
         '${record.logger}: ${record.message}',
-        style: TextStyle(
-          fontFamily: 'Consolas',
-          fontSize: 12,
-          height: 1.35,
-          color: color,
-        ),
+        style: AppTextStyles.monoLog.copyWith(color: color),
       ),
     );
   }

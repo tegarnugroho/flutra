@@ -9,11 +9,15 @@ import '../../domain/entities/flutter_sdk_info.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
+import '../common/app_badge.dart';
+import '../common/compact_field.dart';
+import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
+import '../common/empty_state.dart';
+import '../common/page_scaffold.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
 import '../common/status_dot.dart';
-import '../emulator/widgets/avd_dialogs.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -68,41 +72,27 @@ class _FlutterSdkView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScaffoldPage(
-      padding: EdgeInsets.zero,
-      content: BlocConsumer<FlutterSdkCubit, FlutterSdkState>(
-        listenWhen: (p, c) =>
-            c.errorMessage != null && p.errorMessage != c.errorMessage,
-        listener: (context, state) {
-          displayInfoBar(context, builder: (context, close) {
-            return InfoBar(
-              title: const Text('Error'),
-              content: Text(state.errorMessage!),
-              severity: InfoBarSeverity.error,
-              isLong: true,
-              onClose: close,
-            );
-          });
-        },
-        builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Row(
-                  children: [
-                    const Text('Flutter SDK', style: AppTextStyles.pageTitle),
-                    const Spacer(),
-                    _HeaderActions(state: state),
-                  ],
-                ),
-              ),
-              Expanded(child: _body(context, state)),
-            ],
+    return BlocConsumer<FlutterSdkCubit, FlutterSdkState>(
+      listenWhen: (p, c) =>
+          c.errorMessage != null && p.errorMessage != c.errorMessage,
+      listener: (context, state) {
+        displayInfoBar(context, builder: (context, close) {
+          return InfoBar(
+            title: const Text('Error'),
+            content: Text(state.errorMessage!),
+            severity: InfoBarSeverity.error,
+            isLong: true,
+            onClose: close,
           );
-        },
-      ),
+        });
+      },
+      builder: (context, state) {
+        return PageScaffold(
+          title: 'Flutter SDK',
+          actions: [_HeaderActions(state: state)],
+          child: _body(context, state),
+        );
+      },
     );
   }
 
@@ -119,15 +109,19 @@ class _FlutterSdkView extends StatelessWidget {
       );
     }
     if (state.status == FlutterSdkStatus.failure && state.info == null) {
-      return _ErrorView(
+      return EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Could not read the Flutter SDK',
         message: state.errorMessage ?? 'Unknown error.',
-        onRetry: cubit.load,
+        actionLabel: 'Retry',
+        onAction: cubit.load,
       );
     }
     final info = state.info;
     if (info == null) return const SizedBox.shrink();
     return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            padding: kPageBodyPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -381,7 +375,7 @@ class _CurrentSdkCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text('Flutter ${info.version}', style: AppTextStyles.heroTitle),
               const SizedBox(width: 8),
-              _ChannelBadge(channel: info.channel),
+              AppBadge(info.channel),
               const Spacer(),
               if (onAddToPath != null)
                 OutlinedActionButton(
@@ -642,7 +636,11 @@ class _VersionsSectionState extends State<_VersionsSection> {
               const SizedBox(
                   width: 12, height: 12, child: ProgressRing(strokeWidth: 2)),
             const Spacer(),
-            _VersionFilterBox(onChanged: (v) => setState(() => _query = v)),
+            CompactField(
+              width: 200,
+              placeholder: 'Filter versions',
+              onChanged: (v) => setState(() => _query = v),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -742,13 +740,7 @@ class _VersionTile extends StatefulWidget {
 class _VersionTileState extends State<_VersionTile> {
   bool _expanded = false;
   bool _loading = false;
-  bool _hovered = false;
-  bool _focused = false;
   List<String>? _lines;
-
-  /// Row actions stay hidden until the row is pointed at or focused, so the
-  /// list doesn't become a wall of identical buttons.
-  bool get _showActions => _hovered || _focused;
 
   Future<void> _toggle() async {
     setState(() => _expanded = !_expanded);
@@ -768,84 +760,57 @@ class _VersionTileState extends State<_VersionTile> {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return FocusableActionDetector(
-      mouseCursor: SystemMouseCursors.click,
-      onShowHoverHighlight: (v) => setState(() => _hovered = v),
-      onShowFocusHighlight: (v) => setState(() => _focused = v),
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            _toggle();
-            return null;
-          },
-        ),
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _toggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          color: _hovered ? palette.surfaceRaised : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  // Fixed slot so every version number starts on the same x.
-                  StatusDot(
-                      color: widget.isCurrent ? palette.statusOk : null),
-                  const SizedBox(width: 10),
-                  Text(
-                    widget.version,
-                    style: widget.isCurrent
-                        ? AppTextStyles.monoRowActive
-                        : AppTextStyles.monoRow,
-                  ),
-                  if (widget.isCurrent) ...[
-                    const SizedBox(width: 8),
-                    const Text('current', style: AppTextStyles.inlineNote),
-                  ],
-                  const Spacer(),
-                  if (_showActions) ...[
-                    OutlinedActionButton(
-                      icon: FluentIcons.globe,
-                      dense: true,
-                      tooltip: 'Open release notes on GitHub',
-                      onPressed: widget.onOpenGitHub,
-                    ),
-                    const SizedBox(width: 8),
-                    if (!widget.isCurrent) ...[
-                      OutlinedActionButton(
-                        icon: FluentIcons.switch_widget,
-                        label: 'Switch',
-                        dense: true,
-                        onPressed: widget.onSwitch,
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 160),
-                    child: Icon(FluentIcons.chevron_down,
-                        size: 13, color: palette.textMuted),
-                  ),
-                ],
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOut,
-                alignment: Alignment.topCenter,
-                child: _expanded
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 10, left: 16),
-                        child: _changelog(palette),
-                      )
-                    : const SizedBox(width: double.infinity),
-              ),
-            ],
+    return GroupedListRow(
+      statusColor: widget.isCurrent ? palette.statusOk : null,
+      showStatusSlot: true,
+      onTap: _toggle,
+      titleWidget: Row(
+        children: [
+          Text(
+            widget.version,
+            style: widget.isCurrent
+                ? AppTextStyles.monoRowActive
+                : AppTextStyles.monoRow,
           ),
+          if (widget.isCurrent) ...[
+            const SizedBox(width: 8),
+            const Text('current', style: AppTextStyles.inlineNote),
+          ],
+        ],
+      ),
+      hoverActions: [
+        OutlinedActionButton(
+          icon: FluentIcons.globe,
+          dense: true,
+          tooltip: 'Open release notes on GitHub',
+          onPressed: widget.onOpenGitHub,
         ),
+        if (!widget.isCurrent)
+          OutlinedActionButton(
+            icon: FluentIcons.switch_widget,
+            label: 'Switch',
+            dense: true,
+            onPressed: widget.onSwitch,
+          ),
+      ],
+      trailing: [
+        AnimatedRotation(
+          turns: _expanded ? 0.5 : 0,
+          duration: const Duration(milliseconds: 160),
+          child: Icon(FluentIcons.chevron_down,
+              size: 13, color: palette.textMuted),
+        ),
+      ],
+      below: AnimatedSize(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: _expanded
+            ? Padding(
+                padding: const EdgeInsets.only(top: 10, left: 16),
+                child: _changelog(palette),
+              )
+            : const SizedBox(width: double.infinity),
       ),
     );
   }
@@ -887,61 +852,6 @@ class _VersionTileState extends State<_VersionTile> {
           for (final line in lines.take(200))
             Text(line, style: AppTextStyles.monoBody),
         ],
-      ),
-    );
-  }
-}
-
-/// The channel as a quiet outline pill — no fill, no per-channel colour.
-class _ChannelBadge extends StatelessWidget {
-  const _ChannelBadge({required this.channel});
-
-  final String channel;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border:
-            Border.all(color: palette.borderStrong, width: AppShape.hairline),
-      ),
-      child: Text(channel, style: AppTextStyles.badge),
-    );
-  }
-}
-
-/// Compact search box for the versions list.
-class _VersionFilterBox extends StatelessWidget {
-  const _VersionFilterBox({required this.onChanged});
-
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return SizedBox(
-      width: 200,
-      height: 30,
-      child: TextBox(
-        placeholder: 'Filter versions',
-        style: AppTextStyles.input,
-        placeholderStyle: AppTextStyles.input.copyWith(color: palette.textMuted),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        prefix: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Icon(FluentIcons.search, size: 12, color: palette.textMuted),
-        ),
-        decoration: WidgetStateProperty.all(
-          BoxDecoration(
-            borderRadius: BorderRadius.circular(AppShape.radiusControl),
-            border:
-                Border.all(color: palette.border, width: AppShape.hairline),
-          ),
-        ),
-        onChanged: onChanged,
       ),
     );
   }
@@ -1177,34 +1087,5 @@ class _InstallViewState extends State<_InstallView> {
       }
     }
     widget.onInstalled();
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(FluentIcons.error_badge,
-                size: 24, color: AppColors.statusError),
-            const SizedBox(height: 12),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.statusLine),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
   }
 }

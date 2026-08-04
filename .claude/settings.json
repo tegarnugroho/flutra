@@ -2,7 +2,27 @@
   "permissions": {
     "allow": [
       "Bash(powershell -NoProfile -Command 'Add-Type @'\\\\'' *)",
-      "Bash(powershell -NoProfile -Command 'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; Add-Type @'\\\\'' *)"
+      "Bash(powershell -NoProfile -Command 'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; Add-Type @'\\\\'' *)",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Name android_sdk_manager -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; 'killed'\")",
+      "Bash(sed -i 's|^  int _index = 6; // TEMP-SCREENSHOT|  int _index = 0;|' lib/presentation/shell/app_shell.dart)",
+      "Bash(python -c ' *)",
+      "Bash(git mv *)",
+      "Bash(mv lib/presentation/device/widgets/device_card.dart lib/presentation/device/widgets/device_row.dart)",
+      "Bash(sed -i 's/^sleep 11$/sleep ${3:-11}/' /tmp/shot.sh)",
+      "Bash(/tmp/shot.sh 1 sdkmanager 26)",
+      "Bash(/tmp/shot.sh 2 virtualdevices 20)",
+      "Bash(powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2; 'killed'\")",
+      "Bash(/tmp/shot.sh 9 settings 12)",
+      "Bash(/tmp/shot.sh 3 licenses 12)",
+      "Bash(/tmp/shot.sh 8 devices 16)",
+      "Bash(/tmp/shot.sh 9 probe9 12)",
+      "Bash(/tmp/shot.sh 7 probe7 12)",
+      "Bash(powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(/tmp/shot.sh 8 devices2 16)",
+      "Bash(/tmp/shot.sh 1 sdkmgr3 26)",
+      "Bash(/tmp/shot.sh 3 lic2 12)",
+      "Bash(/tmp/shot.sh 4 logcat2 18)",
+      "Bash(/tmp/shot.sh 4 logcat3 20)"
     ]
   }
 }

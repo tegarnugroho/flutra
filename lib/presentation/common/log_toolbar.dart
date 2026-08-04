@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../application/log/live_log_cubit.dart';
 import '../../domain/entities/log_line.dart';
+import 'compact_field.dart';
+import 'outlined_action_button.dart';
 
 /// Shared Pause / Clear / Save / search controls for a [LiveLogCubit] stream.
 class LogToolbar extends StatelessWidget {
@@ -31,70 +33,54 @@ class LogToolbar extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SizedBox(
-          width: 220,
-          child: TextBox(
-            placeholder: state.useRegex ? 'Regex filter…' : 'Search…',
-            prefix: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(FluentIcons.search, size: 14),
-            ),
-            onChanged: cubit.setQuery,
-          ),
+        CompactField(
+          width: 200,
+          placeholder: state.useRegex ? 'Regex filter' : 'Search',
+          onChanged: cubit.setQuery,
         ),
-        ToggleButton(
+        ToggleChip(
+          label: '.*',
           checked: state.useRegex,
           onChanged: cubit.setUseRegex,
-          child: const Text('.*'),
         ),
         if (showTag)
-          SizedBox(
-            width: 150,
-            child: TextBox(
-              placeholder: 'Tag filter…',
-              onChanged: cubit.setTagFilter,
-            ),
+          CompactField(
+            width: 140,
+            icon: FluentIcons.tag,
+            placeholder: 'Tag filter',
+            onChanged: cubit.setTagFilter,
           ),
         if (showPriority)
-          SizedBox(
-            width: 130,
-            child: ComboBox<LogPriority>(
-              isExpanded: true,
-              value: state.minPriority,
-              items: [
-                for (final pr in const [
-                  LogPriority.verbose,
-                  LogPriority.debug,
-                  LogPriority.info,
-                  LogPriority.warn,
-                  LogPriority.error,
-                  LogPriority.fatal,
-                ])
-                  ComboBoxItem(value: pr, child: Text('≥ ${pr.label}')),
-              ],
-              onChanged: (v) => v == null ? null : cubit.setMinPriority(v),
-            ),
+          CompactCombo<LogPriority>(
+            width: 120,
+            value: state.minPriority,
+            items: [
+              for (final pr in const [
+                LogPriority.verbose,
+                LogPriority.debug,
+                LogPriority.info,
+                LogPriority.warn,
+                LogPriority.error,
+                LogPriority.fatal,
+              ])
+                CompactComboItem(value: pr, label: '≥ ${pr.label}'),
+            ],
+            onChanged: cubit.setMinPriority,
           ),
-        Tooltip(
-          message: state.paused ? 'Resume' : 'Pause',
-          child: IconButton(
-            icon: Icon(state.paused ? FluentIcons.play : FluentIcons.pause),
-            onPressed: state.paused ? cubit.resume : cubit.pause,
-          ),
+        OutlinedActionButton(
+          icon: state.paused ? FluentIcons.play : FluentIcons.pause,
+          tooltip: state.paused ? 'Resume' : 'Pause',
+          onPressed: state.paused ? cubit.resume : cubit.pause,
         ),
-        Tooltip(
-          message: 'Clear',
-          child: IconButton(
-            icon: const Icon(FluentIcons.clear),
-            onPressed: cubit.clear,
-          ),
+        OutlinedActionButton(
+          icon: FluentIcons.clear,
+          tooltip: 'Clear',
+          onPressed: cubit.clear,
         ),
-        Tooltip(
-          message: 'Save to file',
-          child: IconButton(
-            icon: const Icon(FluentIcons.save),
-            onPressed: state.lines.isEmpty ? null : () => _save(context),
-          ),
+        OutlinedActionButton(
+          icon: FluentIcons.save,
+          tooltip: 'Save to file',
+          onPressed: state.lines.isEmpty ? null : () => _save(context),
         ),
       ],
     );

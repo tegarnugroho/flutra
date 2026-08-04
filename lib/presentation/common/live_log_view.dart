@@ -1,6 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../domain/entities/log_line.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+import 'outlined_action_button.dart';
 
 /// A terminal-style, auto-scrolling, colorized view of streamed log lines.
 ///
@@ -55,11 +58,12 @@ class _LiveLogViewState extends State<LiveLogView> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0C0C0C),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        color: palette.sidebarBg,
+        borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+        border: Border.all(color: palette.border, width: AppShape.hairline),
       ),
       child: Stack(
         children: [
@@ -67,7 +71,7 @@ class _LiveLogViewState extends State<LiveLogView> {
             Center(
               child: Text(
                 widget.emptyHint ?? 'Waiting for output…',
-                style: const TextStyle(color: Color(0xFF7A7A7A), fontSize: 12),
+                style: AppTextStyles.caption,
               ),
             )
           else
@@ -84,19 +88,14 @@ class _LiveLogViewState extends State<LiveLogView> {
             Positioned(
               right: 12,
               bottom: 12,
-              child: Button(
+              child: OutlinedActionButton(
+                icon: FluentIcons.down,
+                label: 'Jump to end',
+                dense: true,
                 onPressed: () {
                   _scroll.jumpTo(_scroll.position.maxScrollExtent);
                   setState(() => _stickToBottom = true);
                 },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(FluentIcons.down, size: 12),
-                    SizedBox(width: 6),
-                    Text('Jump to end'),
-                  ],
-                ),
               ),
             ),
         ],
@@ -110,35 +109,24 @@ class _LogRow extends StatelessWidget {
 
   final LogLine line;
 
-  static const _fatal = Color(0xFFFF5370);
-  static const _error = Color(0xFFFF6B6B);
-  static const _warn = Color(0xFFFFB454);
-  static const _info = Color(0xFF9ECE6A);
-  static const _debug = Color(0xFF7AA2F7);
-  static const _verbose = Color(0xFF9AA5B1);
-  static const _plain = Color(0xFFD4D4D4);
+  /// Levels are the app's one multi-colour surface, and they stay muted:
+  /// only warnings and errors get a semantic colour.
+  static Color _colorFor(LogPriority priority, bool isError, AppPalette p) =>
+      switch (priority) {
+        LogPriority.fatal || LogPriority.error => p.statusError,
+        LogPriority.warn => p.statusWarn,
+        LogPriority.info => p.textSecondary,
+        LogPriority.debug || LogPriority.verbose => p.textMuted,
+        LogPriority.unknown => isError ? p.statusError : p.textSecondary,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (line.priority) {
-      LogPriority.fatal => _fatal,
-      LogPriority.error => _error,
-      LogPriority.warn => _warn,
-      LogPriority.info => _info,
-      LogPriority.debug => _debug,
-      LogPriority.verbose => _verbose,
-      LogPriority.unknown => line.isError ? _error : _plain,
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 0.5),
-      child: SelectableText(
-        line.raw,
-        style: TextStyle(
-          fontFamily: 'Consolas',
-          fontSize: 12,
-          height: 1.35,
-          color: color,
-        ),
+    final palette = AppPalette.of(context);
+    return SelectableText(
+      line.raw,
+      style: AppTextStyles.monoLog.copyWith(
+        color: _colorFor(line.priority, line.isError, palette),
       ),
     );
   }

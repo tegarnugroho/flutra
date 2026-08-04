@@ -1,10 +1,12 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../application/sdk/sdk_manager_cubit.dart';
+import '../../common/outlined_action_button.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_text_styles.dart';
 
 /// A bottom bar showing the active install and its progress, with cancel.
-/// Shared by the SDK Manager and Package Downloader.
+/// Shared by the SDK Manager and Updates pages.
 class PackageQueueBar extends StatelessWidget {
   const PackageQueueBar({super.key, required this.state, required this.cubit});
 
@@ -13,19 +15,17 @@ class PackageQueueBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
+    final palette = AppPalette.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.resources.subtleFillColorSecondary,
+        color: palette.sidebarBg,
         border: Border(
-            top: BorderSide(color: theme.resources.controlStrokeColorDefault)),
+          top: BorderSide(color: palette.border, width: AppShape.hairline),
+        ),
       ),
       child: Row(
         children: [
-          const SizedBox(
-              width: 16, height: 16, child: ProgressRing(strokeWidth: 2)),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,23 +33,29 @@ class PackageQueueBar extends StatelessWidget {
               children: [
                 Text(
                   state.activePath ?? 'Working…',
-                  style: theme.typography.bodyStrong,
+                  style: AppTextStyles.monoValue,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 ProgressBar(
-                    value:
-                        state.progress != null ? state.progress! * 100 : null),
+                  value: state.progress != null ? state.progress! * 100 : null,
+                  activeColor: palette.accent,
+                ),
               ],
             ),
           ),
           const SizedBox(width: 16),
           if (state.queue.isNotEmpty)
             Text('${state.queue.length} queued',
-                style: theme.typography.caption),
+                style: AppTextStyles.caption),
           const SizedBox(width: 12),
-          Button(onPressed: cubit.cancel, child: const Text('Cancel')),
+          OutlinedActionButton(
+            icon: FluentIcons.cancel,
+            label: 'Cancel',
+            dense: true,
+            onPressed: cubit.cancel,
+          ),
         ],
       ),
     );
@@ -83,38 +89,44 @@ class _PackageConsoleState extends State<PackageConsole> {
         _scroll.jumpTo(_scroll.position.maxScrollExtent);
       }
     });
+    final palette = AppPalette.of(context);
     return Container(
       height: 200,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0C0C0C),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A2A))),
+      decoration: BoxDecoration(
+        color: AppColors.logBg,
+        border: Border(
+          top: BorderSide(color: palette.border, width: AppShape.hairline),
+        ),
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: const Color(0xFF161616),
+            padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom:
+                    BorderSide(color: palette.border, width: AppShape.hairline),
+              ),
+            ),
             child: Row(
               children: [
-                const Icon(FluentIcons.command_prompt,
-                    size: 12, color: Color(0xFFBBBBBB)),
+                Icon(FluentIcons.command_prompt,
+                    size: 12, color: palette.textMuted),
                 const SizedBox(width: 8),
-                const Text('Console',
-                    style: TextStyle(color: Color(0xFFDDDDDD), fontSize: 12)),
+                const Text('Console', style: AppTextStyles.sectionLabel),
                 const Spacer(),
-                Tooltip(
-                  message: 'Clear',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.clear, size: 12),
-                    onPressed: widget.cubit.clearConsole,
-                  ),
+                OutlinedActionButton(
+                  icon: FluentIcons.clear,
+                  dense: true,
+                  tooltip: 'Clear',
+                  onPressed: widget.cubit.clearConsole,
                 ),
-                Tooltip(
-                  message: 'Hide',
-                  child: IconButton(
-                    icon: const Icon(FluentIcons.chevron_down, size: 12),
-                    onPressed: widget.cubit.toggleConsole,
-                  ),
+                const SizedBox(width: 8),
+                OutlinedActionButton(
+                  icon: FluentIcons.chevron_down,
+                  dense: true,
+                  tooltip: 'Hide',
+                  onPressed: widget.cubit.toggleConsole,
                 ),
               ],
             ),
@@ -126,19 +138,18 @@ class _PackageConsoleState extends State<PackageConsole> {
               itemCount: widget.state.console.length,
               itemBuilder: (context, i) {
                 final line = widget.state.console[i];
-                final isCmd = line.startsWith('\$');
-                final isErr = line.startsWith('✗');
+                // The cubit marks executed commands with "$" and failures
+                // with "✗"; everything else is plain tool output.
+                final isCommand = line.startsWith(r'$');
+                final isError = line.startsWith('✗');
                 return SelectableText(
                   line,
-                  style: TextStyle(
-                    fontFamily: 'Consolas',
-                    fontSize: 12,
-                    height: 1.35,
-                    color: isCmd
-                        ? AppColors.statusOk
-                        : isErr
-                            ? const Color(0xFFFF6B6B)
-                            : const Color(0xFFD4D4D4),
+                  style: AppTextStyles.monoLog.copyWith(
+                    color: isError
+                        ? palette.statusError
+                        : isCommand
+                            ? palette.textTertiary
+                            : palette.textSecondary,
                   ),
                 );
               },

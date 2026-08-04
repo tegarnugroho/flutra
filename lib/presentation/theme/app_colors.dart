@@ -20,6 +20,10 @@ class AppColors {
   /// Active nav item and hover states.
   static const surfaceRaised = Color(0xFF26262B);
 
+  /// Terminal surfaces (console, log views). Same value as [sidebarBg] — log
+  /// panes read as chrome, not as content.
+  static const logBg = Color(0xFF161618);
+
   // ---- Borders -------------------------------------------------------------
 
   /// Hairline dividers and grouped-list outlines.

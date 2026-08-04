@@ -5,8 +5,13 @@ import '../../application/log/live_log_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/repositories/device_repository.dart';
+import '../common/compact_field.dart';
+import '../common/empty_state.dart';
 import '../common/live_log_view.dart';
 import '../common/log_toolbar.dart';
+import '../common/outlined_action_button.dart';
+import '../common/page_scaffold.dart';
+import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 
 /// Logcat Viewer: streams `adb logcat` from a selected device with live
@@ -64,27 +69,25 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cubit,
-      child: ScaffoldPage(
-        header: PageHeader(
-          title: const Text('Logcat'),
-          commandBar: CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: _loadingDevices
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2))
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('Devices'),
-                onPressed: _loadingDevices ? null : _loadDevices,
-              ),
-            ],
+      child: PageScaffold(
+        title: 'Logcat',
+        actions: [
+          OutlinedActionButton(
+            icon: FluentIcons.refresh,
+            label: 'Devices',
+            busy: _loadingDevices,
+            onPressed: _loadDevices,
           ),
-        ),
-        content: _online.isEmpty && !_loadingDevices
-            ? _NoDevices(onRefresh: _loadDevices)
+        ],
+        child: _online.isEmpty && !_loadingDevices
+            ? EmptyState(
+                icon: FluentIcons.plug_disconnected,
+                title: 'No online devices',
+                message:
+                    'Connect a device or start an emulator, then refresh.',
+                actionLabel: 'Refresh',
+                onAction: _loadDevices,
+              )
             : BlocBuilder<LiveLogCubit, LiveLogState>(
                 builder: (context, state) {
                   final filtered = state.filtered;
@@ -92,51 +95,46 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                        child: Row(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            SizedBox(
-                              width: 260,
-                              child: ComboBox<String>(
-                                isExpanded: true,
-                                placeholder: const Text('Select device'),
-                                value: _serial,
-                                items: [
-                                  for (final d in _online)
-                                    ComboBoxItem(
-                                      value: d.serial,
-                                      child: Text(
-                                        '${d.displayName} (${d.serial})',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                ],
-                                onChanged: (v) {
-                                  setState(() => _serial = v);
-                                  _start();
-                                },
-                              ),
+                            CompactCombo<String>(
+                              width: 240,
+                              value: _serial,
+                              placeholder: 'Select device',
+                              items: [
+                                for (final d in _online)
+                                  CompactComboItem(
+                                    value: d.serial,
+                                    label: '${d.displayName} (${d.serial})',
+                                  ),
+                              ],
+                              onChanged: (v) {
+                                setState(() => _serial = v);
+                                _start();
+                              },
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: LogToolbar(
-                                cubit: _cubit,
-                                state: state,
-                                showPriority: true,
-                                showTag: true,
-                                savePrefix: 'logcat',
-                              ),
+                            LogToolbar(
+                              cubit: _cubit,
+                              state: state,
+                              showPriority: true,
+                              showTag: true,
+                              savePrefix: 'logcat',
                             ),
                           ],
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _StatusLine(state: state, count: filtered.length),
+                        child:
+                            _StatusLine(state: state, count: filtered.length),
                       ),
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                           child: LiveLogView(
                             lines: filtered,
                             emptyHint: state.isStarting
@@ -154,6 +152,7 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
   }
 }
 
+/// Stream state as the app's standard dot + one-line summary.
 class _StatusLine extends StatelessWidget {
   const _StatusLine({required this.state, required this.count});
 
@@ -162,69 +161,23 @@ class _StatusLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
+    final palette = AppPalette.of(context);
     final (color, label) = switch (state.status) {
-      LiveLogStatus.running =>
-        (AppColors.statusOk, state.paused ? 'Paused' : 'Streaming'),
-      LiveLogStatus.starting => (AppColors.statusWarn, 'Starting'),
-      LiveLogStatus.stopped => (AppColors.textMuted, 'Stopped'),
-      LiveLogStatus.failure => (AppColors.statusError, 'Error'),
-      LiveLogStatus.idle => (AppColors.textMuted, 'Idle'),
+      LiveLogStatus.running => (
+          palette.statusOk,
+          state.paused ? 'Paused' : 'Streaming'
+        ),
+      LiveLogStatus.starting => (palette.statusWarn, 'Starting'),
+      LiveLogStatus.stopped => (palette.textMuted, 'Stopped'),
+      LiveLogStatus.failure => (palette.statusError, 'Error'),
+      LiveLogStatus.idle => (palette.textMuted, 'Idle'),
     };
-    return Row(
-      children: [
-        Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text(state.paused ? 'Paused' : label,
-            style: theme.typography.caption?.copyWith(color: color)),
-        const SizedBox(width: 12),
-        Text('$count lines',
-            style: theme.typography.caption?.copyWith(
-              color: theme.resources.textFillColorTertiary,
-            )),
-        if (state.errorMessage != null) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(state.errorMessage!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.typography.caption
-                    ?.copyWith(color: AppColors.statusError)),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _NoDevices extends StatelessWidget {
-  const _NoDevices({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(FluentIcons.plug_disconnected,
-              size: 44, color: theme.resources.textFillColorTertiary),
-          const SizedBox(height: 14),
-          Text('No online devices', style: theme.typography.subtitle),
-          const SizedBox(height: 8),
-          Text('Connect a device or start an emulator, then refresh.',
-              style: theme.typography.body?.copyWith(
-                color: theme.resources.textFillColorSecondary,
-              )),
-          const SizedBox(height: 18),
-          FilledButton(onPressed: onRefresh, child: const Text('Refresh')),
-        ],
-      ),
+    final message = state.errorMessage != null
+        ? '$label — ${state.errorMessage}'
+        : '$label · $count lines';
+    return StatusLine(
+      color: state.paused ? palette.textMuted : color,
+      message: state.paused ? 'Paused · $count lines' : message,
     );
   }
 }

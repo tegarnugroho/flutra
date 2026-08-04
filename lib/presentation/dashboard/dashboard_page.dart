@@ -5,8 +5,10 @@ import '../../application/dashboard/dashboard_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
+import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
+import '../common/page_scaffold.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -31,41 +33,33 @@ class _DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScaffoldPage(
-      padding: EdgeInsets.zero,
-      content: BlocBuilder<DashboardCubit, DashboardState>(
-        builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Row(
-                  children: [
-                    const Text('Dashboard', style: AppTextStyles.pageTitle),
-                    const Spacer(),
-                    OutlinedActionButton(
-                      icon: FluentIcons.refresh,
-                      label: 'Refresh',
-                      busy: state.isLoading,
-                      onPressed: () => context.read<DashboardCubit>().refresh(),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: _body(context, state)),
-            ],
-          );
-        },
-      ),
+    return BlocBuilder<DashboardCubit, DashboardState>(
+      builder: (context, state) {
+        return PageScaffold(
+          title: 'Dashboard',
+          actions: [
+            OutlinedActionButton(
+              icon: FluentIcons.refresh,
+              label: 'Refresh',
+              busy: state.isLoading,
+              onPressed: () => context.read<DashboardCubit>().refresh(),
+            ),
+          ],
+          child: _body(context, state),
+        );
+      },
     );
   }
 
   Widget _body(BuildContext context, DashboardState state) {
     if (state.status == DashboardStatus.failure) {
-      return _ErrorView(
+      return EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Detection failed',
         message: state.errorMessage ?? 'Something went wrong.',
-        onRetry: () => context.read<DashboardCubit>().refresh(),
+        actionLabel: 'Retry',
+        onAction: () => context.read<DashboardCubit>().refresh(),
       );
     }
     if (state.snapshot == null) {
@@ -87,7 +81,7 @@ class _DashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      padding: kPageBodyPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,52 +149,11 @@ class _StatusLine extends StatelessWidget {
       message = 'Environment ready — all core Android and Flutter tools detected';
     }
 
-    return Row(
-      children: [
-        StatusDot(color: color, size: 7),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: AppTextStyles.statusLine,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
+    return StatusLine(color: color, message: message);
   }
 
   static String _count(int n) => n == 1 ? '1 tool' : '$n tools';
 
   static String _names(List<ToolStatus> tools) =>
       tools.map((t) => t.displayName).join(', ');
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(FluentIcons.error_badge, size: 24, color: palette.statusError),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.statusLine,
-          ),
-          const SizedBox(height: 16),
-          Button(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
-    );
-  }
 }

@@ -102,6 +102,16 @@ class AppTextStyles {
     color: AppColors.textSecondary,
   );
 
+  /// A streamed log line.
+  static const monoLog = TextStyle(
+    fontSize: 11.5,
+    fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    height: 1.6,
+    color: AppColors.textSecondary,
+  );
+
   /// Text typed into a compact input.
   static const input = TextStyle(
     fontSize: 12,

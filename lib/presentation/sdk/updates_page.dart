@@ -4,8 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
-import 'widgets/package_progress.dart';
+import '../common/empty_state.dart';
+import '../common/grouped_list.dart';
+import '../common/outlined_action_button.dart';
+import '../common/page_scaffold.dart';
+import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+import 'widgets/package_progress.dart';
 
 /// Updates: checks the SDK catalogue and lists packages with a newer version,
 /// with per-package Update and Update-all. Reuses the shared install queue.
@@ -26,251 +32,168 @@ class _UpdatesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<SdkManagerCubit>();
-    return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('Updates'),
-        commandBar: BlocBuilder<SdkManagerCubit, SdkManagerState>(
-          builder: (context, state) => CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: const Icon(FluentIcons.sync),
-                label: Text(
-                    'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}'),
-                onPressed: state.busy || state.updateCount == 0
-                    ? null
-                    : cubit.updateAll,
-              ),
-              CommandBarButton(
-                icon: const Icon(FluentIcons.command_prompt),
-                label: const Text('Console'),
-                onPressed: cubit.toggleConsole,
-              ),
-              CommandBarButton(
-                icon: state.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2))
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('Check for updates'),
-                onPressed: state.isLoading ? null : cubit.load,
-              ),
-            ],
-          ),
-        ),
-      ),
-      content: BlocBuilder<SdkManagerCubit, SdkManagerState>(
-        builder: (context, state) {
-          if (state.isLoading && state.packages.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProgressRing(),
-                  SizedBox(height: 12),
-                  Text('Checking for updates…'),
-                ],
-              ),
-            );
-          }
-          if (state.status == SdkManagerStatus.failure &&
-              state.packages.isEmpty) {
-            return _Message(
-              icon: FluentIcons.error_badge,
-              iconColor: AppColors.statusError,
-              title: 'Could not check for updates',
-              message: state.errorMessage ?? 'Unknown error.',
-              actionLabel: 'Retry',
-              onAction: cubit.load,
-            );
-          }
-
-          final updates =
-              state.packages.where((p) => p.hasUpdate).toList();
-          return Column(
+    return BlocBuilder<SdkManagerCubit, SdkManagerState>(
+      builder: (context, state) {
+        final cubit = context.read<SdkManagerCubit>();
+        return PageScaffold(
+          title: 'Updates',
+          actions: [
+            OutlinedActionButton(
+              icon: FluentIcons.sync,
+              label:
+                  'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}',
+              onPressed:
+                  state.busy || state.updateCount == 0 ? null : cubit.updateAll,
+            ),
+            OutlinedActionButton(
+              icon: FluentIcons.command_prompt,
+              label: 'Console',
+              onPressed: cubit.toggleConsole,
+            ),
+            OutlinedActionButton(
+              icon: FluentIcons.refresh,
+              label: 'Check for updates',
+              busy: state.isLoading,
+              onPressed: cubit.load,
+            ),
+          ],
+          child: Column(
             children: [
-              Expanded(
-                child: updates.isEmpty
-                    ? _Message(
-                        icon: FluentIcons.completed_solid,
-                        iconColor: AppColors.statusOk,
-                        title: "You're up to date",
-                        message:
-                            'All installed SDK packages are on their latest '
-                            'version.',
-                        actionLabel: 'Check again',
-                        onAction: cubit.load,
-                      )
-                    : _UpdateList(updates: updates, state: state, cubit: cubit),
-              ),
+              Expanded(child: _body(context, state, cubit)),
               if (state.queuedCount > 0 || state.busy)
                 PackageQueueBar(state: state, cubit: cubit),
               if (state.consoleVisible)
                 PackageConsole(state: state, cubit: cubit),
             ],
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    SdkManagerState state,
+    SdkManagerCubit cubit,
+  ) {
+    if (state.isLoading && state.packages.isEmpty) {
+      return const Center(child: ProgressRing());
+    }
+    if (state.status == SdkManagerStatus.failure && state.packages.isEmpty) {
+      return EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Could not check for updates',
+        message: state.errorMessage ?? 'Unknown error.',
+        actionLabel: 'Retry',
+        onAction: cubit.load,
+      );
+    }
+
+    final palette = AppPalette.of(context);
+    final updates = state.packages.where((p) => p.hasUpdate).toList();
+
+    return SingleChildScrollView(
+      padding: kPageBodyPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StatusLine(
+            color: updates.isEmpty ? palette.statusOk : palette.statusWarn,
+            message: updates.isEmpty
+                ? 'Up to date — all installed SDK packages are on their latest version'
+                : '${updates.length} update${updates.length == 1 ? '' : 's'} available',
+          ),
+          if (updates.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const SectionLabel('Available updates'),
+            const SizedBox(height: 8),
+            GroupedList(
+              children: [
+                for (final pkg in updates)
+                  _UpdateRow(pkg: pkg, state: state, cubit: cubit),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _UpdateList extends StatelessWidget {
-  const _UpdateList({
-    required this.updates,
+class _UpdateRow extends StatelessWidget {
+  const _UpdateRow({
+    required this.pkg,
     required this.state,
     required this.cubit,
   });
 
-  final List<SdkPackage> updates;
+  final SdkPackage pkg;
   final SdkManagerState state;
   final SdkManagerCubit cubit;
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-          child: InfoBar(
-            title: Text('${updates.length} update(s) available'),
-            content: const Text(
-                'Update individual packages, or use "Update all" above.'),
-            severity: InfoBarSeverity.warning,
-            isLong: true,
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            itemCount: updates.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final pkg = updates[i];
-              final active = state.isActive(pkg.path);
-              final queued = state.isQueued(pkg.path);
-              return Card(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                              color: AppColors.statusWarn,
-                              shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(pkg.description,
-                                  style: theme.typography.bodyStrong,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              Text(pkg.path,
-                                  style: theme.typography.caption?.copyWith(
-                                    fontFamily: 'Consolas',
-                                    color:
-                                        theme.resources.textFillColorTertiary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${pkg.installedVersion ?? '?'} → ${pkg.availableVersion ?? '?'}',
-                          style: theme.typography.caption
-                              ?.copyWith(color: AppColors.statusWarn),
-                        ),
-                        const SizedBox(width: 14),
-                        SizedBox(
-                          width: 84,
-                          child: active || queued
-                              ? const SizedBox()
-                              : FilledButton(
-                                  onPressed: () =>
-                                      cubit.enqueueInstall(pkg.path),
-                                  child: const Text('Update'),
-                                ),
-                        ),
-                      ],
-                    ),
-                    if (active || queued) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ProgressBar(
-                                value: active && state.progress != null
-                                    ? state.progress! * 100
-                                    : (active ? null : 0)),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(active ? 'Updating…' : 'Queued',
-                              style: theme.typography.caption),
-                        ],
-                      ),
-                    ],
-                  ],
+    final palette = AppPalette.of(context);
+    final active = state.isActive(pkg.path);
+    final queued = state.isQueued(pkg.path);
+
+    return GroupedListRow(
+      statusColor: palette.statusWarn,
+      showStatusSlot: true,
+      title: pkg.description,
+      secondary: pkg.path,
+      trailing: [
+        Text.rich(
+          TextSpan(
+            style: AppTextStyles.monoValue,
+            children: [
+              TextSpan(text: pkg.installedVersion ?? '?'),
+              TextSpan(
+                text: ' → ',
+                style: AppTextStyles.monoValue.copyWith(
+                  color: palette.textMuted,
                 ),
-              );
-            },
+              ),
+              TextSpan(text: pkg.availableVersion ?? '?'),
+            ],
           ),
         ),
+        if (queued && !active)
+          const Text('queued', style: AppTextStyles.inlineNote),
       ],
+      hoverActions: [
+        if (!active && !queued)
+          OutlinedActionButton(
+            icon: FluentIcons.sync,
+            label: 'Update',
+            dense: true,
+            onPressed: () => cubit.enqueueInstall(pkg.path),
+          ),
+      ],
+      below: active ? _progress(context) : null,
     );
   }
-}
 
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.message,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 44, color: iconColor),
-            const SizedBox(height: 14),
-            Text(title, style: theme.typography.subtitle),
-            const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: theme.typography.body?.copyWith(
-                  color: theme.resources.textFillColorSecondary,
-                )),
-            const SizedBox(height: 18),
-            FilledButton(onPressed: onAction, child: Text(actionLabel)),
-          ],
-        ),
+  Widget _progress(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final value = state.progress;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: ProgressBar(
+              value: value != null ? value * 100 : null,
+              activeColor: palette.accent,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value != null ? '${(value * 100).round()}%' : 'Updating…',
+            style: AppTextStyles.caption,
+          ),
+        ],
       ),
     );
   }
