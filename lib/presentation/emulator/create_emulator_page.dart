@@ -51,6 +51,10 @@ class _CreateEmulatorView extends StatefulWidget {
 /// the same discard check, so the listener lives where the cubit is readable.
 class _CreateEmulatorViewState extends State<_CreateEmulatorView>
     with WindowListener {
+  /// Set while the discard prompt is up, so hammering the X or Cancel can't
+  /// stack a second dialog on top of the first.
+  bool _leaving = false;
+
   @override
   void initState() {
     super.initState();
@@ -82,17 +86,20 @@ class _CreateEmulatorViewState extends State<_CreateEmulatorView>
   /// Leaving the wizard from its first screen. Only asks when there is
   /// something to lose — a device the user already picked.
   Future<void> _exit(BuildContext context) async {
+    if (_leaving) return;
     final state = context.read<CreateEmulatorCubit>().state;
     if (state.deviceId == null) {
       _close(context, false);
       return;
     }
+    _leaving = true;
     final discard = await showConfirmDialog(
       context,
       title: 'Discard this emulator?',
       message: 'The device you picked and any other choices will be lost.',
       confirmLabel: 'Discard',
     );
+    _leaving = false;
     if (discard && context.mounted) _close(context, false);
   }
 

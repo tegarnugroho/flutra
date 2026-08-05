@@ -37,6 +37,14 @@ class CreateEmulatorWindowApp extends StatelessWidget {
     // closing this window is enough to keep both in sync. Guard the call in case
     // window_manager's native side is unavailable (e.g. after a hot restart).
     try {
+      // The wizard holds preventClose so the caption's X can run the discard
+      // check. Release it before closing, or WM_CLOSE bounces straight back
+      // into onWindowClose and the window never goes away.
+      await windowManager.setPreventClose(false);
+      // close(), never destroy(): window_manager's destroy() is PostQuitMessage
+      // on Windows, and every window shares one UI thread — it would end the
+      // whole app instead of this one window. close() posts SC_CLOSE to this
+      // window's own handle.
       await windowManager.close();
     } on MissingPluginException {
       await windowController.hide();
