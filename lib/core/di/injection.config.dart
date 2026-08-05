@@ -80,6 +80,8 @@ import 'package:android_sdk_manager/infrastructure/settings/settings_service.dar
     as _i517;
 import 'package:android_sdk_manager/infrastructure/settings/startup_service.dart'
     as _i104;
+import 'package:android_sdk_manager/infrastructure/storage/storage_analysis_service.dart'
+    as _i927;
 import 'package:android_sdk_manager/infrastructure/system/external_link_service.dart'
     as _i1017;
 import 'package:android_sdk_manager/infrastructure/system/host_info_service.dart'
@@ -178,6 +180,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i740.SdkManagerCubit>(
       () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
     );
+    gh.lazySingleton<_i927.StorageAnalysisService>(
+      () => _i927.StorageAnalysisService(
+        gh<_i839.SdkLocator>(),
+        gh<_i1034.FlutterLocator>(),
+      ),
+    );
     gh.factory<_i510.AddressCubit>(
       () => _i510.AddressCubit(gh<_i1013.AddressRepository>()),
     );
@@ -213,9 +221,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i517.SettingsService>(),
       ),
     );
-    gh.factory<_i75.DashboardCubit>(
-      () => _i75.DashboardCubit(gh<_i595.EnvironmentRepository>()),
-    );
     gh.factory<_i839.FlutterUpdateCubit>(
       () => _i839.FlutterUpdateCubit(
         gh<_i606.FlutterRepository>(),
@@ -233,6 +238,15 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i884.DeviceManagerCubit(
         gh<_i720.DeviceRepository>(),
         gh<_i606.FlutterRepository>(),
+      ),
+    );
+    gh.factory<_i75.DashboardCubit>(
+      () => _i75.DashboardCubit(
+        gh<_i595.EnvironmentRepository>(),
+        gh<_i277.EmulatorRepository>(),
+        gh<_i720.DeviceRepository>(),
+        gh<_i374.SdkRepository>(),
+        gh<_i927.StorageAnalysisService>(),
       ),
     );
     return this;

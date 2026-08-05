@@ -1,7 +1,11 @@
 import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart';
 import 'package:android_sdk_manager/domain/entities/environment_snapshot.dart';
 import 'package:android_sdk_manager/domain/entities/tool_status.dart';
+import 'package:android_sdk_manager/domain/repositories/device_repository.dart';
+import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart';
 import 'package:android_sdk_manager/domain/repositories/environment_repository.dart';
+import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart';
+import 'package:android_sdk_manager/infrastructure/storage/storage_analysis_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeRepo implements EnvironmentRepository {
@@ -14,9 +18,9 @@ class _FakeRepo implements EnvironmentRepository {
 
 EnvironmentSnapshot _snapshot({required bool ready}) {
   ToolStatus s(ToolKind k) => ToolStatus(
-        kind: k,
-        state: ready ? ToolState.installed : ToolState.missing,
-      );
+    kind: k,
+    state: ready ? ToolState.installed : ToolState.missing,
+  );
   return EnvironmentSnapshot(
     sdk: s(ToolKind.sdk),
     java: s(ToolKind.java),
@@ -32,10 +36,31 @@ EnvironmentSnapshot _snapshot({required bool ready}) {
   );
 }
 
+/// The dashboard also reads counts and disk usage; these tests only exercise
+/// toolchain detection, so the rest are stubs that are never called.
+DashboardCubit _cubit(EnvironmentSnapshot snapshot) => DashboardCubit(
+  _FakeRepo(snapshot),
+  _Unused(),
+  _Unused(),
+  _Unused(),
+  _Unused(),
+);
+
+class _Unused
+    implements
+        EmulatorRepository,
+        DeviceRepository,
+        SdkRepository,
+        StorageAnalysisService {
+  @override
+  noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not used here');
+}
+
 void main() {
   group('DashboardCubit', () {
     test('emits ready with snapshot on successful detection', () async {
-      final cubit = DashboardCubit(_FakeRepo(_snapshot(ready: true)));
+      final cubit = _cubit(_snapshot(ready: true));
       await cubit.refresh();
 
       expect(cubit.state.status, DashboardStatus.ready);
@@ -44,7 +69,7 @@ void main() {
     });
 
     test('reports missing tools when environment is incomplete', () async {
-      final cubit = DashboardCubit(_FakeRepo(_snapshot(ready: false)));
+      final cubit = _cubit(_snapshot(ready: false));
       await cubit.refresh();
 
       expect(cubit.state.snapshot?.isReady, isFalse);
