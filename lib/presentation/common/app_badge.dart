@@ -21,7 +21,7 @@ class AppBadge extends StatelessWidget {
         border:
             Border.all(color: palette.borderStrong, width: AppShape.hairline),
       ),
-      child: Text(text, style: AppTextStyles.badge),
+      child: Text(text, style: AppTextStyles.of(context).badge),
     );
   }
 }

@@ -16,7 +16,7 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       meta == null ? text : '$text · $meta',
-      style: AppTextStyles.sectionLabel,
+      style: AppTextStyles.of(context).sectionLabel,
     );
   }
 }
@@ -252,12 +252,12 @@ class _GroupedListRowState extends State<GroupedListRow> {
     final title = Text.rich(
       TextSpan(
         text: widget.title ?? '',
-        style: AppTextStyles.rowTitle,
+        style: AppTextStyles.of(context).rowTitle,
         children: [
           if (widget.secondary != null)
             TextSpan(
               text: ' · ${widget.secondary}',
-              style: AppTextStyles.rowSecondary,
+              style: AppTextStyles.of(context).rowSecondary,
             ),
         ],
       ),
@@ -270,7 +270,7 @@ class _GroupedListRowState extends State<GroupedListRow> {
       children: [
         title,
         const SizedBox(height: 2),
-        Text(widget.subtitle!, style: AppTextStyles.caption),
+        Text(widget.subtitle!, style: AppTextStyles.of(context).caption),
       ],
     );
   }

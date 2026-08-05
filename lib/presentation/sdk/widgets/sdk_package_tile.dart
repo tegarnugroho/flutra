@@ -51,11 +51,11 @@ class SdkPackageTile extends StatelessWidget {
             child: Text.rich(
               TextSpan(
                 text: package.description,
-                style: AppTextStyles.rowTitle,
+                style: AppTextStyles.of(context).rowTitle,
                 children: [
                   TextSpan(
                     text: '  ${package.path}',
-                    style: AppTextStyles.monoValue
+                    style: AppTextStyles.of(context).monoValue
                         .copyWith(color: palette.textMuted),
                   ),
                 ],
@@ -69,7 +69,7 @@ class SdkPackageTile extends StatelessWidget {
       trailing: [
         _version(palette),
         if (queued && !active)
-          const Text('queued', style: AppTextStyles.inlineNote),
+          const Text('queued', style: AppTextStyles.of(context).inlineNote),
       ],
       hoverActions: [
         if (!active && !queued) _action(),
@@ -88,19 +88,19 @@ class SdkPackageTile extends StatelessWidget {
     if (package.hasUpdate) {
       return Text.rich(
         TextSpan(
-          style: AppTextStyles.monoValue,
+          style: AppTextStyles.of(context).monoValue,
           children: [
             TextSpan(text: package.installedVersion ?? '?'),
             TextSpan(
               text: ' → ',
-              style: AppTextStyles.monoValue.copyWith(color: palette.textMuted),
+              style: AppTextStyles.of(context).monoValue.copyWith(color: palette.textMuted),
             ),
             TextSpan(text: package.availableVersion ?? '?'),
           ],
         ),
       );
     }
-    return Text(package.displayVersion ?? '—', style: AppTextStyles.monoValue);
+    return Text(package.displayVersion ?? '—', style: AppTextStyles.of(context).monoValue);
   }
 
   Widget _action() {
@@ -140,7 +140,7 @@ class SdkPackageTile extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             progress != null ? '${(progress! * 100).round()}%' : 'Working…',
-            style: AppTextStyles.caption,
+            style: AppTextStyles.of(context).caption,
           ),
         ],
       ),

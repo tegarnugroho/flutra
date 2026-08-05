@@ -33,7 +33,7 @@ class PackageQueueBar extends StatelessWidget {
               children: [
                 Text(
                   state.activePath ?? 'Working…',
-                  style: AppTextStyles.monoValue,
+                  style: AppTextStyles.of(context).monoValue,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -48,7 +48,7 @@ class PackageQueueBar extends StatelessWidget {
           const SizedBox(width: 16),
           if (state.queue.isNotEmpty)
             Text('${state.queue.length} queued',
-                style: AppTextStyles.caption),
+                style: AppTextStyles.of(context).caption),
           const SizedBox(width: 12),
           OutlinedActionButton(
             icon: FluentIcons.cancel,
@@ -113,7 +113,7 @@ class _PackageConsoleState extends State<PackageConsole> {
                 Icon(FluentIcons.command_prompt,
                     size: 12, color: palette.textMuted),
                 const SizedBox(width: 8),
-                const Text('Console', style: AppTextStyles.sectionLabel),
+                const Text('Console', style: AppTextStyles.of(context).sectionLabel),
                 const Spacer(),
                 OutlinedActionButton(
                   icon: FluentIcons.clear,
@@ -144,7 +144,7 @@ class _PackageConsoleState extends State<PackageConsole> {
                 final isError = line.startsWith('✗');
                 return SelectableText(
                   line,
-                  style: AppTextStyles.monoLog.copyWith(
+                  style: AppTextStyles.of(context).monoLog.copyWith(
                     color: isError
                         ? palette.statusError
                         : isCommand

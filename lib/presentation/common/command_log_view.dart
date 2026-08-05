@@ -50,7 +50,7 @@ class _CommandLogViewState extends State<CommandLogView> {
           _autoScroll();
           if (state.lines.isEmpty && state.running) {
             return const Center(
-              child: Text('Starting…', style: AppTextStyles.caption),
+              child: Text('Starting…', style: AppTextStyles.of(context).caption),
             );
           }
           return ListView.builder(
@@ -60,7 +60,7 @@ class _CommandLogViewState extends State<CommandLogView> {
               final line = state.lines[i];
               return Text(
                 line.text,
-                style: AppTextStyles.monoLog.copyWith(
+                style: AppTextStyles.of(context).monoLog.copyWith(
                   color: line.isError
                       ? palette.statusError
                       : palette.textSecondary,

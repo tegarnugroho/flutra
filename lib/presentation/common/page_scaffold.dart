@@ -33,7 +33,7 @@ class PageScaffold extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Row(
               children: [
-                Text(title, style: AppTextStyles.pageTitle),
+                Text(title, style: AppTextStyles.of(context).pageTitle),
                 const Spacer(),
                 for (var i = 0; i < actions.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),

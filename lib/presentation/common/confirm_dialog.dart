@@ -17,8 +17,8 @@ Future<bool> showConfirmDialog(
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => ContentDialog(
-      title: Text(title, style: AppTextStyles.heroTitle),
-      content: Text(message, style: AppTextStyles.statusLine),
+      title: Text(title, style: AppTextStyles.of(context).heroTitle),
+      content: Text(message, style: AppTextStyles.of(context).statusLine),
       actions: [
         Button(
           child: const Text('Cancel'),
@@ -54,7 +54,7 @@ Future<String?> showTextPromptDialog(
     context: context,
     builder: (context) => ContentDialog(
       constraints: const BoxConstraints(maxWidth: 400),
-      title: Text(title, style: AppTextStyles.heroTitle),
+      title: Text(title, style: AppTextStyles.of(context).heroTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

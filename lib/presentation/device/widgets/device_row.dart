@@ -67,12 +67,12 @@ class _DeviceRowState extends State<DeviceRow> {
       title: device.displayName,
       secondary: _meta().isEmpty ? null : _meta().join(' · '),
       trailing: [
-        Text(device.serial, style: AppTextStyles.monoValue),
+        Text(device.serial, style: AppTextStyles.of(context).monoValue),
         CopyIconButton(value: device.serial, label: 'Serial'),
         if (widget.busy)
           AppLoader(size: AppLoaderSize.small)
         else if (!device.supportsAdb)
-          const Text('Flutter target', style: AppTextStyles.inlineNote),
+          const Text('Flutter target', style: AppTextStyles.of(context).inlineNote),
       ],
       hoverActions: [
         if (!widget.busy && device.supportsAdb) ...[

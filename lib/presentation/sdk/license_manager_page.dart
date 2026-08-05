@@ -39,19 +39,19 @@ class LicenseManagerPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Accept SDK licenses',
-                      style: AppTextStyles.heroTitle),
+                      style: AppTextStyles.of(context).heroTitle),
                   const SizedBox(height: 8),
                   const Text(
                     'Before you can install most SDK packages, Google requires '
                     'you to accept their licenses. "Accept all" runs '
                     '"sdkmanager --licenses" and answers yes to every prompt.',
-                    style: AppTextStyles.statusLine,
+                    style: AppTextStyles.of(context).statusLine,
                   ),
                   const SizedBox(height: 10),
                   const Text(
                     'One-time step — you only need this once per SDK, or after '
                     'installing new package types.',
-                    style: AppTextStyles.caption,
+                    style: AppTextStyles.of(context).caption,
                   ),
                   const SizedBox(height: 16),
                   OutlinedActionButton(

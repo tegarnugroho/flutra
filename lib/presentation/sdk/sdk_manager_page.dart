@@ -411,13 +411,13 @@ class _CategoryItemState extends State<_CategoryItem> {
                 child: Text(
                   widget.label,
                   style: widget.selected
-                      ? AppTextStyles.navItemSelected
-                      : AppTextStyles.navItem,
+                      ? AppTextStyles.of(context).navItemSelected
+                      : AppTextStyles.of(context).navItem,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text('${widget.count}', style: AppTextStyles.caption),
+              Text('${widget.count}', style: AppTextStyles.of(context).caption),
             ],
           ),
         ),
@@ -524,9 +524,9 @@ class _DetailsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(package.description, style: AppTextStyles.heroTitle),
+            Text(package.description, style: AppTextStyles.of(context).heroTitle),
             const SizedBox(height: 4),
-            Text(package.category.label, style: AppTextStyles.caption),
+            Text(package.category.label, style: AppTextStyles.of(context).caption),
             const SizedBox(height: 14),
             const SectionLabel('Details'),
             const SizedBox(height: 8),
@@ -535,7 +535,7 @@ class _DetailsPanel extends StatelessWidget {
                 GroupedListRow(
                   title: 'Status',
                   trailing: [
-                    Text(_statusLabel, style: AppTextStyles.monoValue),
+                    Text(_statusLabel, style: AppTextStyles.of(context).monoValue),
                   ],
                 ),
                 GroupedListRow(
@@ -544,7 +544,7 @@ class _DetailsPanel extends StatelessWidget {
                     Flexible(
                       child: Text(
                         package.path,
-                        style: AppTextStyles.monoValue,
+                        style: AppTextStyles.of(context).monoValue,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -557,7 +557,7 @@ class _DetailsPanel extends StatelessWidget {
                     title: 'Installed',
                     trailing: [
                       Text(package.installedVersion!,
-                          style: AppTextStyles.monoValue),
+                          style: AppTextStyles.of(context).monoValue),
                     ],
                   ),
                 if (package.availableVersion != null)
@@ -565,7 +565,7 @@ class _DetailsPanel extends StatelessWidget {
                     title: 'Latest',
                     trailing: [
                       Text(package.availableVersion!,
-                          style: AppTextStyles.monoValue),
+                          style: AppTextStyles.of(context).monoValue),
                     ],
                   ),
                 if (package.location != null)
@@ -575,7 +575,7 @@ class _DetailsPanel extends StatelessWidget {
                       Flexible(
                         child: Text(
                           package.location!,
-                          style: AppTextStyles.monoValue,
+                          style: AppTextStyles.of(context).monoValue,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

@@ -51,9 +51,9 @@ class CompactField extends StatelessWidget {
         autofocus: autofocus,
         onSubmitted: onSubmitted,
         placeholder: placeholder,
-        style: AppTextStyles.input,
+        style: AppTextStyles.of(context).input,
         placeholderStyle:
-            AppTextStyles.input.copyWith(color: palette.textMuted),
+            AppTextStyles.of(context).input.copyWith(color: palette.textMuted),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         prefix: icon == null
             ? null
@@ -117,7 +117,7 @@ class _CompactComboState<T> extends State<CompactCombo<T>> {
         items: [
           for (final item in widget.items)
             MenuFlyoutItem(
-              text: Text(item.label, style: AppTextStyles.input),
+              text: Text(item.label, style: AppTextStyles.of(context).input),
               selected: item.value == widget.value,
               onPressed: () {
                 Navigator.of(flyoutContext).pop();
@@ -159,9 +159,9 @@ class _CompactComboState<T> extends State<CompactCombo<T>> {
                   child: Text(
                     selected ?? widget.placeholder,
                     style: selected == null
-                        ? AppTextStyles.input
+                        ? AppTextStyles.of(context).input
                             .copyWith(color: palette.textMuted)
-                        : AppTextStyles.input,
+                        : AppTextStyles.of(context).input,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -292,7 +292,7 @@ class ToggleChip extends StatelessWidget {
             widthFactor: 1,
             child: Text(
               label,
-              style: checked ? AppTextStyles.rowTitle : AppTextStyles.navItem,
+              style: checked ? AppTextStyles.of(context).rowTitle : AppTextStyles.of(context).navItem,
             ),
           ),
         ),

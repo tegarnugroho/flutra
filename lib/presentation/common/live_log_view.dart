@@ -71,7 +71,7 @@ class _LiveLogViewState extends State<LiveLogView> {
             Center(
               child: Text(
                 widget.emptyHint ?? 'Waiting for output…',
-                style: AppTextStyles.caption,
+                style: AppTextStyles.of(context).caption,
               ),
             )
           else
@@ -125,7 +125,7 @@ class _LogRow extends StatelessWidget {
     final palette = AppPalette.of(context);
     return SelectableText(
       line.raw,
-      style: AppTextStyles.monoLog.copyWith(
+      style: AppTextStyles.of(context).monoLog.copyWith(
         color: _colorFor(line.priority, line.isError, palette),
       ),
     );

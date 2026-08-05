@@ -98,7 +98,7 @@ class _DashboardContent extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               'Last checked ${_formatTime(lastUpdated!)}',
-              style: AppTextStyles.caption,
+              style: AppTextStyles.of(context).caption,
             ),
           ],
         ],

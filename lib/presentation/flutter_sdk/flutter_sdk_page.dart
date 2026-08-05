@@ -191,7 +191,7 @@ class _FlutterSdkView extends StatelessWidget {
                 const Text(
                   'Switch release channel, then Upgrade to fetch its latest '
                   'build.',
-                  style: AppTextStyles.caption,
+                  style: AppTextStyles.of(context).caption,
                 ),
                 const SizedBox(height: 10),
                 _ChannelSection(
@@ -308,7 +308,7 @@ class _HeaderActionsState extends State<_HeaderActions> {
             MenuFlyoutItem(
               text: Text(
                 'Git repo: ${info.isGitRepo ? 'yes' : 'no'}',
-                style: AppTextStyles.inlineNote,
+                style: AppTextStyles.of(context).inlineNote,
               ),
               // Diagnostic only — kept out of the card, not actionable here.
               onPressed: null,
@@ -415,7 +415,7 @@ class _CurrentSdkCard extends StatelessWidget {
               Icon(FluentIcons.developer_tools,
                   size: 18, color: palette.textSecondary),
               const SizedBox(width: 10),
-              Text('Flutter ${info.version}', style: AppTextStyles.heroTitle),
+              Text('Flutter ${info.version}', style: AppTextStyles.of(context).heroTitle),
               const SizedBox(width: 8),
               AppBadge(info.channel),
               const Spacer(),
@@ -470,10 +470,10 @@ class _CurrentSdkCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (label != null) ...[
-          Text(label, style: AppTextStyles.rowSecondary),
+          Text(label, style: AppTextStyles.of(context).rowSecondary),
           const SizedBox(width: 6),
         ],
-        Text(value, style: AppTextStyles.monoValue),
+        Text(value, style: AppTextStyles.of(context).monoValue),
         if (copyValue != null) ...[
           const SizedBox(width: 4),
           CopyIconButton(value: copyValue, label: copyLabel ?? 'Value'),
@@ -522,7 +522,7 @@ class _ChannelSection extends StatelessWidget {
                 child: Text(
                   'Browsing "$browsing". Your SDK is still on '
                   '"$current". Switch to apply.',
-                  style: AppTextStyles.caption,
+                  style: AppTextStyles.of(context).caption,
                 ),
               ),
               const SizedBox(width: 12),
@@ -597,8 +597,8 @@ class _ChannelChoice extends StatelessWidget {
               Text(
                 channel,
                 style: selected
-                    ? AppTextStyles.rowTitle
-                    : AppTextStyles.navItem,
+                    ? AppTextStyles.of(context).rowTitle
+                    : AppTextStyles.of(context).navItem,
               ),
             ],
           ),
@@ -690,7 +690,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
             Text(
               'master is a rolling branch with no versioned releases. Switch '
               'to it above, then use Upgrade to move to its tip.',
-              style: AppTextStyles.caption,
+              style: AppTextStyles.of(context).caption,
             ),
           ],
         ),
@@ -729,13 +729,13 @@ class _VersionsSectionState extends State<_VersionsSection> {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(_sourceCaption(state), style: AppTextStyles.caption),
+              Text(_sourceCaption(state), style: AppTextStyles.of(context).caption),
               if (state.isUnlistedCommit) ...[
                 const SizedBox(height: 4),
                 Text(
                   'Local SDK is on an unlisted commit ${state.shortHeadHash} — '
                   'no row is marked current.',
-                  style: AppTextStyles.caption,
+                  style: AppTextStyles.of(context).caption,
                 ),
               ],
             ],
@@ -754,7 +754,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
                           : state.versionsLoading
                               ? 'Loading releases…'
                               : 'No releases found for the "$channel" channel.',
-                      style: AppTextStyles.caption,
+                      style: AppTextStyles.of(context).caption,
                     ),
                   )
                 : GroupedListView(
@@ -883,17 +883,17 @@ class _VersionTileState extends State<_VersionTile> {
           Text(
             widget.release.displayVersion,
             style: widget.isCurrent
-                ? AppTextStyles.monoRowActive
-                : AppTextStyles.monoRow,
+                ? AppTextStyles.of(context).monoRowActive
+                : AppTextStyles.of(context).monoRow,
           ),
           if (widget.isCurrent) ...[
             const SizedBox(width: 8),
-            const Text('current', style: AppTextStyles.inlineNote),
+            const Text('current', style: AppTextStyles.of(context).inlineNote),
           ],
           if (widget.release.displayDartVersion != null) ...[
             const SizedBox(width: 8),
             Text('· Dart ${widget.release.displayDartVersion}',
-                style: AppTextStyles.rowSecondary),
+                style: AppTextStyles.of(context).rowSecondary),
           ],
         ],
       ),
@@ -915,7 +915,7 @@ class _VersionTileState extends State<_VersionTile> {
       trailing: [
         if (widget.release.releaseDate != null)
           Text(_formatDate(widget.release.releaseDate!),
-              style: AppTextStyles.caption),
+              style: AppTextStyles.of(context).caption),
         AnimatedRotation(
           turns: _expanded ? 0.5 : 0,
           duration: const Duration(milliseconds: 160),
@@ -964,7 +964,7 @@ class _VersionTileState extends State<_VersionTile> {
         child: Text(
           'No changelog available from the local git history. Use the GitHub '
           'link for full release notes.',
-          style: AppTextStyles.caption,
+          style: AppTextStyles.of(context).caption,
         ),
       );
     }
@@ -978,10 +978,10 @@ class _VersionTileState extends State<_VersionTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${lines.length} commits since previous version',
-              style: AppTextStyles.rowSecondary),
+              style: AppTextStyles.of(context).rowSecondary),
           const SizedBox(height: 4),
           for (final line in lines.take(200))
-            Text(line, style: AppTextStyles.monoBody),
+            Text(line, style: AppTextStyles.of(context).monoBody),
         ],
       ),
     );
@@ -1069,7 +1069,7 @@ class _InstallViewState extends State<_InstallView> {
                 size: 24, color: AppPalette.of(context).textSecondary),
             const SizedBox(height: 14),
             const Text('No Flutter SDK found',
-                textAlign: TextAlign.center, style: AppTextStyles.heroTitle),
+                textAlign: TextAlign.center, style: AppTextStyles.of(context).heroTitle),
             const SizedBox(height: 8),
             Text(
               'Flutter is not on your PATH. Clone the SDK from GitHub into a '

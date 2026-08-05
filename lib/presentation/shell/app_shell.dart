@@ -267,7 +267,7 @@ class _AppShellState extends State<AppShell> {
       applyPadding: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
-        child: Text(text, style: AppTextStyles.sectionLabel),
+        child: Text(text, style: AppTextStyles.of(context).sectionLabel),
       ),
     );
   }

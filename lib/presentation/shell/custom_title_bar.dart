@@ -160,7 +160,7 @@ class _AppLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(left: hasLeading ? 8 : 12, right: 4),
-      child: const Text('Flutter SDK Manager', style: AppTextStyles.titleBar),
+      child: const Text('Flutter SDK Manager', style: AppTextStyles.of(context).titleBar),
     );
   }
 }

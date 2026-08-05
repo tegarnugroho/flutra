@@ -315,7 +315,7 @@ class _AddressRow extends StatelessWidget {
         children: [
           Flexible(
             child: Text(address.label,
-                style: AppTextStyles.rowTitle,
+                style: AppTextStyles.of(context).rowTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ),
@@ -458,7 +458,7 @@ class _PathValue extends StatelessWidget {
       return Text(
         // A quiet ellipsis while resolving, an em dash when there is nothing.
         loading ? '\u2026' : '\u2014',
-        style: AppTextStyles.monoPath.copyWith(color: palette.textMuted),
+        style: AppTextStyles.of(context).monoPath.copyWith(color: palette.textMuted),
       );
     }
     return Row(
@@ -468,7 +468,7 @@ class _PathValue extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: _maxWidth),
           child: Text(
             value,
-            style: AppTextStyles.monoPath,
+            style: AppTextStyles.of(context).monoPath,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

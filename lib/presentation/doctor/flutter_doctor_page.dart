@@ -200,16 +200,16 @@ class _StatusLine extends StatelessWidget {
     if (state.isRunning) {
       message = AnimatedEllipsisText(
         'Running checks · ${state.doneCount} of $total',
-        style: AppTextStyles.statusLine,
+        style: AppTextStyles.of(context).statusLine,
       );
     } else if (state.status == DoctorRunStatus.interrupted) {
       message = Text(
         '${state.errorMessage ?? 'Interrupted'} · ${state.doneCount} of '
         '$total checks completed',
-        style: AppTextStyles.statusLine,
+        style: AppTextStyles.of(context).statusLine,
       );
     } else {
-      message = Text(_summary(state), style: AppTextStyles.statusLine);
+      message = Text(_summary(state), style: AppTextStyles.of(context).statusLine);
     }
 
     return Row(
@@ -218,7 +218,7 @@ class _StatusLine extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(child: message),
         const SizedBox(width: 12),
-        Text(_format(state.elapsed), style: AppTextStyles.monoValue),
+        Text(_format(state.elapsed), style: AppTextStyles.of(context).monoValue),
       ],
     );
   }
@@ -299,7 +299,7 @@ class _CheckRow extends StatelessWidget {
         if (running)
           const RowSpinner()
         else if (check.elapsed != null)
-          Text(_format(check.elapsed!), style: AppTextStyles.monoValue),
+          Text(_format(check.elapsed!), style: AppTextStyles.of(context).monoValue),
         if (check.isDone && check.canExpand)
           SizedBox(
             width: 13,
@@ -352,9 +352,9 @@ class _CheckRow extends StatelessWidget {
       return Text.rich(
         TextSpan(
           text: check.name,
-          style: AppTextStyles.rowTitle,
+          style: AppTextStyles.of(context).rowTitle,
           children: const [
-            TextSpan(text: ' · checking', style: AppTextStyles.rowSecondary),
+            TextSpan(text: ' · checking', style: AppTextStyles.of(context).rowSecondary),
           ],
         ),
         maxLines: 1,
@@ -364,12 +364,12 @@ class _CheckRow extends StatelessWidget {
     return Text.rich(
       TextSpan(
         text: check.name,
-        style: AppTextStyles.rowTitle,
+        style: AppTextStyles.of(context).rowTitle,
         children: [
           if (check.summary != null)
             TextSpan(
               text: ' · ${check.summary}',
-              style: AppTextStyles.rowSecondary,
+              style: AppTextStyles.of(context).rowSecondary,
             ),
         ],
       ),
@@ -390,7 +390,7 @@ class _CheckRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final line in check.details)
-            SelectableText(line, style: AppTextStyles.monoBody),
+            SelectableText(line, style: AppTextStyles.of(context).monoBody),
         ],
       ),
     );

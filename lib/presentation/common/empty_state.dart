@@ -44,10 +44,10 @@ class EmptyState extends StatelessWidget {
                 color: isError ? palette.statusError : palette.textSecondary),
             const SizedBox(height: 14),
             Text(title,
-                textAlign: TextAlign.center, style: AppTextStyles.heroTitle),
+                textAlign: TextAlign.center, style: AppTextStyles.of(context).heroTitle),
             const SizedBox(height: 6),
             Text(message,
-                textAlign: TextAlign.center, style: AppTextStyles.caption),
+                textAlign: TextAlign.center, style: AppTextStyles.of(context).caption),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 18),
               OutlinedActionButton(

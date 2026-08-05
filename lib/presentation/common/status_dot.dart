@@ -50,7 +50,7 @@ class StatusLine extends StatelessWidget {
         Expanded(
           child: Text(
             message,
-            style: AppTextStyles.statusLine,
+            style: AppTextStyles.of(context).statusLine,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

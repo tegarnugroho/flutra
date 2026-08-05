@@ -104,7 +104,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
             if (_matches.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('No matching page', style: AppTextStyles.caption),
+                child: Text('No matching page', style: AppTextStyles.of(context).caption),
               )
             else
               // Every destination fits without scrolling today; the list still
@@ -211,12 +211,12 @@ class _PaletteRow extends StatelessWidget {
                 child: Text(
                   entry.label,
                   style: highlighted
-                      ? AppTextStyles.navItemSelected
-                      : AppTextStyles.navItem,
+                      ? AppTextStyles.of(context).navItemSelected
+                      : AppTextStyles.of(context).navItem,
                 ),
               ),
               if (entry.group != null)
-                Text(entry.group!, style: AppTextStyles.caption),
+                Text(entry.group!, style: AppTextStyles.of(context).caption),
             ],
           ),
         ),

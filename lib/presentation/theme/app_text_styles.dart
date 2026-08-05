@@ -6,8 +6,19 @@ import 'app_colors.dart';
 ///
 /// Two weights only — [FontWeight.w400] and [FontWeight.w500]. Anything heavier
 /// reintroduces the "chunky" look the redesign removes.
+///
+/// The styles are resolved against an [AppPalette] rather than being constants:
+/// every one of them carries a text tone, and those tones flip between light
+/// and dark. Read them with `AppTextStyles.of(context)`.
+@immutable
 class AppTextStyles {
-  const AppTextStyles._();
+  const AppTextStyles.fromPalette(this._palette);
+
+  /// Resolves the styles from the closest [FluentTheme].
+  factory AppTextStyles.of(BuildContext context) =>
+      AppTextStyles.fromPalette(AppPalette.of(context));
+
+  final AppPalette _palette;
 
   /// Monospace family for versions, paths and log output.
   ///
@@ -18,164 +29,164 @@ class AppTextStyles {
   static const monoFallback = <String>['Cascadia Mono', 'Courier New'];
 
   /// Page heading, e.g. "Dashboard".
-  static const pageTitle = TextStyle(
-    fontSize: 17,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get pageTitle => TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w500,
+        color: _palette.textPrimary,
+      );
 
   /// Small, muted, letter-spaced group label ("Toolchain", "Paths", "Android").
-  static const sectionLabel = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0.5,
-    color: AppColors.textMuted,
-  );
+  TextStyle get sectionLabel => TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.5,
+        color: _palette.textMuted,
+      );
 
   /// Primary label inside a list row.
-  static const rowTitle = TextStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get rowTitle => TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+        color: _palette.textPrimary,
+      );
 
   /// Inline detail rendered after the row title, behind a ` · ` separator.
-  static const rowSecondary = TextStyle(
-    fontSize: 11.5,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textMuted,
-  );
+  TextStyle get rowSecondary => TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        color: _palette.textMuted,
+      );
 
   /// Left-hand label column of the Paths list.
-  static const rowLabel = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get rowLabel => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: _palette.textSecondary,
+      );
 
   /// Card heading, e.g. "Flutter 3.44.8".
-  static const heroTitle = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get heroTitle => TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: _palette.textPrimary,
+      );
 
   /// Outline pill text (channel badge).
-  static const badge = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get badge => TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        color: _palette.textSecondary,
+      );
 
   /// Small trailing/inline note, e.g. "current".
-  static const inlineNote = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textMuted,
-  );
+  TextStyle get inlineNote => TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        color: _palette.textMuted,
+      );
 
   /// Mono list value, e.g. a version tag in the versions list.
-  static const monoRow = TextStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    color: AppColors.textTertiary,
-  );
+  TextStyle get monoRow => TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        color: _palette.textTertiary,
+      );
 
   /// [monoRow] for the active entry.
-  static const monoRowActive = TextStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get monoRowActive => TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        color: _palette.textPrimary,
+      );
 
   /// Mono body copy, e.g. changelog commit lines.
-  static const monoBody = TextStyle(
-    fontSize: 11.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    height: 1.7,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get monoBody => TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        height: 1.7,
+        color: _palette.textSecondary,
+      );
 
   /// A streamed log line.
-  static const monoLog = TextStyle(
-    fontSize: 11.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    height: 1.6,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get monoLog => TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        height: 1.6,
+        color: _palette.textSecondary,
+      );
 
   /// Text typed into a compact input.
-  static const input = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textTertiary,
-  );
+  TextStyle get input => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: _palette.textTertiary,
+      );
 
   /// Right-aligned version numbers.
-  static const monoValue = TextStyle(
-    fontSize: 11.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get monoValue => TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        color: _palette.textSecondary,
+      );
 
   /// Filesystem paths.
-  static const monoPath = TextStyle(
-    fontSize: 11.5,
-    fontWeight: FontWeight.w400,
-    fontFamily: monoFamily,
-    fontFamilyFallback: monoFallback,
-    color: AppColors.textTertiary,
-  );
+  TextStyle get monoPath => TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        fontFamily: monoFamily,
+        fontFamilyFallback: monoFallback,
+        color: _palette.textTertiary,
+      );
 
   /// One-line environment status under the page title.
-  static const statusLine = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get statusLine => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: _palette.textSecondary,
+      );
 
   /// Timestamps and other footnotes.
-  static const caption = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textMuted,
-  );
+  TextStyle get caption => TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        color: _palette.textMuted,
+      );
 
   /// Outlined-button label.
-  static const buttonLabel = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textTertiary,
-  );
+  TextStyle get buttonLabel => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: _palette.textTertiary,
+      );
 
   /// Navigation pane item, unselected.
-  static const navItem = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textSecondary,
-  );
+  TextStyle get navItem => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: _palette.textSecondary,
+      );
 
   /// Navigation pane item, selected.
-  static const navItemSelected = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get navItemSelected => TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: _palette.textPrimary,
+      );
 
   /// Application name in the title bar.
-  static const titleBar = TextStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
-  );
+  TextStyle get titleBar => TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+        color: _palette.textPrimary,
+      );
 }

@@ -76,12 +76,12 @@ class _ToolchainRowState extends State<ToolchainRow> {
               child: Text.rich(
                 TextSpan(
                   text: status.displayName,
-                  style: AppTextStyles.rowTitle,
+                  style: AppTextStyles.of(context).rowTitle,
                   children: [
                     if (detail != null)
                       TextSpan(
                         text: ' · $detail',
-                        style: AppTextStyles.rowSecondary,
+                        style: AppTextStyles.of(context).rowSecondary,
                       ),
                   ],
                 ),
@@ -91,7 +91,7 @@ class _ToolchainRowState extends State<ToolchainRow> {
             ),
             if (widget.version != null && widget.version!.isNotEmpty) ...[
               const SizedBox(width: 12),
-              Text(widget.version!, style: AppTextStyles.monoValue),
+              Text(widget.version!, style: AppTextStyles.of(context).monoValue),
             ],
             const SizedBox(width: 10),
             StatusDot(color: statusColorOf(status.state, palette)),

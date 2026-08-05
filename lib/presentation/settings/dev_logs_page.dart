@@ -139,7 +139,7 @@ class _DevLogsPageState extends State<DevLogsPage> {
               child: records.isEmpty
                   ? const Center(
                       child: Text('No log records yet.',
-                          style: AppTextStyles.caption),
+                          style: AppTextStyles.of(context).caption),
                     )
                   : SelectionArea(
                       child: ListView.builder(
@@ -193,7 +193,7 @@ class _LogRow extends StatelessWidget {
       child: Text(
         '${record.timeStr}  ${record.level.name.padRight(7)} '
         '${record.logger}: ${record.message}',
-        style: AppTextStyles.monoLog.copyWith(color: color),
+        style: AppTextStyles.of(context).monoLog.copyWith(color: color),
       ),
     );
   }

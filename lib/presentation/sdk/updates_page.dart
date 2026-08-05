@@ -166,12 +166,12 @@ class _UpdateRow extends StatelessWidget {
       trailing: [
         Text.rich(
           TextSpan(
-            style: AppTextStyles.monoValue,
+            style: AppTextStyles.of(context).monoValue,
             children: [
               TextSpan(text: pkg.installedVersion ?? '?'),
               TextSpan(
                 text: ' → ',
-                style: AppTextStyles.monoValue.copyWith(
+                style: AppTextStyles.of(context).monoValue.copyWith(
                   color: palette.textMuted,
                 ),
               ),
@@ -180,7 +180,7 @@ class _UpdateRow extends StatelessWidget {
           ),
         ),
         if (queued && !active)
-          const Text('queued', style: AppTextStyles.inlineNote),
+          const Text('queued', style: AppTextStyles.of(context).inlineNote),
       ],
       hoverActions: [
         if (!active && !queued)
@@ -211,7 +211,7 @@ class _UpdateRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             value != null ? '${(value * 100).round()}%' : 'Updating…',
-            style: AppTextStyles.caption,
+            style: AppTextStyles.of(context).caption,
           ),
         ],
       ),
@@ -273,7 +273,7 @@ class _FlutterUpdateRow extends StatelessWidget {
                 if (update.updateAvailable && latest != null)
                   Text.rich(
                     TextSpan(
-                      style: AppTextStyles.monoValue,
+                      style: AppTextStyles.of(context).monoValue,
                       children: [
                         TextSpan(
                             text: installed?.displayVersion ??
@@ -281,7 +281,7 @@ class _FlutterUpdateRow extends StatelessWidget {
                                 '?'),
                         TextSpan(
                           text: ' → ',
-                          style: AppTextStyles.monoValue
+                          style: AppTextStyles.of(context).monoValue
                               .copyWith(color: palette.textMuted),
                         ),
                         TextSpan(text: latest.displayVersion),
@@ -290,7 +290,7 @@ class _FlutterUpdateRow extends StatelessWidget {
                   )
                 else
                   Text(installed?.displayVersion ?? update.shortHash ?? '—',
-                      style: AppTextStyles.monoValue),
+                      style: AppTextStyles.of(context).monoValue),
                 if (state.isLoading)
                   AppLoader(size: AppLoaderSize.small),
               ],

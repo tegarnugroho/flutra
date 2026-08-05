@@ -97,7 +97,7 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
                 const SizedBox(width: 7),
                 Text(
                   label,
-                  style: AppTextStyles.buttonLabel.copyWith(color: foreground),
+                  style: AppTextStyles.of(context).buttonLabel.copyWith(color: foreground),
                 ),
               ],
             ],
