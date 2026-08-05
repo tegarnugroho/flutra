@@ -72,7 +72,7 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
               ),
             ],
             child: LoadingSwitcher(
-              showSkeleton: devices.isLoading && devices.online.isEmpty,
+              showSkeleton: devices.isFirstLoad,
               skeleton: const LogcatSkeleton(),
               builder: (context) => devices.isEmpty
                   ? EmptyState(

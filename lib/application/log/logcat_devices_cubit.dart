@@ -28,10 +28,13 @@ class LogcatDevicesCubit extends Cubit<LogcatDevicesState> {
       final keep = online.any((d) => d.serial == state.serial);
       emit(LogcatDevicesState(
         online: online,
+        hasLoaded: true,
         serial: keep ? state.serial : (online.isEmpty ? null : online.first.serial),
       ));
     } catch (_) {
-      if (!isClosed) emit(state.copyWith(isLoading: false));
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false, hasLoaded: true));
+      }
     }
   }
 

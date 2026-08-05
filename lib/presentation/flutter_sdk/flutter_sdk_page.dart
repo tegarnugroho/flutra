@@ -106,7 +106,7 @@ class _FlutterSdkView extends StatelessWidget {
 
   Widget _body(BuildContext context, FlutterSdkState state) {
     return LoadingSwitcher(
-      showSkeleton: state.isLoading && state.info == null,
+      showSkeleton: state.isFirstLoad,
       skeleton: const FlutterSdkSkeleton(),
       builder: (context) => _loaded(context, state),
     );

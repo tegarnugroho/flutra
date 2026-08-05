@@ -59,6 +59,17 @@ class FlutterSdkState extends Equatable {
   final VersionSource versionSource;
 
   bool get isLoading => status == FlutterSdkStatus.loading;
+
+  /// True until the first load settles, so a screen with no data yet shows its
+  /// skeleton from the very first frame.
+  ///
+  /// `isLoading` alone is not enough: the cubit is created during the first
+  /// build and its status is still `initial` while that frame renders, which
+  /// would flash the centred empty state before the skeleton takes over.
+  bool get isFirstLoad =>
+      info == null &&
+      (status == FlutterSdkStatus.initial ||
+          status == FlutterSdkStatus.loading);
   bool get canSwitchVersion => info?.isGitRepo == true;
 
   /// True when the SDK sits on a commit the release index doesn't publish

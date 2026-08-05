@@ -163,8 +163,7 @@ class _EmulatorManagerView extends StatelessWidget {
     EmulatorListCubit cubit,
   ) {
     return LoadingSwitcher(
-      showSkeleton:
-          state.status == EmulatorListStatus.loading && state.avds.isEmpty,
+      showSkeleton: state.isFirstLoad,
       skeleton: const EmulatorListSkeleton(),
       builder: (context) => _loaded(context, state, cubit),
     );

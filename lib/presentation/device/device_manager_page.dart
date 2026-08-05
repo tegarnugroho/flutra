@@ -76,7 +76,7 @@ class _DeviceManagerView extends StatelessWidget {
     DeviceManagerCubit cubit,
   ) {
     return LoadingSwitcher(
-      showSkeleton: state.isLoading && state.devices.isEmpty,
+      showSkeleton: state.isFirstLoad,
       skeleton: const DeviceListSkeleton(),
       builder: (context) => _loaded(context, state, cubit),
     );

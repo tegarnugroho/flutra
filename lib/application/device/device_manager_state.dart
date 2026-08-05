@@ -20,6 +20,17 @@ class DeviceManagerState extends Equatable {
   final String? errorMessage;
 
   bool get isLoading => status == DeviceManagerStatus.loading;
+
+  /// True until the first load settles, so a screen with no data yet shows its
+  /// skeleton from the very first frame.
+  ///
+  /// `isLoading` alone is not enough: the cubit is created during the first
+  /// build and its status is still `initial` while that frame renders, which
+  /// would flash the centred empty state before the skeleton takes over.
+  bool get isFirstLoad =>
+      devices.isEmpty &&
+      (status == DeviceManagerStatus.initial ||
+          status == DeviceManagerStatus.loading);
   bool isBusy(String serial) => busySerials.contains(serial);
   int get onlineCount => devices.where((d) => d.state.isOnline).length;
 

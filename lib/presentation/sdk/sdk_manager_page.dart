@@ -76,7 +76,7 @@ class _SdkManagerView extends StatelessWidget {
     SdkManagerCubit cubit,
   ) {
     return LoadingSwitcher(
-      showSkeleton: state.isLoading && state.packages.isEmpty,
+      showSkeleton: state.isFirstLoad,
       skeleton: const SdkManagerSkeleton(),
       builder: (context) => _loaded(context, state, cubit),
     );

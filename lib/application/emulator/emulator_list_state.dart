@@ -20,6 +20,17 @@ class EmulatorListState extends Equatable {
   final String? errorMessage;
 
   bool get isLoading => status == EmulatorListStatus.loading;
+
+  /// True until the first load settles, so a screen with no data yet shows its
+  /// skeleton from the very first frame.
+  ///
+  /// `isLoading` alone is not enough: the cubit is created during the first
+  /// build and its status is still `initial` while that frame renders, which
+  /// would flash the centred empty state before the skeleton takes over.
+  bool get isFirstLoad =>
+      avds.isEmpty &&
+      (status == EmulatorListStatus.initial ||
+          status == EmulatorListStatus.loading);
   bool isBusy(String name) => busyNames.contains(name);
 
   EmulatorListState copyWith({
