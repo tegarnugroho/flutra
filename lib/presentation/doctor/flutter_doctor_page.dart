@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/doctor/flutter_doctor_cubit.dart';
+import '../../application/shell/shell_navigator.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/doctor_report.dart';
 import '../common/empty_state.dart';
@@ -24,9 +25,19 @@ class FlutterDoctorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Does NOT auto-run — the user starts diagnostics explicitly.
+    // Normally does NOT auto-run — the user starts diagnostics explicitly. The
+    // one exception is arriving from the Dashboard's "Run flutter doctor",
+    // which is a request to run, not just to look.
     return BlocProvider(
-      create: (_) => getIt<FlutterDoctorCubit>(),
+      create: (_) {
+        final cubit = getIt<FlutterDoctorCubit>();
+        if (getIt<ShellNavigator>().consumeAutoRun(
+          ShellDestination.flutterDoctor,
+        )) {
+          cubit.run();
+        }
+        return cubit;
+      },
       child: const _FlutterDoctorView(),
     );
   }

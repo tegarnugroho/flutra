@@ -1,7 +1,13 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
+import '../../common/skeleton/skeleton_primitives.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+
+/// Card heights, shared with the grids that lay them out and with the skeleton
+/// that stands in for them, so the three can't drift apart.
+const double kStatCardHeight = 88;
+const double kQuickActionHeight = 58;
 
 /// One number worth glancing at, with the context that makes it mean
 /// something.
@@ -201,6 +207,36 @@ class _QuickActionState extends State<QuickAction> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder while the counts are still being gathered.
+///
+/// The numbers come from avdmanager, adb and sdkmanager — ten seconds of tools,
+/// long enough that a row of em dashes would read as an error.
+class StatCardsSkeleton extends StatelessWidget {
+  const StatCardsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SkeletonShimmer(
+      child: LayoutBuilder(
+        builder: (context, constraints) => GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: constraints.maxWidth < 1000 ? 2 : 4,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: kStatCardHeight,
+          ),
+          children: [
+            for (var i = 0; i < 4; i++)
+              const SkeletonBox(height: kStatCardHeight, radius: 8),
+          ],
         ),
       ),
     );

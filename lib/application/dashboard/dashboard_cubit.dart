@@ -98,8 +98,11 @@ class DashboardCubit extends Cubit<DashboardState> {
     try {
       final snapshot = await _repository.detect(forceRefresh: forceRefresh);
       if (isClosed) return;
+      // copyWith, not a fresh state: detection and loadOverview run
+      // concurrently, and a whole-state emit here drops the stat-card counts
+      // that landed first — leaving their skeleton up for good.
       emit(
-        DashboardState(
+        state.copyWith(
           status: DashboardStatus.ready,
           snapshot: snapshot,
           lastUpdated: DateTime.now(),

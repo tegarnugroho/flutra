@@ -1,4 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 // fluent_ui exports a FluentIcons of its own (the older MDL2 set), so the
@@ -12,6 +14,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../application/settings/app_settings.dart';
+import '../../application/shell/shell_navigator.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
@@ -38,12 +41,17 @@ import 'custom_title_bar.dart';
 /// therefore stay last in the list, matching `items + footerItems`.
 class _Destination {
   const _Destination({
+    required this.id,
     required this.icon,
     required this.label,
     required this.body,
     this.group,
     this.inFooter = false,
   });
+
+  /// Stable name other screens navigate by, so the pane's index space stays
+  /// this file's business.
+  final ShellDestination id;
 
   final IconData icon;
   final String label;
@@ -74,53 +82,63 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   static const _destinations = <_Destination>[
     _Destination(
+      id: ShellDestination.dashboard,
       icon: sys.FluentIcons.grid_24_regular,
       label: 'Dashboard',
       body: DashboardPage(),
     ),
     _Destination(
+      id: ShellDestination.sdkManager,
       icon: sys.FluentIcons.layer_24_regular,
       label: 'SDK manager',
       body: SdkManagerPage(),
       group: 'Android',
     ),
     _Destination(
+      id: ShellDestination.virtualDevices,
       icon: sys.FluentIcons.phone_24_regular,
       label: 'Virtual devices',
       body: EmulatorManagerPage(),
     ),
     _Destination(
+      id: ShellDestination.licenses,
       icon: sys.FluentIcons.document_ribbon_24_regular,
       label: 'Licenses',
       body: LicenseManagerPage(),
     ),
     _Destination(
+      id: ShellDestination.logcat,
       icon: sys.FluentIcons.document_bullet_list_24_regular,
       label: 'Logcat',
       body: LogcatViewerPage(),
     ),
     _Destination(
+      id: ShellDestination.updates,
       icon: sys.FluentIcons.arrow_sync_24_regular,
       label: 'Updates',
       body: UpdatesPage(),
     ),
     _Destination(
+      id: ShellDestination.flutterSdk,
       icon: SimpleIcons.flutter,
       label: 'Flutter SDK',
       body: FlutterSdkPage(),
       group: 'Flutter',
     ),
     _Destination(
+      id: ShellDestination.flutterDoctor,
       icon: sys.FluentIcons.heart_pulse_24_regular,
       label: 'Flutter doctor',
       body: FlutterDoctorPage(),
     ),
     _Destination(
+      id: ShellDestination.devices,
       icon: sys.FluentIcons.plug_connected_24_regular,
       label: 'Devices',
       body: DeviceManagerPage(),
     ),
     _Destination(
+      id: ShellDestination.settings,
       icon: sys.FluentIcons.settings_24_regular,
       label: 'Settings',
       body: SettingsPage(),
@@ -150,14 +168,28 @@ class _AppShellState extends State<AppShell> {
   final List<int> _back = [];
   final List<int> _forward = [];
 
+  StreamSubscription<ShellNavigationRequest>? _navigation;
+
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
+    _navigation = getIt<ShellNavigator>().onNavigate.listen(_onNavigate);
+  }
+
+  /// Another screen asked to be shown. Routed through the same [_go] the pane
+  /// uses, so the back/forward history records it too.
+  void _onNavigate(ShellNavigationRequest request) {
+    final index = _destinations.indexWhere((d) => d.id == request.destination);
+    if (index < 0) return;
+    // The autoRun flag rides on the navigator itself — the destination claims
+    // it as it builds, which is after this runs.
+    _go(index);
   }
 
   @override
   void dispose() {
+    _navigation?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _menuController.dispose();
     super.dispose();

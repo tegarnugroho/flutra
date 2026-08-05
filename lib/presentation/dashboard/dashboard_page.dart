@@ -168,6 +168,8 @@ class _StatCards extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final stats = state.stats;
+    if (stats == null) return const StatCardsSkeleton();
+
     final storage = state.storage;
     final reclaimable = storage?.reclaimableBytes ?? 0;
 
@@ -183,22 +185,22 @@ class _StatCards extends StatelessWidget {
       ),
       StatCard(
         label: 'Virtual devices',
-        value: stats == null ? '—' : '${stats.avdCount}',
-        subtitle: (stats?.runningAvdCount ?? 0) > 0
-            ? '${stats!.runningAvdCount} running'
+        value: '${stats.avdCount}',
+        subtitle: stats.runningAvdCount > 0
+            ? '${stats.runningAvdCount} running'
             : 'none running',
         onTap: () => _hint(context, 'Virtual devices'),
       ),
       StatCard(
         label: 'Updates',
-        value: stats == null ? '—' : '${stats.updateCount}',
-        valueColor: (stats?.updateCount ?? 0) > 0 ? palette.accent : null,
-        subtitle: (stats?.updateCount ?? 0) > 0 ? 'available' : 'up to date',
+        value: '${stats.updateCount}',
+        valueColor: stats.updateCount > 0 ? palette.accent : null,
+        subtitle: stats.updateCount > 0 ? 'available' : 'up to date',
         onTap: () => _hint(context, 'Updates'),
       ),
       StatCard(
         label: 'Devices',
-        value: stats == null ? '—' : '${stats.deviceCount}',
+        value: '${stats.deviceCount}',
         subtitle: 'connected',
         onTap: () => _hint(context, 'Devices'),
       ),
@@ -212,7 +214,9 @@ class _StatCards extends StatelessWidget {
           crossAxisCount: constraints.maxWidth < 1000 ? 2 : 4,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          mainAxisExtent: 74,
+          // Label + value + sub-line plus 10px padding each side. 74 was a
+          // guess and clipped the sub-line by 12px.
+          mainAxisExtent: kStatCardHeight,
         ),
         children: cards,
       ),
@@ -232,16 +236,19 @@ class _QuickActions extends StatelessWidget {
     final stats = state.stats;
     final hasAvds = (stats?.avdCount ?? 0) > 0;
     final running = (stats?.runningAvdCount ?? 0) > 0;
+    final count = hasAvds ? 3 : 2;
 
     return LayoutBuilder(
       builder: (context, constraints) => GridView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: constraints.maxWidth < 1000 ? 1 : 3,
+          // Two lines of short text each — they fit side by side long before
+          // the stat cards do.
+          crossAxisCount: constraints.maxWidth < 640 ? 1 : count,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          mainAxisExtent: 58,
+          mainAxisExtent: kQuickActionHeight,
         ),
         children: [
           if (hasAvds)
