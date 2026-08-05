@@ -1,20 +1,66 @@
-# android_sdk_manager
+# Flutter SDK Manager
 
-A new Flutter project.
+A graphical frontend for the Android SDK command-line tools, for Windows
+desktop. It wraps `sdkmanager`, `avdmanager`, `adb` and `emulator` in a UI, so
+the everyday jobs — installing a package, creating an AVD, reading a licence,
+watching logcat — do not need a terminal.
 
-## Getting Started
+Everything it reports is read from those tools. It does not bundle its own copy
+of the SDK, and the Dashboard never deletes anything on its own: it surfaces
+what it found and routes you to the page that can act on it.
 
-This project is a starting point for a Flutter application.
+## Screens
 
-A few resources to get you started if this is your first Flutter project:
+| Screen | What it does |
+| --- | --- |
+| Dashboard | Install state, storage breakdown, and shortcuts into the pages below |
+| SDK Manager | Browse, install and remove SDK packages |
+| Virtual Devices | Create, launch and delete AVDs |
+| Licenses | Review the licences `sdkmanager` asks for |
+| Logcat | Live device log |
+| Updates | Packages with a newer version available |
+| Flutter SDK | Installed Flutter channel and released versions |
+| Flutter Doctor | `flutter doctor` output, parsed |
+| Devices | Attached devices and running emulators |
+| Settings | SDK path override, theme, close-to-tray, run at startup |
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The Create Emulator wizard, the emulator console, the developer log and the
+About box each open in their own window.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Requirements
+
+- Windows 10 or later, x64
+- [Flutter](https://docs.flutter.dev/get-started/install/windows/desktop) with
+  Windows desktop support, on a Dart SDK matching `^3.12.1`
+- Visual Studio with the "Desktop development with C++" workload — Flutter's
+  Windows toolchain, not optional
+- The Android SDK command-line tools, for the app to drive
+
+The SDK root is resolved in this order, first hit wins: the override in
+Settings, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then the usual install locations
+(`%LOCALAPPDATA%\Android\Sdk` and friends). Nothing needs to be configured if
+Android Studio put the SDK where it normally does.
+
+[Inno Setup 6](https://jrsoftware.org/isinfo.php) is needed only to build the
+`.exe` installer.
+
+## Running from source
+
+```powershell
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run -d windows
+```
+
+`build_runner` generates the freezed models, the JSON serialisers and the
+get_it/injectable registrations. Run it again after touching an `@injectable`
+class or a `@freezed` model.
+
+Only one instance runs per session. Launching the exe again surfaces the window
+that is already open — including when it is minimised or hidden in the tray —
+rather than starting a second copy that would fight the first over the same SDK
+directory and settings file. This applies to debug builds too, so close a
+running copy before `flutter run`.
 
 ## Building
 
@@ -31,37 +77,85 @@ Use the build script, not `flutter build` directly:
 
 Outputs:
 
-| | Path |
-|---|---|
+| Artifact | Path |
+| --- | --- |
 | exe | `build\windows\x64\runner\Release\android_sdk_manager.exe` |
 | MSIX | `build\windows\x64\runner\Release\FlutterSdkManager.msix` |
 | installer | `build\installer\FlutterSdkManager-Setup-<version>.exe` |
 
-On startup it asks whether to raise the version. Answering yes bumps the patch
-number and the build number together and writes them to `pubspec.yaml`, to
-`msix_config.msix_version` (its own field, and Windows refuses to upgrade a
-package whose MSIX version did not rise) and to the fallback constants in
-`lib/core/constants/app_info.dart`. Answering no builds what is already there.
+`-Mode profile` or `-Mode debug` build the other two modes; `-SkipPubGet` skips
+`flutter pub get` on a repeat build.
 
-Pass `-Bump` or `-NoBump` to answer in advance. A run with redirected input is
-never asked and never bumps, so an unattended build cannot invent a release.
+### Versioning
 
-The script reads the version from `pubspec.yaml`, the toolchain from
+On startup the script asks whether to raise the version. Answering yes bumps
+the patch number and the build number together and writes them to three places:
+
+| File | Field |
+| --- | --- |
+| `pubspec.yaml` | `version:` |
+| `pubspec.yaml` | `msix_config.msix_version` — its own field, and Windows refuses to upgrade a package whose MSIX version did not rise |
+| `lib/core/constants/app_info.dart` | the fallback constants a defineless run shows |
+
+Answering no builds what is already there. `-Bump` and `-NoBump` answer in
+advance. A run with redirected input is never asked and never bumps, so an
+unattended build cannot invent a release.
+
+### Why the script
+
+It reads the version from `pubspec.yaml`, the toolchain from
 `flutter --version --machine` and the commit from `git`, then passes them as
 `--dart-define` values. Without them the About window has nothing to report and
-shows `—` for the version, channel, toolchain and commit.
+shows `—` for the version, channel, toolchain and commit. A build made with
+uncommitted changes is tagged `<hash>-dirty`, so a bug report from that binary
+cannot be traced to the wrong source.
 
 Packaging is the default because it is how this project ships, and it matters
-for the same reason: `dart run msix:create` runs its own
-`flutter build windows` and inherits nothing from a build you ran first, so
-packaging by hand ships a binary with no metadata. The script routes the
-defines through msix's `--windows-build-args` instead, so only one build runs
-and the installer wraps that same output.
+for the same reason: `dart run msix:create` runs its own `flutter build
+windows` and inherits nothing from a build you ran first, so packaging by hand
+ships a binary with no metadata. The script routes the defines through msix's
+`--windows-build-args` instead, so only one build runs and the installer wraps
+that same output.
 
-The installer is compiled by [Inno Setup](https://jrsoftware.org/isinfo.php)
-from `tool/installer.iss`; the script finds `ISCC.exe` in the usual install
-locations, or takes `-IsccPath`. It installs per-user, so no admin prompt, and
-offers to close a running instance before upgrading over it.
+The installer is compiled from `tool/installer.iss`; the script finds
+`ISCC.exe` in the usual install locations, or takes `-IsccPath`. It installs
+per-user, so no admin prompt, and offers to close a running instance before
+upgrading over it.
 
-A build made with uncommitted changes is tagged `<hash>-dirty`, so a bug report
-from that binary can't be traced to the wrong source.
+## Where it stores things
+
+`%APPDATA%\com.androidsdkmanager\android_sdk_manager`:
+
+| File | Contents |
+| --- | --- |
+| `settings.json` | SDK path override, theme, window bounds, preferences |
+| `storage-report.json` | Cached disk scan, refreshed after 24 hours |
+| `flutter_releases_windows.json` | Cached Flutter release index |
+| `dev-log.log` | What the Developer Logs window reads |
+
+Uninstalling leaves the folder alone, so a reinstall keeps your settings.
+
+## Layout
+
+```text
+lib/
+  application/     cubits and app-wide buses (ShellNavigator, EmulatorEvents)
+  core/            constants, DI wiring, shared helpers
+  domain/          models
+  infrastructure/  the services that run the tools and parse their output
+  presentation/    windows, pages, widgets, theme
+windows/runner/    the native host: single instance, sub-window plugins
+tool/              build.ps1 and installer.iss
+test/
+```
+
+## Tests
+
+```powershell
+flutter analyze
+flutter test
+```
+
+The suite leans on widget tests for layout regressions — overflow at specific
+window sizes and scale factors, skeleton alignment, rail-mode collapse — and on
+parser tests for the tool output the app depends on.
