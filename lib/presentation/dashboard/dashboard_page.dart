@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/dashboard/dashboard_cubit.dart';
+import '../../application/shell/shell_navigator.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
@@ -93,27 +94,16 @@ class _DashboardContent extends StatelessWidget {
   final DashboardState state;
   final DateTime? lastUpdated;
 
-  /// The dashboard surfaces findings; the owning screen deletes. Cross-screen
-  /// routing has no home in this shell yet, so this points the user at the
-  /// right place rather than pretending to navigate.
-  // TODO(routing): drive AppShell's selected index from here once the shell
-  // exposes a navigation intent — today the pane index lives in its State.
+  /// The dashboard surfaces findings; the screen that owns the delete does the
+  /// deleting. This only routes.
+  // TODO(filter): the destination could pre-filter to `finding.target` once
+  // the SDK manager and AVD list accept an incoming query.
   void _review(BuildContext context, ReclaimableFinding finding) {
-    final where = switch (finding.kind) {
+    getIt<ShellNavigator>().go(switch (finding.kind) {
       ReclaimableKind.unusedSystemImage ||
-      ReclaimableKind.oldBuildTools => 'SDK manager',
-      ReclaimableKind.staleAvd => 'Virtual devices',
-    };
-    displayInfoBar(
-      context,
-      builder: (context, close) => InfoBar(
-        title: Text('Review in $where'),
-        content: Text(finding.summary),
-        severity: InfoBarSeverity.warning,
-        isLong: true,
-        onClose: close,
-      ),
-    );
+      ReclaimableKind.oldBuildTools => ShellDestination.sdkManager,
+      ReclaimableKind.staleAvd => ShellDestination.virtualDevices,
+    });
   }
 
   @override
@@ -189,20 +179,21 @@ class _StatCards extends StatelessWidget {
         subtitle: stats.runningAvdCount > 0
             ? '${stats.runningAvdCount} running'
             : 'none running',
-        onTap: () => _hint(context, 'Virtual devices'),
+        onTap: () =>
+            getIt<ShellNavigator>().go(ShellDestination.virtualDevices),
       ),
       StatCard(
         label: 'Updates',
         value: '${stats.updateCount}',
         valueColor: stats.updateCount > 0 ? palette.accent : null,
         subtitle: stats.updateCount > 0 ? 'available' : 'up to date',
-        onTap: () => _hint(context, 'Updates'),
+        onTap: () => getIt<ShellNavigator>().go(ShellDestination.updates),
       ),
       StatCard(
         label: 'Devices',
         value: '${stats.deviceCount}',
         subtitle: 'connected',
-        onTap: () => _hint(context, 'Devices'),
+        onTap: () => getIt<ShellNavigator>().go(ShellDestination.devices),
       ),
     ];
 
@@ -257,7 +248,8 @@ class _QuickActions extends StatelessWidget {
               iconColor: palette.statusOk,
               title: running ? 'Emulator running' : 'Launch an emulator',
               subtitle: running ? 'already up' : 'from Virtual devices',
-              onTap: () => _hint(context, 'Virtual devices'),
+              onTap: () =>
+                  getIt<ShellNavigator>().go(ShellDestination.virtualDevices),
             ),
           QuickAction(
             icon: FluentIcons.add,
@@ -269,27 +261,16 @@ class _QuickActions extends StatelessWidget {
             icon: FluentIcons.health,
             title: 'Run flutter doctor',
             subtitle: 'diagnose setup',
-            onTap: () => _hint(context, 'Flutter doctor'),
+            // autoRun: arriving here is a request to run, not just to look.
+            onTap: () => getIt<ShellNavigator>().go(
+              ShellDestination.flutterDoctor,
+              autoRun: true,
+            ),
           ),
         ],
       ),
     );
   }
-}
-
-/// Names where to go until the shell can be navigated from here.
-// TODO(routing): replace with a real navigation intent once AppShell exposes
-// one; its selected index currently lives in private State.
-void _hint(BuildContext context, String screen) {
-  displayInfoBar(
-    context,
-    builder: (context, close) => InfoBar(
-      title: Text('Open $screen'),
-      content: Text('Pick "$screen" in the sidebar.'),
-      severity: InfoBarSeverity.info,
-      onClose: close,
-    ),
-  );
 }
 
 /// One-line readiness summary: a dot plus a sentence, driven entirely by the

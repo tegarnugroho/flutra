@@ -37,6 +37,8 @@ import 'package:android_sdk_manager/application/settings/settings_cubit.dart'
     as _i698;
 import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
     as _i245;
+import 'package:android_sdk_manager/application/shell/shell_navigator.dart'
+    as _i684;
 import 'package:android_sdk_manager/core/command/command_runner.dart' as _i144;
 import 'package:android_sdk_manager/domain/repositories/address_repository.dart'
     as _i1013;
@@ -105,6 +107,10 @@ extension GetItInjectableX on _i174.GetIt {
       dispose: (i) => i.dispose(),
     );
     gh.singleton<_i245.ThemeCubit>(() => _i245.ThemeCubit());
+    gh.singleton<_i684.ShellNavigator>(
+      () => _i684.ShellNavigator(),
+      dispose: (i) => i.dispose(),
+    );
     gh.lazySingleton<_i144.CommandRunner>(() => _i144.CommandRunner());
     gh.lazySingleton<_i961.FlutterReleasesService>(
       () => _i961.FlutterReleasesService(),
