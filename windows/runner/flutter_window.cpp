@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "single_instance.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -51,6 +52,15 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // A second launch broadcasts this instead of starting its own window. Handled
+  // before Flutter sees it: the message is ours, and the answer is a native
+  // one — the Dart side may not even be running when the window is hidden.
+  const UINT show_message = ShowExistingInstanceMessage();
+  if (show_message != 0 && message == show_message) {
+    SurfaceWindow(hwnd);
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
