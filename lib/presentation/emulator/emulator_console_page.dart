@@ -6,6 +6,7 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
 import '../../domain/repositories/emulator_repository.dart';
+import '../common/app_loader.dart';
 import '../common/live_log_view.dart';
 import '../common/log_toolbar.dart';
 
@@ -77,10 +78,7 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
             primaryItems: [
               CommandBarButton(
                 icon: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2))
+                    ? AppLoader(size: AppLoaderSize.small)
                     : const Icon(FluentIcons.refresh),
                 label: const Text('AVDs'),
                 onPressed: _loading ? null : _loadAvds,

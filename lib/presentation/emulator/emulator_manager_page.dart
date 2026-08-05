@@ -15,8 +15,10 @@ import '../../main.dart' show kCreateEmulatorWindow, kEmulatorConsoleWindow;
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import 'widgets/avd_row.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
@@ -139,9 +141,19 @@ class _EmulatorManagerView extends StatelessWidget {
     EmulatorListState state,
     EmulatorListCubit cubit,
   ) {
-    if (state.status == EmulatorListStatus.loading && state.avds.isEmpty) {
-      return const Center(child: ProgressRing());
-    }
+    return LoadingSwitcher(
+      showSkeleton:
+          state.status == EmulatorListStatus.loading && state.avds.isEmpty,
+      skeleton: const EmulatorListSkeleton(),
+      builder: (context) => _loaded(context, state, cubit),
+    );
+  }
+
+  Widget _loaded(
+    BuildContext context,
+    EmulatorListState state,
+    EmulatorListCubit cubit,
+  ) {
     if (state.status == EmulatorListStatus.failure && state.avds.isEmpty) {
       return EmptyState(
         icon: FluentIcons.error_badge,

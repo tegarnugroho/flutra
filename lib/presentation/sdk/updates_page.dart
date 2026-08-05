@@ -5,10 +5,13 @@ import '../../application/flutter_sdk/flutter_update_cubit.dart';
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
+import '../common/app_loader.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -80,9 +83,18 @@ class _UpdatesView extends StatelessWidget {
     SdkManagerState state,
     SdkManagerCubit cubit,
   ) {
-    if (state.isLoading && state.packages.isEmpty) {
-      return const Center(child: ProgressRing());
-    }
+    return LoadingSwitcher(
+      showSkeleton: state.isLoading && state.packages.isEmpty,
+      skeleton: const UpdatesSkeleton(),
+      builder: (context) => _loaded(context, state, cubit),
+    );
+  }
+
+  Widget _loaded(
+    BuildContext context,
+    SdkManagerState state,
+    SdkManagerCubit cubit,
+  ) {
     if (state.status == SdkManagerStatus.failure && state.packages.isEmpty) {
       return EmptyState(
         icon: FluentIcons.error_badge,
@@ -230,10 +242,7 @@ class _FlutterUpdateRow extends StatelessWidget {
                     : 'Could not reach the Flutter release list.',
                 trailing: [
                   if (state.isLoading)
-                    const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: ProgressRing(strokeWidth: 2))
+                    AppLoader(size: AppLoaderSize.small)
                   else
                     OutlinedActionButton(
                       icon: FluentIcons.refresh,
@@ -283,8 +292,7 @@ class _FlutterUpdateRow extends StatelessWidget {
                   Text(installed?.displayVersion ?? update.shortHash ?? '—',
                       style: AppTextStyles.monoValue),
                 if (state.isLoading)
-                  const SizedBox(
-                      width: 14, height: 14, child: ProgressRing(strokeWidth: 2)),
+                  AppLoader(size: AppLoaderSize.small),
               ],
               hoverActions: [
                 if (!state.isLoading)

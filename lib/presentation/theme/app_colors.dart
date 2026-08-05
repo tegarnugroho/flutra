@@ -24,6 +24,28 @@ class AppColors {
   /// panes read as chrome, not as content.
   static const logBg = Color(0xFF161618);
 
+  // ---- Loading placeholders ------------------------------------------------
+
+  /// Skeleton fill and shimmer highlight, resolved by [Brightness] instead of
+  /// through [AppPalette]. The light palette still aliases the dark one (see
+  /// its TODO), and a dark placeholder on a light surface glares — these two
+  /// have to differ per theme even while the rest of the palette does not.
+  static const _skeletonBaseDark = Color(0x0DFFFFFF); // white @ 5%
+  static const _skeletonBaseLight = Color(0x0D000000); // black @ 5%
+  static const _skeletonHighlightDark = Color(0x17FFFFFF); // white @ 9%
+  static const _skeletonHighlightLight = Color(0x08000000); // black @ 3%
+
+  /// Resting colour of a skeleton placeholder.
+  static Color skeletonBase(Brightness brightness) =>
+      brightness == Brightness.dark ? _skeletonBaseDark : _skeletonBaseLight;
+
+  /// The brighter band swept across a skeleton. On light surfaces this is
+  /// *less* dark than the base, so the sweep never reads as glare.
+  static Color skeletonHighlight(Brightness brightness) =>
+      brightness == Brightness.dark
+          ? _skeletonHighlightDark
+          : _skeletonHighlightLight;
+
   // ---- Window caption ------------------------------------------------------
 
   /// Pressed state of a caption button. One step darker than [surfaceRaised]

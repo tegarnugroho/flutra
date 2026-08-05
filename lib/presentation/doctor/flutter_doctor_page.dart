@@ -7,8 +7,10 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/doctor_report.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'doctor_animations.dart';
@@ -96,7 +98,13 @@ class _FlutterDoctorView extends StatelessWidget {
         onAction: cubit.run,
       );
     }
-    return _RunView(state: state);
+    // Checks stream in one at a time and carry their own per-row state, so the
+    // skeleton only covers the gap before the first one lands.
+    return LoadingSwitcher(
+      showSkeleton: state.checks.isEmpty,
+      skeleton: const DoctorSkeleton(),
+      builder: (context) => _RunView(state: state),
+    );
   }
 
   Future<void> _copy(BuildContext context, String text) async {

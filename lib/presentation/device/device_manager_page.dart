@@ -8,8 +8,10 @@ import '../common/command_progress_dialog.dart';
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import 'widgets/device_row.dart';
 
 /// Device Manager: lists connected devices/emulators and their actions.
@@ -70,9 +72,18 @@ class _DeviceManagerView extends StatelessWidget {
     DeviceManagerState state,
     DeviceManagerCubit cubit,
   ) {
-    if (state.isLoading && state.devices.isEmpty) {
-      return const Center(child: ProgressRing());
-    }
+    return LoadingSwitcher(
+      showSkeleton: state.isLoading && state.devices.isEmpty,
+      skeleton: const DeviceListSkeleton(),
+      builder: (context) => _loaded(context, state, cubit),
+    );
+  }
+
+  Widget _loaded(
+    BuildContext context,
+    DeviceManagerState state,
+    DeviceManagerCubit cubit,
+  ) {
     if (state.status == DeviceManagerStatus.failure && state.devices.isEmpty) {
       return EmptyState(
         icon: FluentIcons.error_badge,

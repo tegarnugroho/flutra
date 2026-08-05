@@ -14,12 +14,14 @@ import '../../domain/entities/address.dart';
 import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
 import '../common/app_badge.dart';
+import '../common/app_loader.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -267,10 +269,7 @@ class _AddressesSection extends StatelessWidget {
                         : 'Set the API base URL above first.',
                     trailing: [
                       if (state.isLoading)
-                        const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: ProgressRing(strokeWidth: 2))
+                        AppLoader(size: AppLoaderSize.small)
                       else
                         OutlinedActionButton(
                           icon: FluentIcons.download,
@@ -287,6 +286,8 @@ class _AddressesSection extends StatelessWidget {
                       title: 'Could not load addresses',
                       subtitle: state.errorMessage ?? 'Unknown error.',
                     )
+                  else if (state.isLoading && state.addresses.isEmpty)
+                    const AddressListSkeleton()
                   else if (state.addresses.isEmpty &&
                       state.status == AddressStatus.ready)
                     const GroupedListRow(title: 'No addresses')

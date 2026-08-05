@@ -7,8 +7,10 @@ import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -62,12 +64,13 @@ class _DashboardView extends StatelessWidget {
         onAction: () => context.read<DashboardCubit>().refresh(),
       );
     }
-    if (state.snapshot == null) {
-      return const Center(child: ProgressRing());
-    }
-    return _DashboardContent(
-      snapshot: state.snapshot!,
-      lastUpdated: state.lastUpdated,
+    return LoadingSwitcher(
+      showSkeleton: state.snapshot == null,
+      skeleton: const DashboardSkeleton(),
+      builder: (context) => _DashboardContent(
+        snapshot: state.snapshot!,
+        lastUpdated: state.lastUpdated,
+      ),
     );
   }
 }

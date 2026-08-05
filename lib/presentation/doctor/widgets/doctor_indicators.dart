@@ -1,5 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
+import '../../common/app_loader.dart';
 import '../../common/status_dot.dart';
 import '../../theme/app_colors.dart';
 import '../doctor_animations.dart';
@@ -171,10 +172,6 @@ class RowSpinner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 12,
-      height: 12,
-      child: ProgressRing(strokeWidth: 2),
-    );
+    return AppLoader(size: AppLoaderSize.small);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/device.dart';
+import '../../common/app_loader.dart';
 import '../../common/copy_icon_button.dart';
 import '../../common/grouped_list.dart';
 import '../../common/outlined_action_button.dart';
@@ -69,7 +70,7 @@ class _DeviceRowState extends State<DeviceRow> {
         Text(device.serial, style: AppTextStyles.monoValue),
         CopyIconButton(value: device.serial, label: 'Serial'),
         if (widget.busy)
-          const SizedBox(width: 14, height: 14, child: ProgressRing(strokeWidth: 2))
+          AppLoader(size: AppLoaderSize.small)
         else if (!device.supportsAdb)
           const Text('Flutter target', style: AppTextStyles.inlineNote),
       ],

@@ -8,9 +8,11 @@ import '../../domain/repositories/device_repository.dart';
 import '../common/compact_field.dart';
 import '../common/empty_state.dart';
 import '../common/live_log_view.dart';
+import '../common/loading_switcher.dart';
 import '../common/log_toolbar.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 
@@ -69,73 +71,85 @@ class _LogcatViewerPageState extends State<LogcatViewerPage> {
                 onPressed: _deviceList.load,
               ),
             ],
-            child: devices.isEmpty
-                ? EmptyState(
-                    icon: FluentIcons.plug_disconnected,
-                    title: 'No online devices',
-                    message:
-                        'Connect a device or start an emulator, then refresh.',
-                    actionLabel: 'Refresh',
-                    onAction: _deviceList.load,
-                  )
-                : BlocBuilder<LiveLogCubit, LiveLogState>(
-                    builder: (context, state) {
-                      final filtered = state.filtered;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                CompactCombo<String>(
-                                  width: 240,
-                                  value: devices.serial,
-                                  placeholder: 'Select device',
-                                  items: [
-                                    for (final d in devices.online)
-                                      CompactComboItem(
-                                        value: d.serial,
-                                        label: '${d.displayName} (${d.serial})',
-                                      ),
-                                  ],
-                                  onChanged: _deviceList.select,
-                                ),
-                                LogToolbar(
-                                  cubit: _log,
-                                  state: state,
-                                  showPriority: true,
-                                  showTag: true,
-                                  savePrefix: 'logcat',
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child: _StatusLine(
-                                state: state, count: filtered.length),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                              child: LiveLogView(
-                                lines: filtered,
-                                emptyHint: state.isStarting
-                                    ? 'Starting logcat…'
-                                    : 'No matching log lines.',
+            child: LoadingSwitcher(
+              showSkeleton: devices.isLoading && devices.online.isEmpty,
+              skeleton: const LogcatSkeleton(),
+              builder: (context) => devices.isEmpty
+                  ? EmptyState(
+                      icon: FluentIcons.plug_disconnected,
+                      title: 'No online devices',
+                      message:
+                          'Connect a device or start an emulator, then refresh.',
+                      actionLabel: 'Refresh',
+                      onAction: _deviceList.load,
+                    )
+                  : BlocBuilder<LiveLogCubit, LiveLogState>(
+                      builder: (context, state) {
+                        final filtered = state.filtered;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  CompactCombo<String>(
+                                    width: 240,
+                                    value: devices.serial,
+                                    placeholder: 'Select device',
+                                    items: [
+                                      for (final d in devices.online)
+                                        CompactComboItem(
+                                          value: d.serial,
+                                          label:
+                                              '${d.displayName} (${d.serial})',
+                                        ),
+                                    ],
+                                    onChanged: _deviceList.select,
+                                  ),
+                                  LogToolbar(
+                                    cubit: _log,
+                                    state: state,
+                                    showPriority: true,
+                                    showTag: true,
+                                    savePrefix: 'logcat',
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: _StatusLine(
+                                state: state,
+                                count: filtered.length,
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  8,
+                                  20,
+                                  20,
+                                ),
+                                child: LiveLogView(
+                                  lines: filtered,
+                                  emptyHint: state.isStarting
+                                      ? 'Starting logcat…'
+                                      : 'No matching log lines.',
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
           );
         },
       ),
@@ -155,9 +169,9 @@ class _StatusLine extends StatelessWidget {
     final palette = AppPalette.of(context);
     final (color, label) = switch (state.status) {
       LiveLogStatus.running => (
-          palette.statusOk,
-          state.paused ? 'Paused' : 'Streaming'
-        ),
+        palette.statusOk,
+        state.paused ? 'Paused' : 'Streaming',
+      ),
       LiveLogStatus.starting => (palette.statusWarn, 'Starting'),
       LiveLogStatus.stopped => (palette.textMuted, 'Stopped'),
       LiveLogStatus.failure => (palette.statusError, 'Error'),

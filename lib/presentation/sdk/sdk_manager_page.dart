@@ -9,8 +9,10 @@ import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'widgets/package_progress.dart';
@@ -72,18 +74,18 @@ class _SdkManagerView extends StatelessWidget {
     SdkManagerState state,
     SdkManagerCubit cubit,
   ) {
-    if (state.isLoading && state.packages.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ProgressRing(),
-            SizedBox(height: 12),
-            Text('Querying sdkmanager…', style: AppTextStyles.statusLine),
-          ],
-        ),
-      );
-    }
+    return LoadingSwitcher(
+      showSkeleton: state.isLoading && state.packages.isEmpty,
+      skeleton: const SdkManagerSkeleton(),
+      builder: (context) => _loaded(context, state, cubit),
+    );
+  }
+
+  Widget _loaded(
+    BuildContext context,
+    SdkManagerState state,
+    SdkManagerCubit cubit,
+  ) {
     if (state.status == SdkManagerStatus.failure && state.packages.isEmpty) {
       return EmptyState(
         icon: FluentIcons.error_badge,

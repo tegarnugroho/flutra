@@ -1,3 +1,4 @@
+import 'app_loader.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 /// Shows a non-dismissible modal with a spinner while [task] runs, closing it
@@ -44,8 +45,7 @@ class _BusyDialogState extends State<_BusyDialog> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            const SizedBox(
-                width: 22, height: 22, child: ProgressRing(strokeWidth: 3)),
+            AppLoader(size: AppLoaderSize.small),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'app_loader.dart';
 
 /// The app's standard action button: hairline outline, no fill, muted label.
 ///
@@ -30,8 +31,8 @@ class OutlinedActionButton extends StatefulWidget {
   final IconData? hoverIcon;
   final VoidCallback? onPressed;
 
-  /// Spins the icon. The button keeps its enabled look so headers don't
-  /// flicker while a command runs.
+  /// Replaces the icon with a small [AppLoader]. The button keeps its enabled
+  /// look so headers don't flicker while a command runs.
   final bool busy;
 
   /// Smaller padding, for buttons that sit inside a list row.
@@ -43,37 +44,8 @@ class OutlinedActionButton extends StatefulWidget {
   State<OutlinedActionButton> createState() => _OutlinedActionButtonState();
 }
 
-class _OutlinedActionButtonState extends State<OutlinedActionButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spin = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  );
+class _OutlinedActionButtonState extends State<OutlinedActionButton> {
   bool _hovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.busy) _spin.repeat();
-  }
-
-  @override
-  void didUpdateWidget(covariant OutlinedActionButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.busy && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!widget.busy && _spin.isAnimating) {
-      _spin
-        ..stop()
-        ..value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _spin.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,10 +81,18 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              RotationTransition(
-                turns: _spin,
-                child: Icon(icon, size: 13, color: foreground),
-              ),
+              // A busy button that offers a hover action (Running → Cancel)
+              // shows that icon instead, so the swap stays discoverable.
+              if (widget.busy && !(_hovered && widget.hoverIcon != null))
+                AppLoader(size: AppLoaderSize.small, color: foreground)
+              else
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: Center(
+                    child: Icon(icon, size: 13, color: foreground),
+                  ),
+                ),
               if (label != null) ...[
                 const SizedBox(width: 7),
                 Text(

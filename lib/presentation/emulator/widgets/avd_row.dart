@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../domain/entities/avd.dart';
+import '../../common/app_loader.dart';
 import '../../common/grouped_list.dart';
 import '../../common/outlined_action_button.dart';
 import '../../theme/app_colors.dart';
@@ -56,8 +57,7 @@ class _AvdRowState extends State<AvdRow> {
       secondary: _meta(avd).isEmpty ? null : _meta(avd).join(' · '),
       trailing: [
         if (widget.busy)
-          const SizedBox(
-              width: 14, height: 14, child: ProgressRing(strokeWidth: 2)),
+          AppLoader(size: AppLoaderSize.small),
       ],
       hoverActions: [
         if (!widget.busy) ...[

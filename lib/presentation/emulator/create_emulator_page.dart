@@ -6,8 +6,9 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/avd_create_request.dart';
 import '../../domain/entities/device_definition.dart';
 import '../../domain/entities/system_image.dart';
-import 'widgets/select_tile.dart';
+import '../common/app_loader.dart';
 import '../theme/app_colors.dart';
+import 'widgets/select_tile.dart';
 
 /// Multi-step wizard for creating a new AVD.
 ///
@@ -61,7 +62,7 @@ class _CreateEmulatorView extends StatelessWidget {
         },
         builder: (context, state) {
           if (state.loadStatus == LoadStatus.loading) {
-            return const Center(child: ProgressRing());
+            return const Center(child: AppLoader(size: AppLoaderSize.large));
           }
           if (state.loadStatus == LoadStatus.failure) {
             return _CenteredMessage(
@@ -637,10 +638,7 @@ class _WizardFooter extends StatelessWidget {
                   ? const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: ProgressRing(strokeWidth: 2)),
+                        AppLoader(size: AppLoaderSize.small),
                         SizedBox(width: 8),
                         Text('Creating…'),
                       ],

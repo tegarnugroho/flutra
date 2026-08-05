@@ -8,16 +8,19 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../infrastructure/trash/trash_entry.dart';
+import '../common/app_badge.dart';
+import '../common/app_loader.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
-import '../common/app_badge.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
 import '../common/empty_state.dart';
-import '../common/page_scaffold.dart';
 import '../common/grouped_list.dart';
+import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
+import '../common/page_scaffold.dart';
+import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -98,10 +101,15 @@ class _FlutterSdkView extends StatelessWidget {
   }
 
   Widget _body(BuildContext context, FlutterSdkState state) {
+    return LoadingSwitcher(
+      showSkeleton: state.isLoading && state.info == null,
+      skeleton: const FlutterSdkSkeleton(),
+      builder: (context) => _loaded(context, state),
+    );
+  }
+
+  Widget _loaded(BuildContext context, FlutterSdkState state) {
     final cubit = context.read<FlutterSdkCubit>();
-    if (state.isLoading && state.info == null) {
-      return const Center(child: ProgressRing());
-    }
     if (state.status == FlutterSdkStatus.notInstalled) {
       return _InstallView(
         onInstalled: cubit.load,
@@ -711,10 +719,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
                   SectionLabel('Versions', meta: '${shown.length} available'),
                   const SizedBox(width: 10),
                   if (state.versionsLoading)
-                    const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: ProgressRing(strokeWidth: 2)),
+                    AppLoader(size: AppLoaderSize.small),
                   const Spacer(),
                   CompactField(
                     width: 200,
@@ -948,8 +953,7 @@ class _VersionTileState extends State<_VersionTile> {
         alignment: Alignment.centerLeft,
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 6),
-          child: SizedBox(
-              width: 16, height: 16, child: ProgressRing(strokeWidth: 2)),
+          child: AppLoader(size: AppLoaderSize.small),
         ),
       );
     }
@@ -1111,10 +1115,7 @@ class _InstallViewState extends State<_InstallView> {
                             height: 32,
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: ProgressRing(strokeWidth: 2)),
+                              child: AppLoader(size: AppLoaderSize.small),
                             ),
                           )
                         : ComboBox<String>(
