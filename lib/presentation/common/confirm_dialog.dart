@@ -28,9 +28,14 @@ Future<bool> showConfirmDialog(
           style: destructive
               ? ButtonStyle(
                   backgroundColor: WidgetStateProperty.all(
-                    AppColors.statusError,
+                    AppPalette.of(context).statusError,
                   ),
-                  foregroundColor: WidgetStateProperty.all(Colors.white),
+                  // White on a filled red button in both themes — the fill is
+                  // the same red either way, so the label can't follow the
+                  // palette's text tones without losing contrast in light mode.
+                  foregroundColor: WidgetStateProperty.all(
+                    const Color(0xFFFFFFFF),
+                  ),
                 )
               : null,
           onPressed: () => Navigator.pop(context, true),

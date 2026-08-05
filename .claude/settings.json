@@ -52,7 +52,8 @@
       "Bash(flutter analyze *)",
       "Bash(rm -f .analyze.txt)",
       "Bash(dart fix *)",
-      "Bash(grep -v \"^\\\\s*///\")"
+      "Bash(grep -v \"^\\\\s*///\")",
+      "Bash(awk '{print $2}')"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -197,14 +197,18 @@ class _StepIndicator extends StatelessWidget {
                   ? Icon(
                       FluentIcons.check_mark,
                       size: 12,
-                      color: active ? Colors.white : theme.accentColor,
+                      // On the filled accent chip, not on a themed surface.
+                      color: active
+                          ? const Color(0xFFFFFFFF)
+                          : theme.accentColor,
                     )
                   : Text(
                       '${step.index + 1}',
                       style: TextStyle(
                         fontSize: 12,
                         color: active
-                            ? Colors.white
+                            // On the filled accent chip (see above).
+                            ? const Color(0xFFFFFFFF)
                             : theme.resources.textFillColorSecondary,
                       ),
                     ),
