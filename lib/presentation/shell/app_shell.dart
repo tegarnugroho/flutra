@@ -260,7 +260,12 @@ class _AppShellState extends State<AppShell> {
         // narrow window still falls back to compact on its own.
         displayMode:
             _paneCollapsed ? PaneDisplayMode.compact : PaneDisplayMode.auto,
-        size: const NavigationPaneSize(openWidth: 190),
+        // compactWidth is 2px over fluent's 50 default on purpose. A pane item
+        // lays out at compactWidth minus its 12px margin, and while the pane
+        // animates between compact and open it is briefly measured with the
+        // *open* item layout: 24px of icon padding around a 15px icon needs
+        // 39px, one more than 50 leaves. 52 removes the 1px overflow.
+        size: const NavigationPaneSize(openWidth: 190, compactWidth: 52),
         // The active item is marked by its raised tile, not an accent bar.
         indicator: null,
         items: items,
