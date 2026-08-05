@@ -27,7 +27,11 @@ class PageScaffold extends StatelessWidget {
     return ScaffoldPage(
       padding: EdgeInsets.zero,
       content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // stretch, not start: with a loose cross-axis the body sizes to its
+        // content's intrinsic width, so a page narrower than the window (the
+        // Settings form) put its scrollbar against the content instead of the
+        // window edge. Expanded only governs the main axis.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
