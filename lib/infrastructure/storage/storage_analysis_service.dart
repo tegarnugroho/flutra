@@ -78,7 +78,7 @@ class StorageAnalysisService {
   Future<StorageReport> _analyze() async {
     final request = _ScanRequest(
       sdkRoot: _sdk.sdkRoot,
-      flutterRoot: _flutter.overrideRoot ?? _flutterRootFromExecutable(),
+      flutterRoot: _flutter.root,
       avdHome: _avdHome(),
     );
     // Isolate.run copies the closure's captured values; only the plain strings
@@ -87,13 +87,6 @@ class StorageAnalysisService {
     _memory = report;
     await _persist(report);
     return report;
-  }
-
-  /// `bin/flutter` sits inside the SDK, so its grandparent is the root.
-  String? _flutterRootFromExecutable() {
-    final exe = _flutter.executable;
-    if (!p.isAbsolute(exe)) return null;
-    return p.dirname(p.dirname(exe));
   }
 
   /// Mirrors the emulator repository's resolution order.
