@@ -2,8 +2,10 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../domain/entities/avd.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/environment_snapshot.dart';
+import '../../domain/entities/sdk_package.dart';
 import '../../domain/entities/storage_report.dart';
 import '../../domain/repositories/device_repository.dart';
 import '../../domain/repositories/emulator_repository.dart';
@@ -44,9 +46,13 @@ class DashboardCubit extends Cubit<DashboardState> {
     final packagesFuture = _sdk.listPackages();
     final cachedFuture = _storage.cached();
 
-    final avds = await avdsFuture.catchError((_) => const []);
-    final devices = await devicesFuture.catchError((_) => const []);
-    final packages = await packagesFuture.catchError((_) => const []);
+    // A tool that fails contributes a zero rather than sinking the whole
+    // overview — the toolchain list above already reports what is broken.
+    final avds = await avdsFuture.catchError((_) => const <Avd>[]);
+    final devices = await devicesFuture.catchError((_) => const <Device>[]);
+    final packages = await packagesFuture.catchError(
+      (_) => const <SdkPackage>[],
+    );
     final cached = await cachedFuture;
     if (isClosed) return;
 

@@ -11,7 +11,7 @@ import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
-import '../../main.dart' show kCreateEmulatorWindow, kEmulatorConsoleWindow;
+import '../../main.dart' show kEmulatorConsoleWindow;
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
@@ -19,7 +19,7 @@ import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
-import '../window/window_placement.dart';
+import '../window/task_windows.dart';
 import 'widgets/avd_row.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
@@ -53,25 +53,6 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
     super.dispose();
   }
 
-  Future<void> _openCreateWindow() async {
-    final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
-    await WindowController.create(
-      WindowConfiguration(
-        arguments: jsonEncode({
-          'businessId': kCreateEmulatorWindow,
-          'dark': dark,
-          // Where the wizard should open. It can't read our frame from its own
-          // engine, so the finished rect rides along in the arguments.
-          'frame': await centeredOverMainWindow(kWizardWindowSize),
-        }),
-        // Created hidden on purpose: the wizard positions itself and reveals
-        // itself once its first frame is on the surface. Showing here would
-        // paint it at the native default spot first and then jump.
-        hiddenAtLaunch: true,
-      ),
-    );
-  }
-
   Future<void> _openConsoleWindow(Avd avd) async {
     final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
     await WindowController.create(
@@ -91,7 +72,7 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
     return BlocProvider.value(
       value: _cubit,
       child: _EmulatorManagerView(
-        onCreate: _openCreateWindow,
+        onCreate: openCreateEmulatorWindow,
         onConsole: _openConsoleWindow,
       ),
     );

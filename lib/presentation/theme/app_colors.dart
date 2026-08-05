@@ -60,6 +60,37 @@ class AppColors {
   /// Missing required tool, failure.
   static const statusError = Color(0xFFF85149);
 
+  /// Chart hues for the storage breakdown, in the order categories are drawn.
+  ///
+  /// Picked to stay apart on both ramps: a chart is the one place the app's
+  /// near-monochrome rule has to give, because adjacent greys would be
+  /// unreadable as separate segments.
+  static const chartDark = <Color>[
+    Color(0xFF4ECB8F), // system images
+    Color(0xFF5B9BD5), // flutter
+    Color(0xFFE0A458), // avds
+    Color(0xFFA98BD6), // platforms
+    Color(0xFFE0698A), // emulator + tools
+    Color(0xFF56C4C4), // ndk
+    Color(0xFF8A8A90), // other
+  ];
+
+  static const chartLight = <Color>[
+    Color(0xFF1F9D63),
+    Color(0xFF2C6FB5),
+    Color(0xFFB57415),
+    Color(0xFF7B54BE),
+    Color(0xFFC03F63),
+    Color(0xFF17888A),
+    Color(0xFF6E6E73),
+  ];
+
+  /// The hue for the [index]-th segment, wrapping if a ramp ever runs short.
+  static Color chart(Brightness brightness, int index) {
+    final ramp = brightness == Brightness.dark ? chartDark : chartLight;
+    return ramp[index % ramp.length];
+  }
+
   /// Trace-level log lines — present but never competing with INFO.
   static const logTrace = Color(0xFF6E8FC7);
 

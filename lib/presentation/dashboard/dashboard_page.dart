@@ -14,6 +14,10 @@ import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../../domain/entities/storage_report.dart';
+import '../window/task_windows.dart';
+import 'widgets/stat_cards.dart';
+import 'widgets/storage_panel.dart';
 import 'widgets/toolchain_list.dart';
 
 /// The dashboard screen: an at-a-glance health view of the toolchain.
@@ -23,7 +27,9 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<DashboardCubit>()..refresh(),
+      create: (_) => getIt<DashboardCubit>()
+        ..refresh()
+        ..loadOverview(),
       child: const _DashboardView(),
     );
   }
@@ -69,6 +75,7 @@ class _DashboardView extends StatelessWidget {
       skeleton: const DashboardSkeleton(),
       builder: (context) => _DashboardContent(
         snapshot: state.snapshot!,
+        state: state,
         lastUpdated: state.lastUpdated,
       ),
     );
@@ -76,10 +83,38 @@ class _DashboardView extends StatelessWidget {
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({required this.snapshot, this.lastUpdated});
+  const _DashboardContent({
+    required this.snapshot,
+    required this.state,
+    this.lastUpdated,
+  });
 
   final EnvironmentSnapshot snapshot;
+  final DashboardState state;
   final DateTime? lastUpdated;
+
+  /// The dashboard surfaces findings; the owning screen deletes. Cross-screen
+  /// routing has no home in this shell yet, so this points the user at the
+  /// right place rather than pretending to navigate.
+  // TODO(routing): drive AppShell's selected index from here once the shell
+  // exposes a navigation intent — today the pane index lives in its State.
+  void _review(BuildContext context, ReclaimableFinding finding) {
+    final where = switch (finding.kind) {
+      ReclaimableKind.unusedSystemImage ||
+      ReclaimableKind.oldBuildTools => 'SDK manager',
+      ReclaimableKind.staleAvd => 'Virtual devices',
+    };
+    displayInfoBar(
+      context,
+      builder: (context, close) => InfoBar(
+        title: Text('Review in $where'),
+        content: Text(finding.summary),
+        severity: InfoBarSeverity.warning,
+        isLong: true,
+        onClose: close,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,10 +124,21 @@ class _DashboardContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StatusLine(snapshot: snapshot),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          _StatCards(state: state),
+          const SizedBox(height: 14),
           const SectionLabel('Toolchain'),
           const SizedBox(height: 8),
           ToolchainList(snapshot: snapshot),
+          const SizedBox(height: 14),
+          StoragePanel(
+            report: state.storage,
+            scanning: state.scanning,
+            onAnalyze: () => context.read<DashboardCubit>().analyzeStorage(),
+            onReview: (finding) => _review(context, finding),
+          ),
+          const SizedBox(height: 14),
+          _QuickActions(state: state),
           // Paths moved to Settings > Paths, merged with the override rows.
           if (lastUpdated != null) ...[
             const SizedBox(height: 14),
@@ -110,6 +156,133 @@ class _DashboardContent extends StatelessWidget {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
   }
+}
+
+/// The four numbers worth a glance, 4-up and 2×2 once it gets tight.
+class _StatCards extends StatelessWidget {
+  const _StatCards({required this.state});
+
+  final DashboardState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final stats = state.stats;
+    final storage = state.storage;
+    final reclaimable = storage?.reclaimableBytes ?? 0;
+
+    final cards = <Widget>[
+      StatCard(
+        label: 'Disk used',
+        value: storage == null ? '—' : formatBytes(storage.totalBytes),
+        subtitle: reclaimable > 0
+            ? '${formatBytes(reclaimable)} reclaimable'
+            : 'across SDKs & AVDs',
+        subtitleColor: reclaimable > 0 ? palette.statusWarn : null,
+        onTap: () => Scrollable.ensureVisible(context),
+      ),
+      StatCard(
+        label: 'Virtual devices',
+        value: stats == null ? '—' : '${stats.avdCount}',
+        subtitle: (stats?.runningAvdCount ?? 0) > 0
+            ? '${stats!.runningAvdCount} running'
+            : 'none running',
+        onTap: () => _hint(context, 'Virtual devices'),
+      ),
+      StatCard(
+        label: 'Updates',
+        value: stats == null ? '—' : '${stats.updateCount}',
+        valueColor: (stats?.updateCount ?? 0) > 0 ? palette.accent : null,
+        subtitle: (stats?.updateCount ?? 0) > 0 ? 'available' : 'up to date',
+        onTap: () => _hint(context, 'Updates'),
+      ),
+      StatCard(
+        label: 'Devices',
+        value: stats == null ? '—' : '${stats.deviceCount}',
+        subtitle: 'connected',
+        onTap: () => _hint(context, 'Devices'),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) => GridView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: constraints.maxWidth < 1000 ? 2 : 4,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 74,
+        ),
+        children: cards,
+      ),
+    );
+  }
+}
+
+/// Shortcuts into the three things people open the app to do.
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.state});
+
+  final DashboardState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final stats = state.stats;
+    final hasAvds = (stats?.avdCount ?? 0) > 0;
+    final running = (stats?.runningAvdCount ?? 0) > 0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) => GridView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: constraints.maxWidth < 1000 ? 1 : 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 58,
+        ),
+        children: [
+          if (hasAvds)
+            QuickAction(
+              icon: FluentIcons.play,
+              iconColor: palette.statusOk,
+              title: running ? 'Emulator running' : 'Launch an emulator',
+              subtitle: running ? 'already up' : 'from Virtual devices',
+              onTap: () => _hint(context, 'Virtual devices'),
+            ),
+          QuickAction(
+            icon: FluentIcons.add,
+            title: 'Create emulator',
+            subtitle: 'new device',
+            onTap: openCreateEmulatorWindow,
+          ),
+          QuickAction(
+            icon: FluentIcons.health,
+            title: 'Run flutter doctor',
+            subtitle: 'diagnose setup',
+            onTap: () => _hint(context, 'Flutter doctor'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Names where to go until the shell can be navigated from here.
+// TODO(routing): replace with a real navigation intent once AppShell exposes
+// one; its selected index currently lives in private State.
+void _hint(BuildContext context, String screen) {
+  displayInfoBar(
+    context,
+    builder: (context, close) => InfoBar(
+      title: Text('Open $screen'),
+      content: Text('Pick "$screen" in the sidebar.'),
+      severity: InfoBarSeverity.info,
+      onClose: close,
+    ),
+  );
 }
 
 /// One-line readiness summary: a dot plus a sentence, driven entirely by the

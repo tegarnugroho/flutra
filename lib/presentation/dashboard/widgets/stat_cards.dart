@@ -1,0 +1,208 @@
+import 'package:fluent_ui/fluent_ui.dart';
+
+import '../../theme/app_colors.dart';
+import '../../theme/app_text_styles.dart';
+
+/// One number worth glancing at, with the context that makes it mean
+/// something.
+class StatCard extends StatefulWidget {
+  const StatCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.subtitle,
+    required this.onTap,
+    this.valueColor,
+    this.subtitleColor,
+  });
+
+  final String label;
+  final String value;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color? valueColor;
+  final Color? subtitleColor;
+
+  @override
+  State<StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<StatCard> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    final lifted = _hovered || _focused;
+
+    return Semantics(
+      button: true,
+      label: '${widget.label}: ${widget.value}, ${widget.subtitle}',
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: (v) => setState(() => _hovered = v),
+        onShowFocusHighlight: (v) => setState(() => _focused = v),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: lifted ? palette.surfaceRaised : Colors.transparent,
+              border: Border.all(
+                color: lifted ? palette.borderStrong : palette.border,
+                width: AppShape.hairline,
+              ),
+              borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.label,
+                  style: text.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.value,
+                  style: text.heroTitle.copyWith(
+                    fontSize: 16,
+                    color: widget.valueColor ?? palette.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  widget.subtitle,
+                  style: text.caption.copyWith(color: widget.subtitleColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Icon over a two-line label — the dashboard's shortcuts.
+class QuickAction extends StatefulWidget {
+  const QuickAction({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final Color? iconColor;
+
+  @override
+  State<QuickAction> createState() => _QuickActionState();
+}
+
+class _QuickActionState extends State<QuickAction> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    final enabled = widget.onTap != null;
+    final lifted = (_hovered || _focused) && enabled;
+
+    return Semantics(
+      button: true,
+      label: '${widget.title}. ${widget.subtitle}',
+      child: FocusableActionDetector(
+        enabled: enabled,
+        mouseCursor:
+            enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onShowHoverHighlight: (v) => setState(() => _hovered = v),
+        onShowFocusHighlight: (v) => setState(() => _focused = v),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap?.call();
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: lifted ? palette.surfaceRaised : Colors.transparent,
+              border: Border.all(
+                color: lifted ? palette.borderStrong : palette.border,
+                width: AppShape.hairline,
+              ),
+              borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 18,
+                  color: enabled
+                      ? (widget.iconColor ?? palette.textSecondary)
+                      : palette.textMuted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: text.rowTitle.copyWith(
+                          color: enabled
+                              ? palette.textPrimary
+                              : palette.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: text.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

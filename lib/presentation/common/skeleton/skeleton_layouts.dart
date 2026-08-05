@@ -103,6 +103,16 @@ class DashboardSkeleton extends StatelessWidget {
       children: [
         const _StatusLineSkeleton(width: 300),
         const SizedBox(height: 18),
+        // Stat cards.
+        Row(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              const Expanded(child: SkeletonBox(height: 74, radius: 8)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
         const _SectionLabelSkeleton(width: 66),
         const SizedBox(height: 8),
         _SkeletonGroup(
@@ -119,6 +129,18 @@ class DashboardSkeleton extends StatelessWidget {
                   const SkeletonCircle(size: 6),
                 ],
               ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // Storage panel: title, bar, two legend columns.
+        const SkeletonBox(height: 132, radius: 8),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              const Expanded(child: SkeletonBox(height: 58, radius: 8)),
+            ],
           ],
         ),
       ],

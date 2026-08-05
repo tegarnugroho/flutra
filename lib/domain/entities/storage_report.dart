@@ -178,8 +178,7 @@ class StorageReport extends Equatable {
       ],
       skipped: [
         for (final name in (json['skipped'] as List? ?? []))
-          if (byName(StorageCategory.values, name) case final category?)
-            category,
+          ?byName(StorageCategory.values, name),
       ],
     );
   }

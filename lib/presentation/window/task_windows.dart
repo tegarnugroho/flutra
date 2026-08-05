@@ -5,7 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
-import '../../main.dart' show kAboutWindow;
+import '../../main.dart' show kAboutWindow, kCreateEmulatorWindow;
 import 'window_placement.dart';
 
 /// The id of the About window while it is open.
@@ -43,4 +43,20 @@ Future<void> openAboutWindow() async {
     ),
   );
   _aboutWindowId = controller.windowId;
+}
+
+/// Opens the Create Emulator wizard. Unlike About, several may be open at once
+/// — each is an independent draft.
+Future<void> openCreateEmulatorWindow() async {
+  final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
+  await WindowController.create(
+    WindowConfiguration(
+      arguments: jsonEncode({
+        'businessId': kCreateEmulatorWindow,
+        'dark': dark,
+        'frame': await centeredOverMainWindow(kWizardWindowSize),
+      }),
+      hiddenAtLaunch: true,
+    ),
+  );
 }
