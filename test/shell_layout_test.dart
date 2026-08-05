@@ -51,25 +51,34 @@ Widget _shell({required bool collapsed, ThemeMode mode = ThemeMode.dark}) {
     themeMode: mode,
     home: NavigationView(
       titleBar: CustomTitleBar(
-        leading: TitleBarActionButton(
-          icon: FluentIcons.global_nav_button,
-          tooltip: 'Toggle sidebar',
-          onPressed: () {},
+        leading: FlyoutTarget(
+          controller: FlyoutController(),
+          child: TitleBarActionButton(
+            icon: WindowsIcons.global_nav_button,
+            tooltip: 'Menu',
+            onPressed: () {},
+          ),
         ),
         actions: [
           TitleBarActionButton(
-            icon: FluentIcons.search,
+            icon: WindowsIcons.dock_left,
+            tooltip: 'Hide sidebar',
+            isActive: collapsed,
+            onPressed: () {},
+          ),
+          TitleBarActionButton(
+            icon: WindowsIcons.search,
             tooltip: 'Go to page',
             onPressed: () {},
           ),
           const SizedBox(width: 6),
           TitleBarActionButton(
-            icon: FluentIcons.back,
+            icon: WindowsIcons.back,
             tooltip: 'Back',
             onPressed: null,
           ),
           TitleBarActionButton(
-            icon: FluentIcons.forward,
+            icon: WindowsIcons.forward,
             tooltip: 'Forward',
             onPressed: null,
           ),

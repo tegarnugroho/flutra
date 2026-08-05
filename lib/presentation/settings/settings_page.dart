@@ -198,7 +198,7 @@ class _SettingsView extends StatelessWidget {
                             icon: FluentIcons.text_document,
                             label: 'Open log',
                             dense: true,
-                            onPressed: _openDevLogsWindow,
+                            onPressed: openDevLogsWindow,
                           ),
                         ],
                       ),
@@ -332,7 +332,7 @@ class _AddressRow extends StatelessWidget {
 }
 
 /// Opens the Developer Logs as a separate OS window.
-Future<void> _openDevLogsWindow() async {
+Future<void> openDevLogsWindow() async {
   final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
   await WindowController.create(WindowConfiguration(
     arguments: jsonEncode({'businessId': kDevLogsWindow, 'dark': dark}),

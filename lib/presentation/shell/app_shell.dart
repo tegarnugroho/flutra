@@ -1,5 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
@@ -10,7 +12,7 @@ import '../logcat/logcat_viewer_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import '../sdk/updates_page.dart';
-import '../settings/settings_page.dart';
+import '../settings/settings_page.dart' show SettingsPage, openDevLogsWindow;
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'command_palette.dart';
@@ -114,9 +116,15 @@ class _AppShellState extends State<AppShell> {
     ),
   ];
 
+  /// Pane index of the Settings destination, for the app menu's shortcut to it.
+  static final int _settingsIndex =
+      _destinations.indexWhere((d) => d.label == 'Settings');
+
   int _index = 0;
   bool _paneCollapsed = false;
   bool _paletteOpen = false;
+
+  final _menuController = FlyoutController();
 
   /// Visited destinations, oldest first. [_forward] holds what a back step
   /// undid and is dropped as soon as a new destination is chosen.
@@ -132,7 +140,43 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _menuController.dispose();
     super.dispose();
+  }
+
+  /// The app menu behind the hamburger, anchored under the button.
+  void _showMenu() {
+    _menuController.showFlyout(
+      placementMode: FlyoutPlacementMode.bottomLeft,
+      builder: (context) => MenuFlyout(
+        items: [
+          MenuFlyoutItem(
+            leading: const Icon(WindowsIcons.settings),
+            text: const Text('Settings'),
+            onPressed: () => _go(_settingsIndex),
+          ),
+          MenuFlyoutItem(
+            leading: const Icon(WindowsIcons.developer_tools),
+            text: const Text('Developer logs'),
+            onPressed: openDevLogsWindow,
+          ),
+          const MenuFlyoutSeparator(),
+          MenuFlyoutItem(
+            leading: const Icon(WindowsIcons.power_button),
+            text: const Text('Exit'),
+            onPressed: _exit,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Quits for real, unlike the close button — that one honours the
+  /// "close to tray" preference handled in `AndroidSdkManagerApp`.
+  Future<void> _exit() async {
+    await windowManager.setPreventClose(false);
+    await trayManager.destroy();
+    await windowManager.destroy();
   }
 
   /// Ctrl+K opens the palette from anywhere, including while a page's own text
@@ -240,11 +284,14 @@ class _AppShellState extends State<AppShell> {
 
     return NavigationView(
       titleBar: CustomTitleBar(
-        // The sidebar toggle takes the app-icon slot, ahead of the name.
-        leading: TitleBarActionButton(
-          icon: FluentIcons.global_nav_button,
-          tooltip: _paneCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
-          onPressed: () => setState(() => _paneCollapsed = !_paneCollapsed),
+        // The app menu takes the app-icon slot, ahead of the name.
+        leading: FlyoutTarget(
+          controller: _menuController,
+          child: TitleBarActionButton(
+            icon: WindowsIcons.global_nav_button,
+            tooltip: 'Menu',
+            onPressed: _showMenu,
+          ),
         ),
         actions: _titleBarActions(),
       ),
@@ -283,19 +330,27 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> _titleBarActions() {
     return [
+      // Segoe chrome glyphs throughout, so the shell controls read as one set
+      // with the caption buttons rather than two icon families side by side.
       TitleBarActionButton(
-        icon: FluentIcons.search,
+        icon: WindowsIcons.dock_left,
+        tooltip: _paneCollapsed ? 'Show sidebar' : 'Hide sidebar',
+        isActive: _paneCollapsed,
+        onPressed: () => setState(() => _paneCollapsed = !_paneCollapsed),
+      ),
+      TitleBarActionButton(
+        icon: WindowsIcons.search,
         tooltip: 'Go to page (Ctrl+K)',
         onPressed: _openPalette,
       ),
       const SizedBox(width: 6),
       TitleBarActionButton(
-        icon: FluentIcons.back,
+        icon: WindowsIcons.back,
         tooltip: 'Back',
         onPressed: _back.isEmpty ? null : _goBack,
       ),
       TitleBarActionButton(
-        icon: FluentIcons.forward,
+        icon: WindowsIcons.forward,
         tooltip: 'Forward',
         onPressed: _forward.isEmpty ? null : _goForward,
       ),
