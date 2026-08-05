@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../application/emulator/emulator_events.dart';
 import '../../application/emulator/emulator_list_cubit.dart';
@@ -37,6 +38,7 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
   late final EmulatorListCubit _cubit;
   StreamSubscription<void>? _eventsSub;
 
+
   @override
   void initState() {
     super.initState();
@@ -58,12 +60,24 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
         arguments: jsonEncode({
           'businessId': kCreateEmulatorWindow,
           'dark': dark,
+          // The wizard centres itself over us; it cannot read our frame from
+          // its own engine, so it rides along in the arguments.
+          'parentBounds': await _windowBounds(),
         }),
         // Show immediately from native so visibility doesn't depend on
         // window_manager being available.
         hiddenAtLaunch: false,
       ),
     );
+  }
+
+  Future<List<double>?> _windowBounds() async {
+    try {
+      final b = await windowManager.getBounds();
+      return [b.left, b.top, b.width, b.height];
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _openConsoleWindow(Avd avd) async {

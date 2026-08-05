@@ -1,14 +1,19 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/emulator/create_emulator_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/avd_create_request.dart';
-import '../../domain/entities/device_definition.dart';
 import '../../domain/entities/system_image.dart';
 import '../common/app_loader.dart';
+import '../common/confirm_dialog.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+import 'widgets/device_step.dart';
 import 'widgets/select_tile.dart';
+import 'widgets/wizard_footer.dart';
+import 'widgets/wizard_stepper.dart';
 
 /// Multi-step wizard for creating a new AVD.
 ///
@@ -42,6 +47,23 @@ class _CreateEmulatorView extends StatelessWidget {
     }
   }
 
+  /// Leaving the wizard from its first screen. Only asks when there is
+  /// something to lose — a device the user already picked.
+  Future<void> _exit(BuildContext context) async {
+    final state = context.read<CreateEmulatorCubit>().state;
+    if (state.deviceId == null) {
+      _close(context, false);
+      return;
+    }
+    final discard = await showConfirmDialog(
+      context,
+      title: 'Discard this emulator?',
+      message: 'The device you picked and any other choices will be lost.',
+      confirmLabel: 'Discard',
+    );
+    if (discard && context.mounted) _close(context, false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScaffoldPage(
@@ -51,7 +73,7 @@ class _CreateEmulatorView extends StatelessWidget {
           padding: const EdgeInsets.only(right: 4),
           child: IconButton(
             icon: const Icon(FluentIcons.back, size: 16),
-            onPressed: () => _close(context, false),
+            onPressed: () => _exit(context),
           ),
         ),
       ),
@@ -81,7 +103,10 @@ class _CreateEmulatorView extends StatelessWidget {
                   'creating an emulator.',
             );
           }
-          return _WizardBody(state: state);
+          return _WizardBody(
+            state: state,
+            onExit: () => _exit(context),
+          );
         },
       ),
     );
@@ -115,116 +140,125 @@ class _CreateEmulatorView extends StatelessWidget {
 }
 
 class _WizardBody extends StatelessWidget {
-  const _WizardBody({required this.state});
+  const _WizardBody({required this.state, required this.onExit});
+
+  final CreateEmulatorState state;
+
+  /// Called when Back (or Esc) runs out of wizard to go back through.
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<CreateEmulatorCubit>();
+    final isLast = state.step == WizardStep.values.last;
+
+    void goBack() {
+      if (!cubit.back()) onExit();
+    }
+
+    return CallbackShortcuts(
+      // Esc mirrors Back at every level: device list → categories → out.
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): goBack,
+      },
+      child: FocusScope(
+        autofocus: true,
+        child: Column(
+          children: [
+            WizardStepper(current: state.step, onTap: cubit.goTo),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                child: _StepContent(state: state),
+              ),
+            ),
+            WizardFooter(
+              summary: _FooterSummary(state: state),
+              onBack: goBack,
+              onNext: isLast
+                  ? (state.canAdvance && !state.submitting ? cubit.submit : null)
+                  : (state.canAdvance ? cubit.next : null),
+              nextLabel: isLast ? 'Create emulator' : 'Next',
+              nextDisabledTooltip: _nextBlockedReason(state),
+              busy: state.submitting,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Why the primary action is unavailable, or null when it is available.
+  static String? _nextBlockedReason(CreateEmulatorState state) {
+    if (state.canAdvance) return null;
+    return switch (state.step) {
+      WizardStep.device => 'Choose a device first',
+      WizardStep.apiLevel => 'Choose an Android version first',
+      WizardStep.image => 'Choose a system image first',
+      WizardStep.abi => 'Choose an ABI first',
+      WizardStep.configure => 'Name the emulator first',
+    };
+  }
+}
+
+/// The footer's left slot: the error if there is one, otherwise what the user
+/// has picked so far.
+class _FooterSummary extends StatelessWidget {
+  const _FooterSummary({required this.state});
 
   final CreateEmulatorState state;
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<CreateEmulatorCubit>();
-    return Column(
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+
+    if (state.errorMessage != null) {
+      return Text(
+        state.errorMessage!,
+        style: text.statusLine.copyWith(color: palette.statusError),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final device = state.selectedDevice;
+    // Picking a category is not picking a device, so the category phase always
+    // asks for one — even when a device is already selected underneath.
+    if (device == null || state.devicePhase == DeviceStepPhase.categories) {
+      return Text(
+        'Select a device to continue',
+        style: text.statusLine.copyWith(color: palette.textMuted),
+      );
+    }
+    return Row(
       children: [
-        _StepIndicator(current: state.step, onTap: cubit.goTo),
-        const Divider(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
-            child: _StepContent(state: state),
+        Icon(
+          iconForCategory(device.category),
+          size: 16,
+          color: palette.textSecondary,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            device.name,
+            style: text.rowTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        _WizardFooter(state: state),
+        if (device.oem != null) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              device.oem!,
+              style: text.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ],
-    );
-  }
-}
-
-class _StepIndicator extends StatelessWidget {
-  const _StepIndicator({required this.current, required this.onTap});
-
-  final WizardStep current;
-  final ValueChanged<WizardStep> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
-      child: Row(
-        children: [
-          for (final step in WizardStep.values) ...[
-            _dot(theme, step),
-            if (step != WizardStep.values.last)
-              Expanded(
-                child: Container(
-                  height: 2,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: step.index < current.index
-                      ? theme.accentColor
-                      : theme.resources.controlStrokeColorDefault,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _dot(FluentThemeData theme, WizardStep step) {
-    final done = step.index < current.index;
-    final active = step == current;
-    final color = active || done
-        ? theme.accentColor
-        : theme.resources.controlStrokeColorDefault;
-    return GestureDetector(
-      onTap: step.index <= current.index ? () => onTap(step) : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: active
-                  ? theme.accentColor
-                  : done
-                  ? theme.accentColor.withValues(alpha: 0.2)
-                  : Colors.transparent,
-              border: Border.all(color: color, width: 1.5),
-            ),
-            child: Center(
-              child: done
-                  ? Icon(
-                      FluentIcons.check_mark,
-                      size: 12,
-                      // On the filled accent chip, not on a themed surface.
-                      color: active
-                          ? const Color(0xFFFFFFFF)
-                          : theme.accentColor,
-                    )
-                  : Text(
-                      '${step.index + 1}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: active
-                            // On the filled accent chip (see above).
-                            ? const Color(0xFFFFFFFF)
-                            : theme.resources.textFillColorSecondary,
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            step.title,
-            style: theme.typography.caption?.copyWith(
-              color: active
-                  ? theme.accentColor
-                  : theme.resources.textFillColorTertiary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -237,73 +271,13 @@ class _StepContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (state.step) {
-      WizardStep.device => _DeviceStep(state: state),
+      WizardStep.device => DeviceStep(state: state),
       WizardStep.apiLevel => _ApiStep(state: state),
       WizardStep.image => _ImageStep(state: state),
       WizardStep.abi => _AbiStep(state: state),
       WizardStep.configure => _ConfigureStep(state: state),
     };
   }
-}
-
-// ---- Step 1: device ---------------------------------------------------------
-
-class _DeviceStep extends StatelessWidget {
-  const _DeviceStep({required this.state});
-
-  final CreateEmulatorState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<CreateEmulatorCubit>();
-    final byCategory = <DeviceCategory, List<DeviceDefinition>>{};
-    for (final d in state.devices) {
-      byCategory.putIfAbsent(d.category, () => []).add(d);
-    }
-    final categories = DeviceCategory.values
-        .where((c) => byCategory.containsKey(c))
-        .toList();
-
-    return ListView(
-      children: [
-        for (final category in categories) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: Text(
-              category.label,
-              style: FluentTheme.of(context).typography.bodyStrong,
-            ),
-          ),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final device in byCategory[category]!)
-                SizedBox(
-                  width: 240,
-                  child: SelectTile(
-                    icon: _iconFor(category),
-                    title: device.name,
-                    subtitle: device.oem,
-                    selected: state.deviceId == device.id,
-                    onTap: () => cubit.selectDevice(device.id),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  IconData _iconFor(DeviceCategory c) => switch (c) {
-    DeviceCategory.phone => FluentIcons.cell_phone,
-    DeviceCategory.tablet => FluentIcons.tablet,
-    DeviceCategory.foldable => FluentIcons.devices3,
-    DeviceCategory.wear => FluentIcons.circle_ring,
-    DeviceCategory.tv => FluentIcons.t_v_monitor,
-    DeviceCategory.automotive => FluentIcons.car,
-  };
 }
 
 // ---- Step 2: API level ------------------------------------------------------
@@ -616,70 +590,6 @@ class _ConfigureStepState extends State<_ConfigureStep> {
   }
 }
 
-// ---- Footer -----------------------------------------------------------------
-
-class _WizardFooter extends StatelessWidget {
-  const _WizardFooter({required this.state});
-
-  final CreateEmulatorState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<CreateEmulatorCubit>();
-    final isLast = state.step == WizardStep.values.last;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: FluentTheme.of(context).resources.controlStrokeColorDefault,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (state.errorMessage != null)
-            Expanded(
-              child: Text(
-                state.errorMessage!,
-                style: TextStyle(color: AppPalette.of(context).statusError),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          else
-            const Spacer(),
-          Button(
-            onPressed: state.step.index == 0 ? null : cubit.back,
-            child: const Text('Back'),
-          ),
-          const SizedBox(width: 10),
-          if (isLast)
-            FilledButton(
-              onPressed: state.canAdvance && !state.submitting
-                  ? cubit.submit
-                  : null,
-              child: state.submitting
-                  ? const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppLoader(size: AppLoaderSize.small),
-                        SizedBox(width: 8),
-                        Text('Creating…'),
-                      ],
-                    )
-                  : const Text('Create emulator'),
-            )
-          else
-            FilledButton(
-              onPressed: state.canAdvance ? cubit.next : null,
-              child: const Text('Next'),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 class _CenteredMessage extends StatelessWidget {
   const _CenteredMessage({

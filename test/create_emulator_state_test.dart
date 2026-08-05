@@ -60,7 +60,14 @@ void main() {
       const base = CreateEmulatorState();
       expect(base.canAdvance, isFalse); // device step, no device
 
-      final device = base.copyWith(deviceId: 'pixel_6');
+      // A device picked while the category picker is showing is not enough:
+      // step 1 only advances from its device-list phase.
+      final onCategories = base.copyWith(deviceId: 'pixel_6');
+      expect(onCategories.canAdvance, isFalse);
+
+      final device = onCategories.copyWith(
+        devicePhase: DeviceStepPhase.devices,
+      );
       expect(device.canAdvance, isTrue);
 
       final configIncompleteName = CreateEmulatorState(

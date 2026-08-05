@@ -1,7 +1,9 @@
+#include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include "flutter/generated_plugin_registrant.h"
 #include "flutter_window.h"
 #include "utils.h"
 
@@ -16,6 +18,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+  // desktop_multi_window spins up a fresh engine per sub-window and registers
+  // only its own channels there, so plugins like window_manager answer with
+  // "No implementation found" in those engines. This hook is the plugin's
+  // supported way to give every sub-window the same plugin set as the main
+  // one — without it the Create Emulator window cannot drop its native
+  // caption or size itself.
+  DesktopMultiWindowSetWindowCreatedCallback([](void *controller) {
+    auto *view_controller =
+        reinterpret_cast<flutter::FlutterViewController *>(controller);
+    RegisterPlugins(view_controller->engine());
+  });
 
   flutter::DartProject project(L"data");
 

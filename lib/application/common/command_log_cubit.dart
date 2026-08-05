@@ -17,21 +17,27 @@ class CommandLogCubit extends Cubit<CommandLogState> {
 
   /// Attaches to [command] and begins collecting its output.
   Future<void> attach(RunningCommand command) async {
+    // The dialog holding this cubit can be dismissed while the command is
+    // still streaming, so every emit past an await has to check.
+    if (isClosed) return;
     _command = command;
     emit(const CommandLogState(running: true));
 
     _sub = command.output.listen((line) {
+      if (isClosed) return;
       emit(state.copyWith(lines: [...state.lines, line]));
     });
 
     try {
       final result = await command.result;
+      if (isClosed) return;
       emit(state.copyWith(
         running: false,
         exitCode: result.exitCode,
         finished: true,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         running: false,
         finished: true,

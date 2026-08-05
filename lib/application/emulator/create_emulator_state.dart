@@ -7,13 +7,29 @@ enum WizardStep { device, apiLevel, image, abi, configure }
 
 extension WizardStepInfo on WizardStep {
   String get title => switch (this) {
-        WizardStep.device => 'Choose device',
-        WizardStep.apiLevel => 'Android version',
-        WizardStep.image => 'System image',
-        WizardStep.abi => 'ABI',
-        WizardStep.configure => 'Configuration',
-      };
+    WizardStep.device => 'Choose device',
+    WizardStep.apiLevel => 'Android version',
+    WizardStep.image => 'System image',
+    WizardStep.abi => 'ABI',
+    WizardStep.configure => 'Configuration',
+  };
+
+  /// Short form for the stepper, where five labels share one row.
+  String get shortTitle => switch (this) {
+    WizardStep.device => 'Device',
+    WizardStep.apiLevel => 'Android',
+    WizardStep.image => 'Image',
+    WizardStep.abi => 'ABI',
+    WizardStep.configure => 'Config',
+  };
 }
+
+/// Which half of the device step is showing.
+///
+/// Both halves are step 1: the user picks a form factor first, then a profile
+/// inside it. Modelled as state rather than a route so wizard Back, the
+/// stepper and the footer all stay in one place.
+enum DeviceStepPhase { categories, devices }
 
 /// Hardware configuration collected on the final wizard step.
 class EmulatorConfig extends Equatable {
@@ -65,6 +81,9 @@ class CreateEmulatorState extends Equatable {
   const CreateEmulatorState({
     this.loadStatus = LoadStatus.initial,
     this.step = WizardStep.device,
+    this.devicePhase = DeviceStepPhase.categories,
+    this.browsingCategory,
+    this.deviceQuery = '',
     this.images = const [],
     this.devices = const [],
     this.deviceId,
@@ -81,6 +100,16 @@ class CreateEmulatorState extends Equatable {
 
   final LoadStatus loadStatus;
   final WizardStep step;
+
+  /// Which half of [WizardStep.device] is showing.
+  final DeviceStepPhase devicePhase;
+
+  /// The category whose profiles are listed in [DeviceStepPhase.devices].
+  final DeviceCategory? browsingCategory;
+
+  /// Search text, scoped to [browsingCategory].
+  final String deviceQuery;
+
   final List<SystemImage> images;
   final List<DeviceDefinition> devices;
 
@@ -141,6 +170,34 @@ class CreateEmulatorState extends Equatable {
     return null;
   }
 
+  /// How many profiles each category holds. Categories with none are absent,
+  /// so the picker can render exactly what the catalog offers.
+  Map<DeviceCategory, int> get deviceCategoryCounts {
+    final counts = <DeviceCategory, int>{};
+    for (final device in devices) {
+      counts.update(device.category, (n) => n + 1, ifAbsent: () => 1);
+    }
+    return counts;
+  }
+
+  /// Non-empty categories, in the enum's declaration order.
+  List<DeviceCategory> get deviceCategories {
+    final counts = deviceCategoryCounts;
+    return DeviceCategory.values.where(counts.containsKey).toList();
+  }
+
+  /// Profiles of [browsingCategory], narrowed by [deviceQuery].
+  List<DeviceDefinition> get browsedDevices {
+    if (browsingCategory == null) return const [];
+    final query = deviceQuery.trim().toLowerCase();
+    return devices.where((d) {
+      if (d.category != browsingCategory) return false;
+      if (query.isEmpty) return true;
+      return d.name.toLowerCase().contains(query) ||
+          (d.oem?.toLowerCase().contains(query) ?? false);
+    }).toList();
+  }
+
   DeviceDefinition? get selectedDevice {
     for (final d in devices) {
       if (d.id == deviceId) return d;
@@ -150,7 +207,10 @@ class CreateEmulatorState extends Equatable {
 
   /// Whether the current step has a valid selection so the user can proceed.
   bool get canAdvance => switch (step) {
-        WizardStep.device => deviceId != null,
+        // A category alone is not a selection, so the category phase can
+        // never advance even when a device is already picked.
+        WizardStep.device =>
+          devicePhase == DeviceStepPhase.devices && deviceId != null,
         WizardStep.apiLevel => apiLevel != null,
         WizardStep.image => tag != null,
         WizardStep.abi => abi != null,
@@ -160,6 +220,9 @@ class CreateEmulatorState extends Equatable {
   CreateEmulatorState copyWith({
     LoadStatus? loadStatus,
     WizardStep? step,
+    DeviceStepPhase? devicePhase,
+    DeviceCategory? browsingCategory,
+    String? deviceQuery,
     List<SystemImage>? images,
     List<DeviceDefinition>? devices,
     String? deviceId,
@@ -179,6 +242,9 @@ class CreateEmulatorState extends Equatable {
     return CreateEmulatorState(
       loadStatus: loadStatus ?? this.loadStatus,
       step: step ?? this.step,
+      devicePhase: devicePhase ?? this.devicePhase,
+      browsingCategory: browsingCategory ?? this.browsingCategory,
+      deviceQuery: deviceQuery ?? this.deviceQuery,
       images: images ?? this.images,
       devices: devices ?? this.devices,
       deviceId: deviceId ?? this.deviceId,
@@ -198,6 +264,9 @@ class CreateEmulatorState extends Equatable {
   List<Object?> get props => [
         loadStatus,
         step,
+        devicePhase,
+        browsingCategory,
+        deviceQuery,
         images,
         devices,
         deviceId,

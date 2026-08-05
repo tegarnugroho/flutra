@@ -33,10 +33,10 @@ Future<void> main(List<String> args) async {
   // On hot restart the Dart code reloads but native plugins do not, so the
   // window_manager channel may be briefly unavailable. Guard it so the app
   // still boots instead of throwing an unhandled MissingPluginException.
+  // The runner registers plugins for sub-window engines too (see main.cpp), so
+  // this succeeds in every window — each one then sizes itself below.
   try {
     await windowManager.ensureInitialized();
-    // Below this the two-pane pages (SDK manager) start to overflow.
-    await windowManager.setMinimumSize(const Size(960, 640));
   } on MissingPluginException catch (e) {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }
@@ -48,9 +48,13 @@ Future<void> main(List<String> args) async {
   final decoded = _tryDecode(arguments);
   final businessId = decoded?['businessId'];
 
-  // Only the main window draws its own caption; the sub-windows keep the native
-  // one. Done here, before any IO, so the native bar isn't visible at startup.
-  if (businessId == null) await _hideNativeTitleBar();
+  // Every window draws its own caption. Done before any IO so the native bar
+  // isn't visible at startup.
+  await _hideNativeTitleBar();
+  if (businessId == null) {
+    // Below this the two-pane pages (SDK manager) start to overflow.
+    await _tryWindow(() => windowManager.setMinimumSize(const Size(960, 640)));
+  }
 
   // Capture the log/command flow for producing windows, but NOT the viewer
   // window itself (it only reads the shared log file).
@@ -99,10 +103,13 @@ Map<String, dynamic>? _tryDecode(String arguments) {
   }
 }
 
+/// Default and floor sizes for the Create Emulator window. It is a task window:
+/// big enough for the category grid without scrolling, no bigger.
+const Size kWizardWindowSize = Size(720, 640);
+const Size kWizardWindowMinSize = Size(640, 560);
+
 Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
-  // The sub-window engine spawned by desktop_multi_window does NOT register
-  // window_manager, so we don't touch it here. The window is shown by native
-  // (hiddenAtLaunch: false) at its default size with a standard title bar.
+  await _sizeWizardWindow(args);
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     CreateEmulatorWindowApp(
@@ -130,13 +137,50 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
 /// is deliberately not used.
 Future<void> _hideNativeTitleBar() async {
   if (!Platform.isWindows) return;
-  try {
-    await windowManager.setTitleBarStyle(
+  await _tryWindow(
+    () => windowManager.setTitleBarStyle(
       TitleBarStyle.hidden,
       windowButtonVisibility: false,
+    ),
+  );
+}
+
+/// Sizes the Create Emulator window and centres it over the window that opened
+/// it — its bounds ride along in the arguments, since a sub-window can't read
+/// the main window's frame itself.
+Future<void> _sizeWizardWindow(Map<String, dynamic> args) async {
+  await _tryWindow(() async {
+    await windowManager.setMinimumSize(kWizardWindowMinSize);
+    final parent = (args['parentBounds'] as List?)?.cast<num>();
+    if (parent == null || parent.length != 4) {
+      await windowManager.setSize(kWizardWindowSize);
+      await windowManager.setAlignment(Alignment.center);
+      return;
+    }
+    // Centre on the opener rather than the screen, so a multi-monitor setup
+    // doesn't fling the wizard onto the other display.
+    final left =
+        parent[0] + (parent[2] - kWizardWindowSize.width) / 2;
+    final top =
+        parent[1] + (parent[3] - kWizardWindowSize.height) / 2;
+    await windowManager.setBounds(
+      Rect.fromLTWH(
+        left,
+        top,
+        kWizardWindowSize.width,
+        kWizardWindowSize.height,
+      ),
     );
+  });
+}
+
+/// Runs a window_manager call, tolerating an engine where the plugin is
+/// missing (hot restart, or a platform that has no such window).
+Future<void> _tryWindow(Future<void> Function() action) async {
+  try {
+    await action();
   } on MissingPluginException catch (_) {
-    // window_manager unavailable — keep the native caption.
+    // Nothing to configure — the window keeps its native defaults.
   } catch (_) {}
 }
 
