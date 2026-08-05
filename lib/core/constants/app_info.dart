@@ -20,7 +20,7 @@ class AppInfo {
   static const String issuesUrl = '$repositoryUrl/issues';
   static const String releaseNotesUrl = '$repositoryUrl/releases';
 
-  // Values below are supplied by `tooluild.ps1`, which reads them from
+  // Values below are supplied by `tool/build.ps1`, which reads them from
   // pubspec, `flutter --version --machine` and git. A build that skips the
   // script reports the fallbacks, which is why they are honest placeholders
   // rather than stale copies of last release's numbers.
