@@ -72,6 +72,9 @@ class SettingsCubit extends Cubit<AppSettings> {
   Future<void> setCloseToTray(bool value) =>
       _persist(state.copyWith(closeToTray: value));
 
+  Future<void> setSidebarCollapsed(bool value) =>
+      _persist(state.copyWith(sidebarCollapsed: value));
+
   Future<void> setDeveloperMode(bool value) =>
       _persist(state.copyWith(developerMode: value));
 

@@ -68,6 +68,10 @@ class AppTheme {
     AppTextStyles text,
   ) {
     return NavigationPaneThemeData(
+      // The pane and its selection indicator animate together; the rail swap
+      // itself is instant, so no label is ever laid out at an in-between width.
+      animationDuration: const Duration(milliseconds: 180),
+      animationCurve: Curves.easeOutCubic,
       backgroundColor: palette.sidebarBg,
       overlayBackgroundColor: palette.sidebarBg,
       highlightColor: palette.borderStrong,

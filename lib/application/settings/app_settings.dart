@@ -10,6 +10,7 @@ class AppSettings extends Equatable {
     this.runAtStartup = false,
     this.closeToTray = true,
     this.developerMode = false,
+    this.sidebarCollapsed = false,
     this.windowX,
     this.windowY,
     this.windowWidth,
@@ -33,6 +34,12 @@ class AppSettings extends Equatable {
 
   /// Reveals developer tools (e.g. the request-log viewer).
   final bool developerMode;
+
+  /// Whether the navigation pane is pinned to its icon rail.
+  ///
+  /// The user's choice only — the narrow-window rule in the shell forces the
+  /// rail without overwriting this, so widening restores what they picked.
+  final bool sidebarCollapsed;
 
   /// Last main-window bounds, restored on next launch.
   final double? windowX;
@@ -77,6 +84,7 @@ class AppSettings extends Equatable {
       runAtStartup: json['runAtStartup'] as bool? ?? false,
       closeToTray: json['closeToTray'] as bool? ?? true,
       developerMode: json['developerMode'] as bool? ?? false,
+      sidebarCollapsed: json['sidebarCollapsed'] as bool? ?? false,
       windowX: (json['windowX'] as num?)?.toDouble(),
       windowY: (json['windowY'] as num?)?.toDouble(),
       windowWidth: (json['windowWidth'] as num?)?.toDouble(),
@@ -97,6 +105,7 @@ class AppSettings extends Equatable {
         'runAtStartup': runAtStartup,
         'closeToTray': closeToTray,
         'developerMode': developerMode,
+        'sidebarCollapsed': sidebarCollapsed,
         'windowX': windowX,
         'windowY': windowY,
         'windowWidth': windowWidth,
@@ -114,6 +123,7 @@ class AppSettings extends Equatable {
     bool? runAtStartup,
     bool? closeToTray,
     bool? developerMode,
+    bool? sidebarCollapsed,
     double? windowX,
     double? windowY,
     double? windowWidth,
@@ -133,6 +143,7 @@ class AppSettings extends Equatable {
       runAtStartup: runAtStartup ?? this.runAtStartup,
       closeToTray: closeToTray ?? this.closeToTray,
       developerMode: developerMode ?? this.developerMode,
+      sidebarCollapsed: sidebarCollapsed ?? this.sidebarCollapsed,
       windowX: windowX ?? this.windowX,
       windowY: windowY ?? this.windowY,
       windowWidth: windowWidth ?? this.windowWidth,
@@ -150,6 +161,7 @@ class AppSettings extends Equatable {
         runAtStartup,
         closeToTray,
         developerMode,
+        sidebarCollapsed,
         windowX,
         windowY,
         windowWidth,

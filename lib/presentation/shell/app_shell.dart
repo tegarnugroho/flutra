@@ -1,8 +1,12 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../application/settings/app_settings.dart';
+import '../../application/settings/settings_cubit.dart';
+import '../../core/di/injection.dart';
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
@@ -117,8 +121,14 @@ class _AppShellState extends State<AppShell> {
     (d) => d.label == 'Settings',
   );
 
+  /// Below this the pane's 200px costs more than the content can spare.
+  static const double _railBreakpoint = 880;
+
+  /// Pane width tween, shared by the indicator so the accent bar tracks it.
+  static const Duration _paneDuration = Duration(milliseconds: 180);
+  static const Curve _paneCurve = Curves.easeOutCubic;
+
   int _index = 0;
-  bool _paneCollapsed = false;
   bool _paletteOpen = false;
 
   final _menuController = FlyoutController();
@@ -262,19 +272,65 @@ class _AppShellState extends State<AppShell> {
   static PaneItemWidgetAdapter _sectionLabel(String text) {
     return PaneItemWidgetAdapter(
       applyPadding: false,
-      // Built through a Builder so the label resolves its style from the
-      // active theme — this factory is static and has no context of its own.
+      // A Builder both resolves the theme (this factory is static) and reads
+      // the live display mode, so the same adapter is the group's caption in
+      // the open pane and a plain rule on the rail.
       child: Builder(
-        builder: (context) => Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
-          child: Text(text, style: AppTextStyles.of(context).sectionLabel),
-        ),
+        builder: (context) {
+          final palette = AppPalette.of(context);
+          final rail =
+              NavigationView.dataOf(context).displayMode ==
+              PaneDisplayMode.compact;
+          // 52px of rail cannot hold "ANDROID" — it wrapped to "Andr oid".
+          // A divider says the same thing in the space available.
+          if (rail) {
+            return Container(
+              height: 24,
+              alignment: Alignment.center,
+              child: Container(
+                height: AppShape.hairline,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: palette.border,
+              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
+            child: Text(text, style: AppTextStyles.of(context).sectionLabel),
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // The collapse choice is a persisted preference, so the shell rebuilds
+    // with it rather than holding a copy that would drift on restart.
+    return BlocProvider.value(
+      // The singleton, shared with the Settings page — .value so neither owner
+      // closes it.
+      value: getIt<SettingsCubit>(),
+      child: BlocBuilder<SettingsCubit, AppSettings>(
+        buildWhen: (p, c) => p.sidebarCollapsed != c.sidebarCollapsed,
+        builder: (context, settings) => LayoutBuilder(
+          builder: (context, constraints) => _build(
+            context,
+            collapsed: settings.sidebarCollapsed,
+            railMode:
+                settings.sidebarCollapsed ||
+                constraints.maxWidth < _railBreakpoint,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _build(
+    BuildContext context, {
+    required bool collapsed,
+    required bool railMode,
+  }) {
     final palette = AppPalette.of(context);
     final items = <NavigationPaneItem>[];
     for (final destination in _destinations.where((d) => !d.inFooter)) {
@@ -295,7 +351,7 @@ class _AppShellState extends State<AppShell> {
             onPressed: _showMenu,
           ),
         ),
-        actions: _titleBarActions(),
+        actions: _titleBarActions(collapsed),
       ),
       // Hairline outline around the content area — this is what draws the
       // divider between the sidebar and the page.
@@ -305,19 +361,23 @@ class _AppShellState extends State<AppShell> {
       pane: NavigationPane(
         selected: _index,
         onChanged: _go,
-        // Collapsing pins the pane to icons-only; expanded stays adaptive, so a
-        // narrow window still falls back to compact on its own.
-        displayMode: _paneCollapsed
-            ? PaneDisplayMode.compact
-            : PaneDisplayMode.auto,
+        // Rail when the user pinned it, or when the window is too narrow to
+        // spare 200px. The narrow rule never overwrites the user's choice, so
+        // widening restores what they picked.
+        displayMode: railMode ? PaneDisplayMode.compact : PaneDisplayMode.auto,
         // compactWidth is 2px over fluent's 50 default on purpose. A pane item
         // lays out at compactWidth minus its 12px margin, and while the pane
         // animates between compact and open it is briefly measured with the
         // *open* item layout: 24px of icon padding around a 15px icon needs
         // 39px, one more than 50 leaves. 52 removes the 1px overflow.
         size: const NavigationPaneSize(openWidth: 190, compactWidth: 52),
-        // The active item is marked by its raised tile, not an accent bar.
-        indicator: null,
+        // Accent bar at the pane's leading edge, in both modes.
+        indicator: StickyNavigationIndicator(
+          color: palette.accent,
+          indicatorSize: 2.5,
+          curve: _paneCurve,
+          duration: _paneDuration,
+        ),
         items: items,
         footerItems: [
           PaneItemSeparator(
@@ -331,15 +391,15 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  List<Widget> _titleBarActions() {
+  List<Widget> _titleBarActions(bool collapsed) {
     return [
       // Segoe chrome glyphs throughout, so the shell controls read as one set
       // with the caption buttons rather than two icon families side by side.
       TitleBarActionButton(
         icon: WindowsIcons.dock_left,
-        tooltip: _paneCollapsed ? 'Show sidebar' : 'Hide sidebar',
-        isActive: _paneCollapsed,
-        onPressed: () => setState(() => _paneCollapsed = !_paneCollapsed),
+        tooltip: collapsed ? 'Show sidebar' : 'Hide sidebar',
+        isActive: collapsed,
+        onPressed: () => getIt<SettingsCubit>().setSidebarCollapsed(!collapsed),
       ),
       TitleBarActionButton(
         icon: WindowsIcons.search,

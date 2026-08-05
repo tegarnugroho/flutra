@@ -32,10 +32,26 @@ PaneItem _item(String label) => PaneItem(
 PaneItemWidgetAdapter _sectionLabel(String text) => PaneItemWidgetAdapter(
       applyPadding: false,
       child: Builder(
-        builder: (context) => Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
-          child: Text(text, style: AppTextStyles.of(context).sectionLabel),
-        ),
+        builder: (context) {
+          final rail = NavigationView.dataOf(context).displayMode ==
+              PaneDisplayMode.compact;
+          // Mirrors the shell: 52px of rail cannot hold a section caption.
+          if (rail) {
+            return Container(
+              height: 24,
+              alignment: Alignment.center,
+              child: Container(
+                height: AppShape.hairline,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: AppColors.border,
+              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
+            child: Text(text, style: AppTextStyles.of(context).sectionLabel),
+          );
+        },
       ),
     );
 
@@ -95,7 +111,10 @@ Widget _shell({required bool collapsed, ThemeMode mode = ThemeMode.dark}) {
         displayMode:
             collapsed ? PaneDisplayMode.compact : PaneDisplayMode.auto,
         size: const NavigationPaneSize(openWidth: 190, compactWidth: 52),
-        indicator: null,
+        indicator: const StickyNavigationIndicator(
+          color: AppColors.accent,
+          indicatorSize: 2.5,
+        ),
         items: items,
         footerItems: [
           PaneItemSeparator(
@@ -179,4 +198,63 @@ void main() {
       }
     }
   }
+
+  group('rail mode', () {
+    testWidgets('never renders section captions on the rail', (tester) async {
+      tester.view.physicalSize = const Size(1136, 893);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_shell(collapsed: false));
+      await tester.pumpAndSettle();
+      // Open pane: the captions are the group headings.
+      expect(find.text('Android'), findsOneWidget);
+      expect(find.text('Flutter'), findsOneWidget);
+
+      await tester.pumpWidget(_shell(collapsed: true));
+      await tester.pumpAndSettle();
+      // Rail: a caption here is the "Andr oid" wrap this mode exists to avoid.
+      expect(find.text('Android'), findsNothing);
+      expect(find.text('Flutter'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps item labels off the rail too', (tester) async {
+      tester.view.physicalSize = const Size(1136, 893);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_shell(collapsed: true));
+      await tester.pumpAndSettle();
+
+      // fluent lays compact items out icon-only; any visible label would be
+      // wrapping in 52px.
+      for (final label in ['SDK manager', 'Virtual devices', 'Settings']) {
+        expect(
+          find.text(label),
+          findsNothing,
+          reason: '"$label" should be a tooltip on the rail, not a label',
+        );
+      }
+    });
+
+    testWidgets('the swap does not reflow text at intermediate widths',
+        (tester) async {
+      tester.view.physicalSize = const Size(1136, 893);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_shell(collapsed: false));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(_shell(collapsed: true));
+      // Walk the whole 180ms tween: no caption may appear at any frame, and
+      // nothing may overflow while the pane narrows.
+      for (var frame = 0; frame < 30; frame++) {
+        await tester.pump(const Duration(milliseconds: 8));
+        expect(find.text('Android'), findsNothing, reason: 'frame $frame');
+        expect(tester.takeException(), isNull, reason: 'frame $frame');
+      }
+    });
+  });
 }
