@@ -55,4 +55,17 @@ void main() {
       expect(copyright, contains(AppInfo.license));
     });
   });
+
+  group('runtime-derived values', () {
+    test('Dart version is read from the VM, never a dash', () {
+      // The runtime is the build for Dart, so this needs no --dart-define and
+      // must be populated even in a plain `flutter test` run.
+      expect(AppInfo.dartVersion, isNot(AppInfo.unknown));
+      expect(AppInfo.dartVersion, matches(RegExp(r'^\d+\.\d+\.\d+')));
+    });
+
+    test('the diagnostic block carries the Dart version it found', () {
+      expect(AppInfo.diagnosticBlock(), contains(AppInfo.dartVersion));
+    });
+  });
 }

@@ -52,16 +52,33 @@ class AppInfo {
     defaultValue: 'stable',
   );
 
-  /// Flutter version this build was compiled with.
+  /// Flutter version this build was compiled with, when a build said so.
+  ///
+  /// There is no runtime equivalent — the framework doesn't carry its own
+  /// version — so without the define the About window falls back to the SDK it
+  /// currently manages, which is the same checkout on a developer's machine.
   static const String flutterVersion = String.fromEnvironment(
     'APP_FLUTTER_VERSION',
     defaultValue: unknown,
   );
 
-  static const String dartVersion = String.fromEnvironment(
+  static const String _dartVersionDefine = String.fromEnvironment(
     'APP_DART_VERSION',
     defaultValue: unknown,
   );
+
+  /// The Dart the app is running on.
+  ///
+  /// Unlike the other two this needs no define: the VM reports it, and what it
+  /// reports *is* the answer — the runtime is the build.
+  static String get dartVersion {
+    if (_dartVersionDefine != unknown) return _dartVersionDefine;
+    // "3.12.2 (stable) (Tue Jun 9 …) on "windows_x64""
+    final match = RegExp(r'^(\d+\.\d+\.\d+\S*)').firstMatch(
+      Platform.version,
+    );
+    return match?.group(1) ?? unknown;
+  }
 
   /// Short commit hash of the source this build came from.
   static const String commit = String.fromEnvironment(

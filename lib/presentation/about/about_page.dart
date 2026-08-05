@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../application/flutter_sdk/flutter_update_cubit.dart';
 import '../../core/constants/app_info.dart';
 import '../../core/di/injection.dart';
+import '../../domain/repositories/flutter_repository.dart';
 import '../../infrastructure/system/external_link_service.dart';
 import '../common/app_loader.dart';
 import '../common/copy_icon_button.dart';
@@ -146,6 +147,23 @@ class _VersionLine extends StatelessWidget {
 class _EnvironmentCard extends StatelessWidget {
   const _EnvironmentCard();
 
+  /// The Flutter version, preferring what the build was told.
+  ///
+  /// Without a define there is nothing to read from the framework itself, so
+  /// this falls back to the SDK the app manages — on a developer's machine
+  /// that is the same checkout, and it beats showing a dash.
+  Future<String> _flutterVersion() async {
+    if (AppInfo.flutterVersion != AppInfo.unknown) {
+      return AppInfo.flutterVersion;
+    }
+    try {
+      final info = await getIt<FlutterRepository>().getSdkInfo();
+      return info.version;
+    } catch (_) {
+      return AppInfo.unknown;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -157,13 +175,26 @@ class _EnvironmentCard extends StatelessWidget {
         border: Border.all(color: palette.border, width: AppShape.hairline),
         borderRadius: BorderRadius.circular(AppShape.radiusGroup),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _EnvRow(label: 'Flutter', value: AppInfo.flutterVersion),
-          SizedBox(height: 7),
+          FutureBuilder<String>(
+            future: _flutterVersion(),
+            builder: (context, snapshot) => _EnvRow(
+              label: 'Flutter',
+              value: snapshot.data ?? '…',
+            ),
+          ),
+          const SizedBox(height: 7),
           _EnvRow(label: 'Dart', value: AppInfo.dartVersion),
-          SizedBox(height: 7),
-          _EnvRow(label: 'Commit', value: AppInfo.commit),
+          const SizedBox(height: 7),
+          _EnvRow(
+            label: 'Commit',
+            value: AppInfo.commit,
+            // Only a build can know this; a dev run has nothing to report.
+            hint: AppInfo.commit == AppInfo.unknown
+                ? 'Set at build time via --dart-define=APP_COMMIT'
+                : null,
+          ),
         ],
       ),
     );
@@ -171,10 +202,13 @@ class _EnvironmentCard extends StatelessWidget {
 }
 
 class _EnvRow extends StatelessWidget {
-  const _EnvRow({required this.label, required this.value});
+  const _EnvRow({required this.label, required this.value, this.hint});
 
   final String label;
   final String value;
+
+  /// Explains an absent value on hover, rather than leaving a bare dash.
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +218,12 @@ class _EnvRow extends StatelessWidget {
       children: [
         Text(label, style: text.rowLabel),
         const Spacer(),
-        Text(value, style: text.monoValue),
+        hint == null
+            ? Text(value, style: text.monoValue)
+            : Tooltip(
+                message: hint!,
+                child: Text(value, style: text.monoValue),
+              ),
       ],
     );
   }

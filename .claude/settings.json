@@ -56,7 +56,8 @@
       "Bash(awk '{print $2}')",
       "Bash(grep -v \"test.\\\\\\\\\\\\\\\\\")",
       "Bash(sed -n '/Future<void> openDevLogsWindow/,/^}/p' lib/presentation/settings/settings_page.dart)",
-      "Bash(sed -n '/_runDevLogsWindow\\(Map/,/^}/p' lib/main.dart)"
+      "Bash(sed -n '/_runDevLogsWindow\\(Map/,/^}/p' lib/main.dart)",
+      "Bash(dart -e 'import \"dart:io\"; void main\\(\\){print\\(Platform.version\\);}')"
     ],
     "additionalDirectories": [
       "\\tmp"
