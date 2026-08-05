@@ -39,16 +39,26 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       await windowManager.setPreventClose(true);
       // Use the app icon bundled next to the executable (asset-relative paths
       // aren't reliably resolved by the tray on Windows).
-      final assetIcon = p.join(p.dirname(Platform.resolvedExecutable), 'data',
-          'flutter_assets', 'assets', 'app_icon.ico');
-      await trayManager
-          .setIcon(File(assetIcon).existsSync() ? assetIcon : 'assets/app_icon.ico');
+      final assetIcon = p.join(
+        p.dirname(Platform.resolvedExecutable),
+        'data',
+        'flutter_assets',
+        'assets',
+        'app_icon.ico',
+      );
+      await trayManager.setIcon(
+        File(assetIcon).existsSync() ? assetIcon : 'assets/app_icon.ico',
+      );
       await trayManager.setToolTip('Flutter SDK Manager');
-      await trayManager.setContextMenu(Menu(items: [
-        MenuItem(key: 'show', label: 'Open Flutter SDK Manager'),
-        MenuItem.separator(),
-        MenuItem(key: 'exit', label: 'Exit'),
-      ]));
+      await trayManager.setContextMenu(
+        Menu(
+          items: [
+            MenuItem(key: 'show', label: 'Open Flutter SDK Manager'),
+            MenuItem.separator(),
+            MenuItem(key: 'exit', label: 'Exit'),
+          ],
+        ),
+      );
     } catch (_) {
       // Tray/window plugins may be unavailable (e.g. after a hot restart).
     }
@@ -78,20 +88,24 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
 
   void _scheduleSaveBounds() {
     _saveBoundsTimer?.cancel();
-    _saveBoundsTimer =
-        Timer(const Duration(milliseconds: 800), _saveWindowBounds);
+    _saveBoundsTimer = Timer(
+      const Duration(milliseconds: 800),
+      _saveWindowBounds,
+    );
   }
 
   Future<void> _saveWindowBounds() async {
     try {
       final b = await windowManager.getBounds();
       final service = getIt<SettingsService>();
-      await service.save(service.settings.copyWith(
-        windowX: b.left,
-        windowY: b.top,
-        windowWidth: b.width,
-        windowHeight: b.height,
-      ));
+      await service.save(
+        service.settings.copyWith(
+          windowX: b.left,
+          windowY: b.top,
+          windowWidth: b.width,
+          windowHeight: b.height,
+        ),
+      );
     } catch (_) {}
   }
 

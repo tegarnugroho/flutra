@@ -72,7 +72,7 @@ class _DeviceRowState extends State<DeviceRow> {
         if (widget.busy)
           AppLoader(size: AppLoaderSize.small)
         else if (!device.supportsAdb)
-          const Text('Flutter target', style: AppTextStyles.of(context).inlineNote),
+          Text('Flutter target', style: AppTextStyles.of(context).inlineNote),
       ],
       hoverActions: [
         if (!widget.busy && device.supportsAdb) ...[
@@ -186,11 +186,14 @@ class _DeviceRowState extends State<DeviceRow> {
             ),
             const MenuFlyoutSeparator(),
             MenuFlyoutItem(
-              leading: const Icon(FluentIcons.plug_disconnected,
-                  size: 14, color: AppColors.statusError),
+              leading: Icon(
+                FluentIcons.plug_disconnected,
+                size: 14,
+                color: AppPalette.of(context).statusError,
+              ),
               text: Text(
                 widget.device.isEmulator ? 'Stop emulator' : 'Disconnect',
-                style: const TextStyle(color: AppColors.statusError),
+                style: TextStyle(color: AppPalette.of(context).statusError),
               ),
               onPressed: () => run(actions.onDisconnect),
             ),

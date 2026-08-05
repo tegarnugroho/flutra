@@ -48,7 +48,8 @@ Future<bool?> _resolveLocalChanges(BuildContext context) async {
   final ok = await showConfirmDialog(
     context,
     title: 'The Flutter SDK has local changes',
-    message: 'Flutter will not upgrade or switch while its checkout is dirty:'
+    message:
+        'Flutter will not upgrade or switch while its checkout is dirty:'
         '\n\n$preview${extra > 0 ? '\n… and $extra more' : ''}\n\n'
         'Stash them and continue? They stay recoverable by running '
         '"git stash pop" in the SDK folder.',
@@ -80,15 +81,18 @@ class _FlutterSdkView extends StatelessWidget {
       listenWhen: (p, c) =>
           c.errorMessage != null && p.errorMessage != c.errorMessage,
       listener: (context, state) {
-        displayInfoBar(context, builder: (context, close) {
-          return InfoBar(
-            title: const Text('Error'),
-            content: Text(state.errorMessage!),
-            severity: InfoBarSeverity.error,
-            isLong: true,
-            onClose: close,
-          );
-        });
+        displayInfoBar(
+          context,
+          builder: (context, close) {
+            return InfoBar(
+              title: const Text('Error'),
+              content: Text(state.errorMessage!),
+              severity: InfoBarSeverity.error,
+              isLong: true,
+              onClose: close,
+            );
+          },
+        );
       },
       builder: (context, state) {
         return PageScaffold(
@@ -130,83 +134,83 @@ class _FlutterSdkView extends StatelessWidget {
     final info = state.info;
     if (info == null) return const SizedBox.shrink();
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                if (state.updateAvailable) ...[
-                  _UpdateLine(state: state),
-                  const SizedBox(height: 12),
-                ],
-                _CurrentSdkCard(
-                  info: info,
-                  onAddToPath: info.sdkPath == null
-                      ? null
-                      : () => _addToPath(context, info.sdkPath!),
-                ),
-                if (!info.isKnownChannel) ...[
-                  const SizedBox(height: 16),
-                  InfoBar(
-                    title: const Text('Off the official channel'),
-                    content: Text(
-                      'The SDK is on "${info.channel}" (a version checkout), so '
-                      'flutter reports an unknown channel. Reset to stable to '
-                      'return to an official channel and its latest build.',
-                    ),
-                    severity: InfoBarSeverity.warning,
-                    isLong: true,
-                    action: FilledButton(
-                      onPressed: () => _run(
-                        context,
-                        'Resetting to stable channel',
-                        (stash) => cubit.resetToStable(stashLocalChanges: stash),
-                      ),
-                      child: const Text('Reset to stable'),
-                    ),
-                  ),
-                ],
-                if (info.isGitRepo && !info.isStandardRemote) ...[
-                  const SizedBox(height: 12),
-                  InfoBar(
-                    title: const Text('Non-standard upstream remote'),
-                    content: Text(
-                      'The SDK git remote is "${info.remoteUrl ?? 'unknown'}", '
-                      'which triggers a "not a standard remote" warning in '
-                      'Flutter Doctor. Point it at the official repository.',
-                    ),
-                    severity: InfoBarSeverity.warning,
-                    isLong: true,
-                    action: FilledButton(
-                      onPressed: cubit.fixRemote,
-                      child: const Text('Fix remote'),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                const SectionLabel('Channel'),
-                const SizedBox(height: 4),
-                const Text(
-                  'Switch release channel, then Upgrade to fetch its latest '
-                  'build.',
-                  style: AppTextStyles.of(context).caption,
-                ),
-                const SizedBox(height: 10),
-                _ChannelSection(
-                  current: info.channel,
-                  browsing: state.browsingChannel ?? info.channel,
-                ),
-                  ],
-                ),
+              if (state.updateAvailable) ...[
+                _UpdateLine(state: state),
+                const SizedBox(height: 12),
+              ],
+              _CurrentSdkCard(
+                info: info,
+                onAddToPath: info.sdkPath == null
+                    ? null
+                    : () => _addToPath(context, info.sdkPath!),
               ),
-              const SizedBox(height: 22),
-              // Only the version list scrolls; the SDK card and channel picker
-              // stay put.
-              Expanded(child: _VersionsSection(state: state)),
+              if (!info.isKnownChannel) ...[
+                const SizedBox(height: 16),
+                InfoBar(
+                  title: const Text('Off the official channel'),
+                  content: Text(
+                    'The SDK is on "${info.channel}" (a version checkout), so '
+                    'flutter reports an unknown channel. Reset to stable to '
+                    'return to an official channel and its latest build.',
+                  ),
+                  severity: InfoBarSeverity.warning,
+                  isLong: true,
+                  action: FilledButton(
+                    onPressed: () => _run(
+                      context,
+                      'Resetting to stable channel',
+                      (stash) => cubit.resetToStable(stashLocalChanges: stash),
+                    ),
+                    child: const Text('Reset to stable'),
+                  ),
+                ),
+              ],
+              if (info.isGitRepo && !info.isStandardRemote) ...[
+                const SizedBox(height: 12),
+                InfoBar(
+                  title: const Text('Non-standard upstream remote'),
+                  content: Text(
+                    'The SDK git remote is "${info.remoteUrl ?? 'unknown'}", '
+                    'which triggers a "not a standard remote" warning in '
+                    'Flutter Doctor. Point it at the official repository.',
+                  ),
+                  severity: InfoBarSeverity.warning,
+                  isLong: true,
+                  action: FilledButton(
+                    onPressed: cubit.fixRemote,
+                    child: const Text('Fix remote'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              const SectionLabel('Channel'),
+              const SizedBox(height: 4),
+              Text(
+                'Switch release channel, then Upgrade to fetch its latest '
+                'build.',
+                style: AppTextStyles.of(context).caption,
+              ),
+              const SizedBox(height: 10),
+              _ChannelSection(
+                current: info.channel,
+                browsing: state.browsingChannel ?? info.channel,
+              ),
             ],
-          );
+          ),
+        ),
+        const SizedBox(height: 22),
+        // Only the version list scrolls; the SDK card and channel picker
+        // stay put.
+        Expanded(child: _VersionsSection(state: state)),
+      ],
+    );
   }
 
   /// Runs a streaming SDK command and reloads on success.
@@ -221,8 +225,11 @@ class _FlutterSdkView extends StatelessWidget {
     final cubit = context.read<FlutterSdkCubit>();
     final stash = await _resolveLocalChanges(context);
     if (stash == null || !context.mounted) return;
-    final ok = await showCommandProgressDialog(context,
-        title: title, start: () => start(stash));
+    final ok = await showCommandProgressDialog(
+      context,
+      title: title,
+      start: () => start(stash),
+    );
     if (ok) cubit.load();
   }
 
@@ -235,7 +242,8 @@ class _FlutterSdkView extends StatelessWidget {
     final ok = await showConfirmDialog(
       context,
       title: 'Uninstall Flutter $version',
-      message: 'This permanently deletes the SDK folder:\n$path\n\nRemove its '
+      message:
+          'This permanently deletes the SDK folder:\n$path\n\nRemove its '
           '"\\bin" entry from PATH afterwards. This cannot be undone.',
       confirmLabel: 'Uninstall',
     );
@@ -253,28 +261,35 @@ class _FlutterSdkView extends StatelessWidget {
     try {
       await cubit.addToPath(sdkPath);
       if (!context.mounted) return;
-      await displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Added to PATH'),
-          content: const Text(
+      await displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Added to PATH'),
+            content: const Text(
               'Open a NEW terminal (and restart this app) for "flutter" to be '
-              'available. Existing terminals keep the old PATH.'),
-          severity: InfoBarSeverity.success,
-          isLong: true,
-          onClose: close,
-        );
-      });
+              'available. Existing terminals keep the old PATH.',
+            ),
+            severity: InfoBarSeverity.success,
+            isLong: true,
+            onClose: close,
+          );
+        },
+      );
     } catch (e) {
       if (!context.mounted) return;
-      await displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Could not update PATH'),
-          content: Text('$e'),
-          severity: InfoBarSeverity.error,
-          isLong: true,
-          onClose: close,
-        );
-      });
+      await displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Could not update PATH'),
+            content: Text('$e'),
+            severity: InfoBarSeverity.error,
+            isLong: true,
+            onClose: close,
+          );
+        },
+      );
     }
   }
 }
@@ -315,16 +330,24 @@ class _HeaderActionsState extends State<_HeaderActions> {
             ),
           const MenuFlyoutSeparator(),
           MenuFlyoutItem(
-            leading: const Icon(FluentIcons.delete,
-                size: 14, color: AppColors.statusError),
-            text: const Text('Uninstall this SDK',
-                style: TextStyle(color: AppColors.statusError)),
+            leading: Icon(
+              FluentIcons.delete,
+              size: 14,
+              color: AppPalette.of(context).statusError,
+            ),
+            text: Text(
+              'Uninstall this SDK',
+              style: TextStyle(color: AppPalette.of(context).statusError),
+            ),
             onPressed: info?.sdkPath == null
                 ? null
                 : () {
                     Navigator.of(flyoutContext).pop();
                     _FlutterSdkView._uninstall(
-                        context, info!.sdkPath!, info.version);
+                      context,
+                      info!.sdkPath!,
+                      info.version,
+                    );
                   },
           ),
         ],
@@ -347,7 +370,8 @@ class _HeaderActionsState extends State<_HeaderActions> {
               : () => _FlutterSdkView._run(
                   context,
                   'Upgrading Flutter (${state.info!.channel})',
-                  (stash) => cubit.upgrade(stashLocalChanges: stash)),
+                  (stash) => cubit.upgrade(stashLocalChanges: stash),
+                ),
         ),
         const SizedBox(width: 8),
         OutlinedActionButton(
@@ -387,7 +411,7 @@ class _UpdateLine extends StatelessWidget {
       message: latest == null
           ? 'An update is available on this channel'
           : 'Flutter ${latest.displayVersion} is available on '
-              '${state.info?.channel ?? latest.channel} — use Upgrade',
+                '${state.info?.channel ?? latest.channel} — use Upgrade',
     );
   }
 }
@@ -412,10 +436,16 @@ class _CurrentSdkCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(FluentIcons.developer_tools,
-                  size: 18, color: palette.textSecondary),
+              Icon(
+                FluentIcons.developer_tools,
+                size: 18,
+                color: palette.textSecondary,
+              ),
               const SizedBox(width: 10),
-              Text('Flutter ${info.version}', style: AppTextStyles.of(context).heroTitle),
+              Text(
+                'Flutter ${info.version}',
+                style: AppTextStyles.of(context).heroTitle,
+              ),
               const SizedBox(width: 8),
               AppBadge(info.channel),
               const Spacer(),
@@ -436,9 +466,9 @@ class _CurrentSdkCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (info.dartVersion != null)
-                _meta(label: 'Dart', value: info.dartVersion!),
+                _meta(context, label: 'Dart', value: info.dartVersion!),
               if (revision != null)
-                _meta(
+                _meta(context, 
                   label: 'Revision',
                   value: revision.length > _shortRevisionLength
                       ? revision.substring(0, _shortRevisionLength)
@@ -447,7 +477,7 @@ class _CurrentSdkCard extends StatelessWidget {
                   copyLabel: 'Revision',
                 ),
               if (info.sdkPath != null)
-                _meta(
+                _meta(context, 
                   value: info.sdkPath!,
                   copyValue: info.sdkPath!,
                   copyLabel: 'SDK path',
@@ -460,7 +490,8 @@ class _CurrentSdkCard extends StatelessWidget {
   }
 
   /// One metadata fragment: muted label, mono value, optional copy action.
-  Widget _meta({
+  Widget _meta(
+    BuildContext context, {
     String? label,
     required String value,
     String? copyValue,
@@ -543,7 +574,8 @@ class _ChannelSection extends StatelessWidget {
     final ok = await showConfirmDialog(
       context,
       title: 'Switch to $channel channel?',
-      message: 'This changes the active Flutter channel. Run Upgrade afterwards '
+      message:
+          'This changes the active Flutter channel. Run Upgrade afterwards '
           'to download its latest build.',
       confirmLabel: 'Switch',
       destructive: false,
@@ -668,8 +700,9 @@ class _VersionsSectionState extends State<_VersionsSection> {
         child: InfoBar(
           title: Text('Version switching unavailable'),
           content: Text(
-              'This Flutter SDK is not a git checkout, so specific versions '
-              'cannot be selected. Use channels above.'),
+            'This Flutter SDK is not a git checkout, so specific versions '
+            'cannot be selected. Use channels above.',
+          ),
           severity: InfoBarSeverity.info,
           isLong: true,
         ),
@@ -680,7 +713,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
     // master is a rolling branch: the release index publishes no versioned
     // entries for it, so there is nothing to list.
     if (channel == 'master') {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,8 +736,8 @@ class _VersionsSectionState extends State<_VersionsSection> {
     final shown = query.isEmpty
         ? state.releases
         : state.releases
-            .where((r) => r.displayVersion.contains(query))
-            .toList();
+              .where((r) => r.displayVersion.contains(query))
+              .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,7 +762,10 @@ class _VersionsSectionState extends State<_VersionsSection> {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(_sourceCaption(state), style: AppTextStyles.of(context).caption),
+              Text(
+                _sourceCaption(state),
+                style: AppTextStyles.of(context).caption,
+              ),
               if (state.isUnlistedCommit) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -752,8 +788,8 @@ class _VersionsSectionState extends State<_VersionsSection> {
                       query.isNotEmpty
                           ? 'No versions match "$query".'
                           : state.versionsLoading
-                              ? 'Loading releases…'
-                              : 'No releases found for the "$channel" channel.',
+                          ? 'Loading releases…'
+                          : 'No releases found for the "$channel" channel.',
                       style: AppTextStyles.of(context).caption,
                     ),
                   )
@@ -765,16 +801,16 @@ class _VersionsSectionState extends State<_VersionsSection> {
                       // loaded changelog follow the release, not its position —
                       // otherwise switching channel leaves whatever row sat at
                       // that index expanded.
-                      key: ValueKey('${shown[i].channel}/${shown[i].version}/'
-                          '${shown[i].hash}'),
+                      key: ValueKey(
+                        '${shown[i].channel}/${shown[i].version}/'
+                        '${shown[i].hash}',
+                      ),
                       release: shown[i],
                       isCurrent: _isCurrent(state, shown[i]),
                       onSwitch: () => _switch(context, shown[i].gitTag),
-                      loadChangelog: () =>
-                          context.read<FlutterSdkCubit>().changelog(
-                                shown[i].gitTag,
-                                _previousOf(i, shown),
-                              ),
+                      loadChangelog: () => context
+                          .read<FlutterSdkCubit>()
+                          .changelog(shown[i].gitTag, _previousOf(i, shown)),
                       onOpenGitHub: () => context
                           .read<FlutterSdkCubit>()
                           .openReleasePage(shown[i].gitTag),
@@ -794,8 +830,8 @@ class _VersionsSectionState extends State<_VersionsSection> {
     return release.hash == head;
   }
 
-  static String _sourceCaption(FlutterSdkState state) => switch (
-      state.versionSource) {
+  static String _sourceCaption(FlutterSdkState state) =>
+      switch (state.versionSource) {
         VersionSource.releaseIndex =>
           'Official Flutter releases. Switching checks out that release tag in '
               'the SDK git repo — commit or stash local SDK changes first.',
@@ -814,7 +850,8 @@ class _VersionsSectionState extends State<_VersionsSection> {
     final ok = await showConfirmDialog(
       context,
       title: 'Switch to Flutter $version?',
-      message: 'This checks out tag $version in the Flutter SDK git repo and '
+      message:
+          'This checks out tag $version in the Flutter SDK git repo and '
           'rebuilds the tool. It changes your global Flutter version.',
       confirmLabel: 'Switch',
       destructive: false,
@@ -888,12 +925,14 @@ class _VersionTileState extends State<_VersionTile> {
           ),
           if (widget.isCurrent) ...[
             const SizedBox(width: 8),
-            const Text('current', style: AppTextStyles.of(context).inlineNote),
+            Text('current', style: AppTextStyles.of(context).inlineNote),
           ],
           if (widget.release.displayDartVersion != null) ...[
             const SizedBox(width: 8),
-            Text('· Dart ${widget.release.displayDartVersion}',
-                style: AppTextStyles.of(context).rowSecondary),
+            Text(
+              '· Dart ${widget.release.displayDartVersion}',
+              style: AppTextStyles.of(context).rowSecondary,
+            ),
           ],
         ],
       ),
@@ -914,13 +953,18 @@ class _VersionTileState extends State<_VersionTile> {
       ],
       trailing: [
         if (widget.release.releaseDate != null)
-          Text(_formatDate(widget.release.releaseDate!),
-              style: AppTextStyles.of(context).caption),
+          Text(
+            _formatDate(widget.release.releaseDate!),
+            style: AppTextStyles.of(context).caption,
+          ),
         AnimatedRotation(
           turns: _expanded ? 0.5 : 0,
           duration: const Duration(milliseconds: 160),
-          child: Icon(FluentIcons.chevron_down,
-              size: 13, color: palette.textMuted),
+          child: Icon(
+            FluentIcons.chevron_down,
+            size: 13,
+            color: palette.textMuted,
+          ),
         ),
       ],
       below: AnimatedSize(
@@ -938,8 +982,18 @@ class _VersionTileState extends State<_VersionTile> {
   }
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static String _formatDate(DateTime date) {
@@ -959,7 +1013,7 @@ class _VersionTileState extends State<_VersionTile> {
     }
     final lines = _lines ?? const [];
     if (lines.isEmpty) {
-      return const Align(
+      return Align(
         alignment: Alignment.centerLeft,
         child: Text(
           'No changelog available from the local git history. Use the GitHub '
@@ -977,8 +1031,10 @@ class _VersionTileState extends State<_VersionTile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${lines.length} commits since previous version',
-              style: AppTextStyles.of(context).rowSecondary),
+          Text(
+            '${lines.length} commits since previous version',
+            style: AppTextStyles.of(context).rowSecondary,
+          ),
           const SizedBox(height: 4),
           for (final line in lines.take(200))
             Text(line, style: AppTextStyles.of(context).monoBody),
@@ -1029,8 +1085,9 @@ class _InstallViewState extends State<_InstallView> {
 
   Future<void> _loadVersions() async {
     setState(() => _loadingVersions = true);
-    final versions =
-        await context.read<FlutterSdkCubit>().listInstallableVersions(_channel);
+    final versions = await context
+        .read<FlutterSdkCubit>()
+        .listInstallableVersions(_channel);
     if (!mounted) return;
     setState(() {
       _versions = versions;
@@ -1053,23 +1110,29 @@ class _InstallViewState extends State<_InstallView> {
               InfoBar(
                 title: const Text('Recently uninstalled'),
                 content: Text(
-                    'You uninstalled a Flutter SDK. It is kept for 24 hours — '
-                    'restore it to ${widget.restorable.first.originalPath}.'),
+                  'You uninstalled a Flutter SDK. It is kept for 24 hours — '
+                  'restore it to ${widget.restorable.first.originalPath}.',
+                ),
                 severity: InfoBarSeverity.warning,
                 isLong: true,
                 action: FilledButton(
-                  onPressed: () =>
-                      widget.onRestore(widget.restorable.first),
+                  onPressed: () => widget.onRestore(widget.restorable.first),
                   child: const Text('Restore'),
                 ),
               ),
               const SizedBox(height: 18),
             ],
-            Icon(FluentIcons.download,
-                size: 24, color: AppPalette.of(context).textSecondary),
+            Icon(
+              FluentIcons.download,
+              size: 24,
+              color: AppPalette.of(context).textSecondary,
+            ),
             const SizedBox(height: 14),
-            const Text('No Flutter SDK found',
-                textAlign: TextAlign.center, style: AppTextStyles.of(context).heroTitle),
+            Text(
+              'No Flutter SDK found',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.of(context).heroTitle,
+            ),
             const SizedBox(height: 8),
             Text(
               'Flutter is not on your PATH. Clone the SDK from GitHub into a '
@@ -1123,8 +1186,9 @@ class _InstallViewState extends State<_InstallView> {
                             value: _version,
                             items: [
                               const ComboBoxItem(
-                                  value: _latest,
-                                  child: Text('Latest (channel tip)')),
+                                value: _latest,
+                                child: Text('Latest (channel tip)'),
+                              ),
                               for (final v in _versions)
                                 ComboBoxItem(value: v, child: Text(v)),
                             ],
@@ -1181,7 +1245,8 @@ class _InstallViewState extends State<_InstallView> {
     final addPath = await showConfirmDialog(
       context,
       title: 'Add Flutter to PATH?',
-      message: 'Append "${p.join(dir, 'bin')}" to your user PATH so "flutter" '
+      message:
+          'Append "${p.join(dir, 'bin')}" to your user PATH so "flutter" '
           'works everywhere. You must restart this app (and open terminals) '
           'for it to take effect.',
       confirmLabel: 'Add to PATH',
@@ -1191,26 +1256,33 @@ class _InstallViewState extends State<_InstallView> {
       try {
         await cubit.addToPath(dir);
         if (mounted) {
-          await displayInfoBar(context, builder: (context, close) {
-            return InfoBar(
-              title: const Text('Added to PATH'),
-              content: const Text(
-                  'Restart the app to detect the new Flutter SDK.'),
-              severity: InfoBarSeverity.success,
-              onClose: close,
-            );
-          });
+          await displayInfoBar(
+            context,
+            builder: (context, close) {
+              return InfoBar(
+                title: const Text('Added to PATH'),
+                content: const Text(
+                  'Restart the app to detect the new Flutter SDK.',
+                ),
+                severity: InfoBarSeverity.success,
+                onClose: close,
+              );
+            },
+          );
         }
       } catch (e) {
         if (mounted) {
-          await displayInfoBar(context, builder: (context, close) {
-            return InfoBar(
-              title: const Text('Could not update PATH'),
-              content: Text('$e'),
-              severity: InfoBarSeverity.warning,
-              onClose: close,
-            );
-          });
+          await displayInfoBar(
+            context,
+            builder: (context, close) {
+              return InfoBar(
+                title: const Text('Could not update PATH'),
+                content: Text('$e'),
+                severity: InfoBarSeverity.warning,
+                onClose: close,
+              );
+            },
+          );
         }
       }
     }

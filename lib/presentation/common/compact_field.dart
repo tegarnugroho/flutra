@@ -8,9 +8,9 @@ const kCompactFieldHeight = 30.0;
 
 /// The shared decoration for compact inputs.
 BoxDecoration compactFieldDecoration(AppPalette palette) => BoxDecoration(
-      borderRadius: BorderRadius.circular(AppShape.radiusControl),
-      border: Border.all(color: palette.border, width: AppShape.hairline),
-    );
+  borderRadius: BorderRadius.circular(AppShape.radiusControl),
+  border: Border.all(color: palette.border, width: AppShape.hairline),
+);
 
 /// A small single-line input used for filters and searches.
 class CompactField extends StatelessWidget {
@@ -52,8 +52,9 @@ class CompactField extends StatelessWidget {
         onSubmitted: onSubmitted,
         placeholder: placeholder,
         style: AppTextStyles.of(context).input,
-        placeholderStyle:
-            AppTextStyles.of(context).input.copyWith(color: palette.textMuted),
+        placeholderStyle: AppTextStyles.of(
+          context,
+        ).input.copyWith(color: palette.textMuted),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         prefix: icon == null
             ? null
@@ -148,27 +149,32 @@ class _CompactComboState<T> extends State<CompactCombo<T>> {
             width: widget.width,
             height: kCompactFieldHeight,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: compactFieldDecoration(palette).copyWith(
-              color: _hovered ? palette.surfaceRaised : null,
-            ),
+            decoration: compactFieldDecoration(
+              palette,
+            ).copyWith(color: _hovered ? palette.surfaceRaised : null),
             child: Row(
-              mainAxisSize:
-                  widget.width == null ? MainAxisSize.min : MainAxisSize.max,
+              mainAxisSize: widget.width == null
+                  ? MainAxisSize.min
+                  : MainAxisSize.max,
               children: [
                 Flexible(
                   child: Text(
                     selected ?? widget.placeholder,
                     style: selected == null
-                        ? AppTextStyles.of(context).input
-                            .copyWith(color: palette.textMuted)
+                        ? AppTextStyles.of(
+                            context,
+                          ).input.copyWith(color: palette.textMuted)
                         : AppTextStyles.of(context).input,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(FluentIcons.chevron_down,
-                    size: 10, color: palette.textMuted),
+                Icon(
+                  FluentIcons.chevron_down,
+                  size: 10,
+                  color: palette.textMuted,
+                ),
               ],
             ),
           ),
@@ -180,7 +186,11 @@ class _CompactComboState<T> extends State<CompactCombo<T>> {
 
 /// A checkbox drawn to the app's geometry: hairline box, accent when checked.
 class AppCheckbox extends StatelessWidget {
-  const AppCheckbox({super.key, required this.checked, required this.onChanged});
+  const AppCheckbox({
+    super.key,
+    required this.checked,
+    required this.onChanged,
+  });
 
   final bool checked;
   final ValueChanged<bool> onChanged;
@@ -204,8 +214,11 @@ class AppCheckbox extends StatelessWidget {
             ),
           ),
           child: checked
-              ? Icon(FluentIcons.check_mark,
-                  size: 10, color: palette.textPrimary)
+              ? Icon(
+                  FluentIcons.check_mark,
+                  size: 10,
+                  color: palette.textPrimary,
+                )
               : null,
         ),
       ),
@@ -292,7 +305,9 @@ class ToggleChip extends StatelessWidget {
             widthFactor: 1,
             child: Text(
               label,
-              style: checked ? AppTextStyles.of(context).rowTitle : AppTextStyles.of(context).navItem,
+              style: checked
+                  ? AppTextStyles.of(context).rowTitle
+                  : AppTextStyles.of(context).navItem,
             ),
           ),
         ),

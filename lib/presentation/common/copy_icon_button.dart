@@ -22,15 +22,18 @@ class _CopyIconButtonState extends State<CopyIconButton> {
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: widget.value));
     if (!mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: Text('${widget.label} copied'),
-        content: Text(widget.value),
-        severity: InfoBarSeverity.info,
-        isLong: true,
-        onClose: close,
-      );
-    });
+    await displayInfoBar(
+      context,
+      builder: (context, close) {
+        return InfoBar(
+          title: Text('${widget.label} copied'),
+          content: Text(widget.value),
+          severity: InfoBarSeverity.info,
+          isLong: true,
+          onClose: close,
+        );
+      },
+    );
   }
 
   @override

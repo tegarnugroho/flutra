@@ -30,7 +30,9 @@ class SelectTile extends StatelessWidget {
               ? accent.withValues(alpha: 0.12)
               : theme.resources.cardBackgroundFillColorDefault,
           border: Border.all(
-            color: selected ? accent : theme.resources.controlStrokeColorDefault,
+            color: selected
+                ? accent
+                : theme.resources.controlStrokeColorDefault,
             width: selected ? 1.6 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -38,11 +40,13 @@ class SelectTile extends StatelessWidget {
         child: Row(
           children: [
             if (icon != null) ...[
-              Icon(icon,
-                  size: 20,
-                  color: selected
-                      ? accent
-                      : theme.resources.textFillColorSecondary),
+              Icon(
+                icon,
+                size: 20,
+                color: selected
+                    ? accent
+                    : theme.resources.textFillColorSecondary,
+              ),
               const SizedBox(width: 12),
             ],
             Expanded(

@@ -20,8 +20,7 @@ class StatusDot extends StatelessWidget {
       child: color == null
           ? null
           : DecoratedBox(
-              decoration:
-                  BoxDecoration(color: color, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
     );
   }
@@ -55,10 +54,7 @@ class StatusLine extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: 12),
-          trailing!,
-        ],
+        if (trailing != null) ...[const SizedBox(width: 12), trailing!],
       ],
     );
   }

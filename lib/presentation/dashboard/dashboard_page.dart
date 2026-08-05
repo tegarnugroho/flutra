@@ -125,13 +125,14 @@ class _StatusLine extends StatelessWidget {
     final tools = snapshot.all;
 
     final broken = tools
-        .where((t) =>
-            t.state == ToolState.missing || t.state == ToolState.error)
+        .where(
+          (t) => t.state == ToolState.missing || t.state == ToolState.error,
+        )
         .toList();
-    final outdated =
-        tools.where((t) => t.state == ToolState.needsUpdate).toList();
-    final checking =
-        tools.where((t) => t.state == ToolState.checking).toList();
+    final outdated = tools
+        .where((t) => t.state == ToolState.needsUpdate)
+        .toList();
+    final checking = tools.where((t) => t.state == ToolState.checking).toList();
 
     final Color color;
     final String message;
@@ -146,7 +147,8 @@ class _StatusLine extends StatelessWidget {
       message = 'Checking your environment…';
     } else {
       color = palette.statusOk;
-      message = 'Environment ready — all core Android and Flutter tools detected';
+      message =
+          'Environment ready — all core Android and Flutter tools detected';
     }
 
     return StatusLine(color: color, message: message);

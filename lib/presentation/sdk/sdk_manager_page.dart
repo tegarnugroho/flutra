@@ -48,8 +48,9 @@ class _SdkManagerView extends StatelessWidget {
               icon: FluentIcons.sync,
               label:
                   'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}',
-              onPressed:
-                  state.busy || state.updateCount == 0 ? null : cubit.updateAll,
+              onPressed: state.busy || state.updateCount == 0
+                  ? null
+                  : cubit.updateAll,
             ),
             OutlinedActionButton(
               icon: FluentIcons.command_prompt,
@@ -107,7 +108,9 @@ class _SdkManagerView extends StatelessWidget {
             children: [
               _CategorySidebar(state: state, cubit: cubit),
               Container(width: AppShape.hairline, color: palette.border),
-              Expanded(child: _PackageList(state: state, cubit: cubit)),
+              Expanded(
+                child: _PackageList(state: state, cubit: cubit),
+              ),
               if (state.selectedPackage != null) ...[
                 Container(width: AppShape.hairline, color: palette.border),
                 _DetailsPanel(package: state.selectedPackage!, cubit: cubit),
@@ -245,8 +248,11 @@ class _QuickSetupButtonState extends State<_QuickSetupButton> {
       MenuFlyoutItem(
         leading: const Icon(FluentIcons.toolbox, size: 14),
         text: const Text('Essential tools'),
-        onPressed: () => install(
-            const ['platform-tools', 'emulator', 'cmdline-tools;latest']),
+        onPressed: () => install(const [
+          'platform-tools',
+          'emulator',
+          'cmdline-tools;latest',
+        ]),
       ),
       MenuFlyoutItem(
         leading: const Icon(FluentIcons.plug_connected, size: 14),
@@ -270,11 +276,12 @@ class _QuickSetupButtonState extends State<_QuickSetupButton> {
   bool _has(String path) => widget.state.packages.any((p) => p.path == path);
 
   String? get _latestBuildTools {
-    final bt = widget.state.packages
-        .where((p) => p.category == PackageCategory.buildTools)
-        .map((p) => p.path)
-        .toList()
-      ..sort();
+    final bt =
+        widget.state.packages
+            .where((p) => p.category == PackageCategory.buildTools)
+            .map((p) => p.path)
+            .toList()
+          ..sort();
     return bt.isEmpty ? null : bt.last;
   }
 
@@ -291,15 +298,19 @@ class _QuickSetupButtonState extends State<_QuickSetupButton> {
   void _installPreset(List<String> paths) {
     final present = paths.where(_has).toList();
     if (present.isEmpty) {
-      displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Nothing to install'),
-          content: const Text(
-              'These packages were not found. Try Refresh, then retry.'),
-          severity: InfoBarSeverity.warning,
-          onClose: close,
-        );
-      });
+      displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Nothing to install'),
+            content: const Text(
+              'These packages were not found. Try Refresh, then retry.',
+            ),
+            severity: InfoBarSeverity.warning,
+            onClose: close,
+          );
+        },
+      );
       return;
     }
     for (final p in present) {
@@ -345,17 +356,17 @@ class _CategorySidebar extends StatelessWidget {
   }
 
   static IconData _iconFor(PackageCategory c) => switch (c) {
-        PackageCategory.platformTools => FluentIcons.plug_connected,
-        PackageCategory.buildTools => FluentIcons.build_queue,
-        PackageCategory.platforms => FluentIcons.cell_phone,
-        PackageCategory.systemImages => FluentIcons.hard_drive,
-        PackageCategory.emulator => FluentIcons.devices3,
-        PackageCategory.cmdlineTools => FluentIcons.command_prompt,
-        PackageCategory.sources => FluentIcons.code,
-        PackageCategory.ndk => FluentIcons.developer_tools,
-        PackageCategory.extras => FluentIcons.packages,
-        PackageCategory.other => FluentIcons.product,
-      };
+    PackageCategory.platformTools => FluentIcons.plug_connected,
+    PackageCategory.buildTools => FluentIcons.build_queue,
+    PackageCategory.platforms => FluentIcons.cell_phone,
+    PackageCategory.systemImages => FluentIcons.hard_drive,
+    PackageCategory.emulator => FluentIcons.devices3,
+    PackageCategory.cmdlineTools => FluentIcons.command_prompt,
+    PackageCategory.sources => FluentIcons.code,
+    PackageCategory.ndk => FluentIcons.developer_tools,
+    PackageCategory.extras => FluentIcons.packages,
+    PackageCategory.other => FluentIcons.product,
+  };
 }
 
 /// A category filter, styled like a navigation pane item.
@@ -401,11 +412,13 @@ class _CategoryItemState extends State<_CategoryItem> {
           ),
           child: Row(
             children: [
-              Icon(widget.icon,
-                  size: 15,
-                  color: widget.selected
-                      ? palette.textPrimary
-                      : palette.textSecondary),
+              Icon(
+                widget.icon,
+                size: 15,
+                color: widget.selected
+                    ? palette.textPrimary
+                    : palette.textSecondary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -446,7 +459,8 @@ class _PackageList extends StatelessWidget {
             children: [
               SectionLabel(
                 'Packages',
-                meta: '${packages.length} shown, '
+                meta:
+                    '${packages.length} shown, '
                     '${state.installedCount} installed',
               ),
               const Spacer(),
@@ -524,9 +538,15 @@ class _DetailsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(package.description, style: AppTextStyles.of(context).heroTitle),
+            Text(
+              package.description,
+              style: AppTextStyles.of(context).heroTitle,
+            ),
             const SizedBox(height: 4),
-            Text(package.category.label, style: AppTextStyles.of(context).caption),
+            Text(
+              package.category.label,
+              style: AppTextStyles.of(context).caption,
+            ),
             const SizedBox(height: 14),
             const SectionLabel('Details'),
             const SizedBox(height: 8),
@@ -535,7 +555,10 @@ class _DetailsPanel extends StatelessWidget {
                 GroupedListRow(
                   title: 'Status',
                   trailing: [
-                    Text(_statusLabel, style: AppTextStyles.of(context).monoValue),
+                    Text(
+                      _statusLabel,
+                      style: AppTextStyles.of(context).monoValue,
+                    ),
                   ],
                 ),
                 GroupedListRow(
@@ -556,16 +579,20 @@ class _DetailsPanel extends StatelessWidget {
                   GroupedListRow(
                     title: 'Installed',
                     trailing: [
-                      Text(package.installedVersion!,
-                          style: AppTextStyles.of(context).monoValue),
+                      Text(
+                        package.installedVersion!,
+                        style: AppTextStyles.of(context).monoValue,
+                      ),
                     ],
                   ),
                 if (package.availableVersion != null)
                   GroupedListRow(
                     title: 'Latest',
                     trailing: [
-                      Text(package.availableVersion!,
-                          style: AppTextStyles.of(context).monoValue),
+                      Text(
+                        package.availableVersion!,
+                        style: AppTextStyles.of(context).monoValue,
+                      ),
                     ],
                   ),
                 if (package.location != null)
@@ -581,7 +608,9 @@ class _DetailsPanel extends StatelessWidget {
                         ),
                       ),
                       CopyIconButton(
-                          value: package.location!, label: 'Location'),
+                        value: package.location!,
+                        label: 'Location',
+                      ),
                     ],
                   ),
               ],
@@ -619,8 +648,8 @@ class _DetailsPanel extends StatelessWidget {
   }
 
   String get _statusLabel => switch (package.state) {
-        PackageState.installed => 'installed',
-        PackageState.updatable => 'update available',
-        PackageState.available => 'not installed',
-      };
+    PackageState.installed => 'installed',
+    PackageState.updatable => 'update available',
+    PackageState.available => 'not installed',
+  };
 }

@@ -47,8 +47,10 @@ class PackageQueueBar extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           if (state.queue.isNotEmpty)
-            Text('${state.queue.length} queued',
-                style: AppTextStyles.of(context).caption),
+            Text(
+              '${state.queue.length} queued',
+              style: AppTextStyles.of(context).caption,
+            ),
           const SizedBox(width: 12),
           OutlinedActionButton(
             icon: FluentIcons.cancel,
@@ -93,7 +95,7 @@ class _PackageConsoleState extends State<PackageConsole> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: AppColors.logBg,
+        color: palette.logBg,
         border: Border(
           top: BorderSide(color: palette.border, width: AppShape.hairline),
         ),
@@ -104,16 +106,21 @@ class _PackageConsoleState extends State<PackageConsole> {
             padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
             decoration: BoxDecoration(
               border: Border(
-                bottom:
-                    BorderSide(color: palette.border, width: AppShape.hairline),
+                bottom: BorderSide(
+                  color: palette.border,
+                  width: AppShape.hairline,
+                ),
               ),
             ),
             child: Row(
               children: [
-                Icon(FluentIcons.command_prompt,
-                    size: 12, color: palette.textMuted),
+                Icon(
+                  FluentIcons.command_prompt,
+                  size: 12,
+                  color: palette.textMuted,
+                ),
                 const SizedBox(width: 8),
-                const Text('Console', style: AppTextStyles.of(context).sectionLabel),
+                Text('Console', style: AppTextStyles.of(context).sectionLabel),
                 const Spacer(),
                 OutlinedActionButton(
                   icon: FluentIcons.clear,
@@ -148,8 +155,8 @@ class _PackageConsoleState extends State<PackageConsole> {
                     color: isError
                         ? palette.statusError
                         : isCommand
-                            ? palette.textTertiary
-                            : palette.textSecondary,
+                        ? palette.textTertiary
+                        : palette.textSecondary,
                   ),
                 );
               },

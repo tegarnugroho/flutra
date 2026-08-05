@@ -30,7 +30,10 @@ class _DevLogsPageState extends State<DevLogsPage> {
   void initState() {
     super.initState();
     _refresh();
-    _timer = Timer.periodic(const Duration(milliseconds: 800), (_) => _refresh());
+    _timer = Timer.periodic(
+      const Duration(milliseconds: 800),
+      (_) => _refresh(),
+    );
   }
 
   @override
@@ -115,15 +118,23 @@ class _DevLogsPageState extends State<DevLogsPage> {
                       ComboBoxItem(value: Level.FINE, child: Text('≥ Fine')),
                       ComboBoxItem(value: Level.INFO, child: Text('≥ Info')),
                       ComboBoxItem(
-                          value: Level.WARNING, child: Text('≥ Warning')),
-                      ComboBoxItem(value: Level.SEVERE, child: Text('≥ Severe')),
+                        value: Level.WARNING,
+                        child: Text('≥ Warning'),
+                      ),
+                      ComboBoxItem(
+                        value: Level.SEVERE,
+                        child: Text('≥ Severe'),
+                      ),
                     ],
-                    onChanged: (v) => setState(() => _minLevel = v ?? Level.ALL),
+                    onChanged: (v) =>
+                        setState(() => _minLevel = v ?? Level.ALL),
                   ),
                 ),
                 const Spacer(),
-                Text('${records.length} shown • ${_records.length} total',
-                    style: FluentTheme.of(context).typography.caption),
+                Text(
+                  '${records.length} shown • ${_records.length} total',
+                  style: FluentTheme.of(context).typography.caption,
+                ),
               ],
             ),
           ),
@@ -131,22 +142,27 @@ class _DevLogsPageState extends State<DevLogsPage> {
             child: Container(
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               decoration: BoxDecoration(
-                color: AppColors.logBg,
+                color: AppPalette.of(context).logBg,
                 borderRadius: BorderRadius.circular(AppShape.radiusGroup),
                 border: Border.all(
-                    color: AppColors.border, width: AppShape.hairline),
+                  color: AppPalette.of(context).border,
+                  width: AppShape.hairline,
+                ),
               ),
               child: records.isEmpty
-                  ? const Center(
-                      child: Text('No log records yet.',
-                          style: AppTextStyles.of(context).caption),
+                  ? Center(
+                      child: Text(
+                        'No log records yet.',
+                        style: AppTextStyles.of(context).caption,
+                      ),
                     )
                   : SelectionArea(
                       child: ListView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.all(10),
                         itemCount: records.length,
-                        itemBuilder: (context, i) => _LogRow(record: records[i]),
+                        itemBuilder: (context, i) =>
+                            _LogRow(record: records[i]),
                       ),
                     ),
             ),
@@ -162,14 +178,17 @@ class _DevLogsPageState extends State<DevLogsPage> {
         .join('\n');
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: const Text('Copied'),
-        content: const Text('Logs copied to clipboard.'),
-        severity: InfoBarSeverity.success,
-        onClose: close,
-      );
-    });
+    await displayInfoBar(
+      context,
+      builder: (context, close) {
+        return InfoBar(
+          title: const Text('Copied'),
+          content: const Text('Logs copied to clipboard.'),
+          severity: InfoBarSeverity.success,
+          onClose: close,
+        );
+      },
+    );
   }
 }
 
@@ -184,10 +203,10 @@ class _LogRow extends StatelessWidget {
     final color = record.level >= Level.SEVERE
         ? palette.statusError
         : record.level >= Level.WARNING
-            ? palette.statusWarn
-            : record.level >= Level.INFO
-                ? palette.textSecondary
-                : palette.textMuted;
+        ? palette.statusWarn
+        : record.level >= Level.INFO
+        ? palette.textSecondary
+        : palette.textMuted;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.5),
       child: Text(

@@ -37,8 +37,7 @@ class _SectionLabelSkeleton extends StatelessWidget {
   final double width;
 
   @override
-  Widget build(BuildContext context) =>
-      SkeletonLine(width: width, height: 11);
+  Widget build(BuildContext context) => SkeletonLine(width: width, height: 11);
 }
 
 /// A skeleton standing in for a [StatusLine] — dot plus one line.
@@ -185,10 +184,15 @@ class SdkManagerSkeleton extends StatelessWidget {
                           _SkeletonRow(
                             children: [
                               const SkeletonBox(
-                                  width: 16, height: 16, radius: 3),
+                                width: 16,
+                                height: 16,
+                                radius: 3,
+                              ),
                               const SizedBox(width: 10),
                               SkeletonLine(
-                                  width: 160 + (i % 4) * 34, height: 12),
+                                width: 160 + (i % 4) * 34,
+                                height: 12,
+                              ),
                               const Spacer(),
                               const SkeletonLine(width: 54, height: 11),
                               const SizedBox(width: 12),
@@ -402,7 +406,14 @@ class DoctorSkeleton extends StatelessWidget {
         const SizedBox(height: 8),
         _SkeletonGroup(
           rows: [
-            for (final width in const [206.0, 158.0, 244.0, 180.0, 132.0, 198.0])
+            for (final width in const [
+              206.0,
+              158.0,
+              244.0,
+              180.0,
+              132.0,
+              198.0,
+            ])
               _SkeletonRow(
                 children: [
                   const SkeletonCircle(size: 16),
@@ -427,8 +438,18 @@ class LogcatSkeleton extends StatelessWidget {
 
   /// Line widths as a fraction of the log pane, 60–95% like real log output.
   static const _lineFractions = <double>[
-    0.82, 0.61, 0.94, 0.70, 0.88, 0.66,
-    0.91, 0.75, 0.63, 0.86, 0.72, 0.95,
+    0.82,
+    0.61,
+    0.94,
+    0.70,
+    0.88,
+    0.66,
+    0.91,
+    0.75,
+    0.63,
+    0.86,
+    0.72,
+    0.95,
   ];
 
   @override

@@ -49,8 +49,9 @@ class _UpdatesView extends StatelessWidget {
               icon: FluentIcons.sync,
               label:
                   'Update all${state.updateCount > 0 ? ' (${state.updateCount})' : ''}',
-              onPressed:
-                  state.busy || state.updateCount == 0 ? null : cubit.updateAll,
+              onPressed: state.busy || state.updateCount == 0
+                  ? null
+                  : cubit.updateAll,
             ),
             OutlinedActionButton(
               icon: FluentIcons.command_prompt,
@@ -171,16 +172,16 @@ class _UpdateRow extends StatelessWidget {
               TextSpan(text: pkg.installedVersion ?? '?'),
               TextSpan(
                 text: ' → ',
-                style: AppTextStyles.of(context).monoValue.copyWith(
-                  color: palette.textMuted,
-                ),
+                style: AppTextStyles.of(
+                  context,
+                ).monoValue.copyWith(color: palette.textMuted),
               ),
               TextSpan(text: pkg.availableVersion ?? '?'),
             ],
           ),
         ),
         if (queued && !active)
-          const Text('queued', style: AppTextStyles.of(context).inlineNote),
+          Text('queued', style: AppTextStyles.of(context).inlineNote),
       ],
       hoverActions: [
         if (!active && !queued)
@@ -248,9 +249,9 @@ class _FlutterUpdateRow extends StatelessWidget {
                       icon: FluentIcons.refresh,
                       label: 'Check again',
                       dense: true,
-                      onPressed: () => context
-                          .read<FlutterUpdateCubit>()
-                          .check(forceRefresh: true),
+                      onPressed: () => context.read<FlutterUpdateCubit>().check(
+                        forceRefresh: true,
+                      ),
                     ),
                 ],
               ),
@@ -276,23 +277,27 @@ class _FlutterUpdateRow extends StatelessWidget {
                       style: AppTextStyles.of(context).monoValue,
                       children: [
                         TextSpan(
-                            text: installed?.displayVersion ??
-                                update.shortHash ??
-                                '?'),
+                          text:
+                              installed?.displayVersion ??
+                              update.shortHash ??
+                              '?',
+                        ),
                         TextSpan(
                           text: ' → ',
-                          style: AppTextStyles.of(context).monoValue
-                              .copyWith(color: palette.textMuted),
+                          style: AppTextStyles.of(
+                            context,
+                          ).monoValue.copyWith(color: palette.textMuted),
                         ),
                         TextSpan(text: latest.displayVersion),
                       ],
                     ),
                   )
                 else
-                  Text(installed?.displayVersion ?? update.shortHash ?? '—',
-                      style: AppTextStyles.of(context).monoValue),
-                if (state.isLoading)
-                  AppLoader(size: AppLoaderSize.small),
+                  Text(
+                    installed?.displayVersion ?? update.shortHash ?? '—',
+                    style: AppTextStyles.of(context).monoValue,
+                  ),
+                if (state.isLoading) AppLoader(size: AppLoaderSize.small),
               ],
               hoverActions: [
                 if (!state.isLoading)
@@ -300,9 +305,9 @@ class _FlutterUpdateRow extends StatelessWidget {
                     icon: FluentIcons.refresh,
                     label: 'Check again',
                     dense: true,
-                    onPressed: () => context
-                        .read<FlutterUpdateCubit>()
-                        .check(forceRefresh: true),
+                    onPressed: () => context.read<FlutterUpdateCubit>().check(
+                      forceRefresh: true,
+                    ),
                   ),
               ],
             ),

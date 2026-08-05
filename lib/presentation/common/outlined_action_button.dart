@@ -53,8 +53,7 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
     // A busy button stays clickable when it offers a hover action (Cancel).
     final enabled =
         widget.onPressed != null && (!widget.busy || widget.hoverLabel != null);
-    final label =
-        _hovered ? (widget.hoverLabel ?? widget.label) : widget.label;
+    final label = _hovered ? (widget.hoverLabel ?? widget.label) : widget.label;
     final icon = _hovered ? (widget.hoverIcon ?? widget.icon) : widget.icon;
     final foreground = enabled ? palette.textTertiary : palette.textMuted;
 
@@ -89,15 +88,15 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: Center(
-                    child: Icon(icon, size: 13, color: foreground),
-                  ),
+                  child: Center(child: Icon(icon, size: 13, color: foreground)),
                 ),
               if (label != null) ...[
                 const SizedBox(width: 7),
                 Text(
                   label,
-                  style: AppTextStyles.of(context).buttonLabel.copyWith(color: foreground),
+                  style: AppTextStyles.of(
+                    context,
+                  ).buttonLabel.copyWith(color: foreground),
                 ),
               ],
             ],

@@ -55,8 +55,9 @@ class SdkPackageTile extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: '  ${package.path}',
-                    style: AppTextStyles.of(context).monoValue
-                        .copyWith(color: palette.textMuted),
+                    style: AppTextStyles.of(
+                      context,
+                    ).monoValue.copyWith(color: palette.textMuted),
                   ),
                 ],
               ),
@@ -69,64 +70,67 @@ class SdkPackageTile extends StatelessWidget {
       trailing: [
         _version(palette),
         if (queued && !active)
-          const Text('queued', style: AppTextStyles.of(context).inlineNote),
+          Text('queued', style: AppTextStyles.of(context).inlineNote),
       ],
-      hoverActions: [
-        if (!active && !queued) _action(),
-      ],
+      hoverActions: [if (!active && !queued) _action()],
       below: active ? _progress(palette) : null,
     );
   }
 
   Color _statusColor(AppPalette palette) => switch (package.state) {
-        PackageState.installed => palette.statusOk,
-        PackageState.updatable => palette.statusWarn,
-        PackageState.available => palette.textMuted,
-      };
+    PackageState.installed => palette.statusOk,
+    PackageState.updatable => palette.statusWarn,
+    PackageState.available => palette.textMuted,
+  };
 
   Widget _version(AppPalette palette) {
+    final text = AppTextStyles.fromPalette(palette);
     if (package.hasUpdate) {
       return Text.rich(
         TextSpan(
-          style: AppTextStyles.of(context).monoValue,
+          style: text.monoValue,
           children: [
             TextSpan(text: package.installedVersion ?? '?'),
             TextSpan(
               text: ' → ',
-              style: AppTextStyles.of(context).monoValue.copyWith(color: palette.textMuted),
+              style: text.monoValue.copyWith(color: palette.textMuted),
             ),
             TextSpan(text: package.availableVersion ?? '?'),
           ],
         ),
       );
     }
-    return Text(package.displayVersion ?? '—', style: AppTextStyles.of(context).monoValue);
+    return Text(
+      package.displayVersion ?? '—',
+      style: text.monoValue,
+    );
   }
 
   Widget _action() {
     return switch (package.state) {
       PackageState.available => OutlinedActionButton(
-          icon: FluentIcons.download,
-          label: 'Install',
-          dense: true,
-          onPressed: onInstall,
-        ),
+        icon: FluentIcons.download,
+        label: 'Install',
+        dense: true,
+        onPressed: onInstall,
+      ),
       PackageState.updatable => OutlinedActionButton(
-          icon: FluentIcons.sync,
-          label: 'Update',
-          dense: true,
-          onPressed: onInstall,
-        ),
+        icon: FluentIcons.sync,
+        label: 'Update',
+        dense: true,
+        onPressed: onInstall,
+      ),
       PackageState.installed => OutlinedActionButton(
-          icon: FluentIcons.delete,
-          dense: true,
-          tooltip: 'Uninstall',
-          onPressed: onUninstall,
-        ),
+        icon: FluentIcons.delete,
+        dense: true,
+        tooltip: 'Uninstall',
+        onPressed: onUninstall,
+      ),
     };
   }
 
   Widget _progress(AppPalette palette) {
+    final text = AppTextStyles.fromPalette(palette);
     return Padding(
       padding: const EdgeInsets.only(top: 8, left: 16),
       child: Row(
@@ -140,7 +144,7 @@ class SdkPackageTile extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             progress != null ? '${(progress! * 100).round()}%' : 'Working…',
-            style: AppTextStyles.of(context).caption,
+            style: text.caption,
           ),
         ],
       ),

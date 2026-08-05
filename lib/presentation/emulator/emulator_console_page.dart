@@ -49,8 +49,8 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
       if (!mounted) return;
       setState(() {
         _avds = avds;
-        _name ??= widget.initialAvd ??
-            (avds.isNotEmpty ? avds.first.name : null);
+        _name ??=
+            widget.initialAvd ?? (avds.isNotEmpty ? avds.first.name : null);
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -60,10 +60,12 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
   void _launch() {
     final name = _name;
     if (name == null) return;
-    _cubit.start(() => _emulators.launch(
-          name,
-          LaunchOptions(coldBoot: _coldBoot, verbose: true),
-        ));
+    _cubit.start(
+      () => _emulators.launch(
+        name,
+        LaunchOptions(coldBoot: _coldBoot, verbose: true),
+      ),
+    );
   }
 
   @override
@@ -91,10 +93,12 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
             : BlocBuilder<LiveLogCubit, LiveLogState>(
                 builder: (context, state) {
                   final running = state.isRunning || state.isStarting;
-                  final selectedAvds =
-                      _avds.where((a) => a.name == _name).toList();
-                  final selected =
-                      selectedAvds.isEmpty ? null : selectedAvds.first;
+                  final selectedAvds = _avds
+                      .where((a) => a.name == _name)
+                      .toList();
+                  final selected = selectedAvds.isEmpty
+                      ? null
+                      : selectedAvds.first;
                   // Can't attach to an emulator this app didn't launch.
                   final alreadyRunning =
                       selected?.isRunning == true && !running;
@@ -118,9 +122,11 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                                   for (final a in _avds)
                                     ComboBoxItem(
                                       value: a.name,
-                                      child: Text(a.isRunning
-                                          ? '${a.name}  • running'
-                                          : a.name),
+                                      child: Text(
+                                        a.isRunning
+                                            ? '${a.name}  • running'
+                                            : a.name,
+                                      ),
                                     ),
                                 ],
                                 onChanged: running
@@ -133,7 +139,7 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                               onChanged: running
                                   ? null
                                   : (v) =>
-                                      setState(() => _coldBoot = v ?? false),
+                                        setState(() => _coldBoot = v ?? false),
                               content: const Text('Cold boot'),
                             ),
                             if (running)
@@ -171,10 +177,11 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                           child: InfoBar(
                             title: const Text('Already running'),
                             content: const Text(
-                                'The console only shows output for emulators '
-                                'launched here — it cannot attach to a running '
-                                'instance. Use Logcat Viewer for its logs, or '
-                                'stop it first.'),
+                              'The console only shows output for emulators '
+                              'launched here — it cannot attach to a running '
+                              'instance. Use Logcat Viewer for its logs, or '
+                              'stop it first.',
+                            ),
                             severity: InfoBarSeverity.info,
                             isLong: true,
                           ),
@@ -195,7 +202,7 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                             emptyHint: state.isStarting
                                 ? 'Launching emulator…'
                                 : 'Select an AVD and press Launch to see its '
-                                    'console output.',
+                                      'console output.',
                           ),
                         ),
                       ),
@@ -220,15 +227,20 @@ class _NoAvds extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(FluentIcons.cell_phone,
-              size: 44, color: theme.resources.textFillColorTertiary),
+          Icon(
+            FluentIcons.cell_phone,
+            size: 44,
+            color: theme.resources.textFillColorTertiary,
+          ),
           const SizedBox(height: 14),
           Text('No emulators', style: theme.typography.subtitle),
           const SizedBox(height: 8),
-          Text('Create an AVD in the Emulator Manager first.',
-              style: theme.typography.body?.copyWith(
-                color: theme.resources.textFillColorSecondary,
-              )),
+          Text(
+            'Create an AVD in the Emulator Manager first.',
+            style: theme.typography.body?.copyWith(
+              color: theme.resources.textFillColorSecondary,
+            ),
+          ),
           const SizedBox(height: 18),
           FilledButton(onPressed: onRefresh, child: const Text('Refresh')),
         ],

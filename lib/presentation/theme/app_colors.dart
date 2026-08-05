@@ -154,8 +154,8 @@ class AppColors {
   /// *less* dark than the base, so the sweep never reads as glare.
   static Color skeletonHighlight(Brightness brightness) =>
       brightness == Brightness.dark
-          ? _skeletonHighlightDark
-          : _skeletonHighlightLight;
+      ? _skeletonHighlightDark
+      : _skeletonHighlightLight;
 }
 
 /// Shared geometry so radii and hairlines stay consistent.

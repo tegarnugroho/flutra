@@ -106,25 +106,31 @@ class LogToolbar extends StatelessWidget {
       // Save what's currently visible (filtered) so exports match the view.
       await file.writeAsString(state.filtered.map((l) => l.raw).join('\n'));
       if (!context.mounted) return;
-      await displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Log saved'),
-          content: Text(file.path),
-          severity: InfoBarSeverity.success,
-          isLong: true,
-          onClose: close,
-        );
-      });
+      await displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Log saved'),
+            content: Text(file.path),
+            severity: InfoBarSeverity.success,
+            isLong: true,
+            onClose: close,
+          );
+        },
+      );
     } catch (e) {
       if (!context.mounted) return;
-      await displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Could not save log'),
-          content: Text('$e'),
-          severity: InfoBarSeverity.error,
-          onClose: close,
-        );
-      });
+      await displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Could not save log'),
+            content: Text('$e'),
+            severity: InfoBarSeverity.error,
+            onClose: close,
+          );
+        },
+      );
     }
   }
 }

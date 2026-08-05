@@ -104,7 +104,10 @@ class _CommandPaletteState extends State<_CommandPalette> {
             if (_matches.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('No matching page', style: AppTextStyles.of(context).caption),
+                child: Text(
+                  'No matching page',
+                  style: AppTextStyles.of(context).caption,
+                ),
               )
             else
               // Every destination fits without scrolling today; the list still

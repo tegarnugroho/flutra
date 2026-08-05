@@ -31,9 +31,11 @@ PaneItem _item(String label) => PaneItem(
 
 PaneItemWidgetAdapter _sectionLabel(String text) => PaneItemWidgetAdapter(
       applyPadding: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
-        child: Text(text, style: AppTextStyles.sectionLabel),
+      child: Builder(
+        builder: (context) => Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
+          child: Text(text, style: AppTextStyles.of(context).sectionLabel),
+        ),
       ),
     );
 

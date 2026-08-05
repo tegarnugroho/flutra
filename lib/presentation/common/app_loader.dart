@@ -18,16 +18,16 @@ enum AppLoaderSize {
 
 extension on AppLoaderSize {
   double get dimension => switch (this) {
-        AppLoaderSize.small => 16,
-        AppLoaderSize.medium => 28,
-        AppLoaderSize.large => 44,
-      };
+    AppLoaderSize.small => 16,
+    AppLoaderSize.medium => 28,
+    AppLoaderSize.large => 44,
+  };
 
   double get stroke => switch (this) {
-        AppLoaderSize.small => 2,
-        AppLoaderSize.medium => 3,
-        AppLoaderSize.large => 4,
-      };
+    AppLoaderSize.small => 2,
+    AppLoaderSize.medium => 3,
+    AppLoaderSize.large => 4,
+  };
 }
 
 /// The app's indeterminate loader: three rounded arcs chasing each other
@@ -149,8 +149,8 @@ class _RingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final inset = stroke / 2;
-    final rect = Offset(inset, inset) &
-        Size(size.width - stroke, size.height - stroke);
+    final rect =
+        Offset(inset, inset) & Size(size.width - stroke, size.height - stroke);
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -159,7 +159,13 @@ class _RingPainter extends CustomPainter {
 
     if (!animate) {
       // Static fallback: a single three-quarter arc, no motion at all.
-      canvas.drawArc(rect, -math.pi / 2, _turn * 0.75, false, paint..color = leading);
+      canvas.drawArc(
+        rect,
+        -math.pi / 2,
+        _turn * 0.75,
+        false,
+        paint..color = leading,
+      );
       return;
     }
 

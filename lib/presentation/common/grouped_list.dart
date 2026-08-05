@@ -185,7 +185,8 @@ class _GroupedListRowState extends State<GroupedListRow> {
 
     Widget row = AnimatedContainer(
       duration: const Duration(milliseconds: 90),
-      color: widget.background ??
+      color:
+          widget.background ??
           (widget.selected || _hovered
               ? palette.surfaceRaised
               : Colors.transparent),
@@ -229,8 +230,7 @@ class _GroupedListRowState extends State<GroupedListRow> {
     }
 
     return FocusableActionDetector(
-      mouseCursor:
-          interactive ? SystemMouseCursors.click : MouseCursor.defer,
+      mouseCursor: interactive ? SystemMouseCursors.click : MouseCursor.defer,
       descendantsAreFocusable: true,
       onShowHoverHighlight: (v) => setState(() => _hovered = v),
       onShowFocusHighlight: (v) => setState(() => _focused = v),

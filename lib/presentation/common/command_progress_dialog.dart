@@ -52,14 +52,17 @@ class _CommandProgressDialogState extends State<_CommandProgressDialog> {
       // start() itself failed (e.g. executable missing) — surface and close.
       if (mounted) {
         Navigator.of(context).pop(false);
-        await displayInfoBar(context, builder: (context, close) {
-          return InfoBar(
-            title: const Text('Failed to start'),
-            content: Text('$e'),
-            severity: InfoBarSeverity.error,
-            onClose: close,
-          );
-        });
+        await displayInfoBar(
+          context,
+          builder: (context, close) {
+            return InfoBar(
+              title: const Text('Failed to start'),
+              content: Text('$e'),
+              severity: InfoBarSeverity.error,
+              onClose: close,
+            );
+          },
+        );
       }
     }
   }
@@ -76,10 +79,15 @@ class _CommandProgressDialogState extends State<_CommandProgressDialog> {
               if (state.running)
                 AppLoader(size: AppLoaderSize.small)
               else if (state.isSuccess)
-                const Icon(FluentIcons.completed_solid,
-                    color: AppColors.statusOk)
+                Icon(
+                  FluentIcons.completed_solid,
+                  color: AppPalette.of(context).statusOk,
+                )
               else
-                const Icon(FluentIcons.error_badge, color: AppColors.statusError),
+                Icon(
+                  FluentIcons.error_badge,
+                  color: AppPalette.of(context).statusError,
+                ),
             ],
           ),
           content: const CommandLogView(),

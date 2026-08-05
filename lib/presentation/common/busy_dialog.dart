@@ -52,16 +52,19 @@ class _BusyDialogState extends State<_BusyDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.title,
-                      style: FluentTheme.of(context).typography.bodyStrong),
+                  Text(
+                    widget.title,
+                    style: FluentTheme.of(context).typography.bodyStrong,
+                  ),
                   if (widget.message != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       widget.message!,
-                      style: FluentTheme.of(context).typography.caption?.copyWith(
-                            color: FluentTheme.of(context)
-                                .resources
-                                .textFillColorSecondary,
+                      style: FluentTheme.of(context).typography.caption
+                          ?.copyWith(
+                            color: FluentTheme.of(
+                              context,
+                            ).resources.textFillColorSecondary,
                           ),
                     ),
                   ],

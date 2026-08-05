@@ -60,7 +60,9 @@ class SkeletonLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final line = SkeletonBox(width: width, height: height, radius: height / 2);
-    return width == null ? line : Align(alignment: Alignment.centerLeft, child: line);
+    return width == null
+        ? line
+        : Align(alignment: Alignment.centerLeft, child: line);
   }
 }
 

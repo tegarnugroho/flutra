@@ -53,27 +53,31 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
 
   Future<void> _openCreateWindow() async {
     final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
-    await WindowController.create(WindowConfiguration(
-      arguments: jsonEncode({
-        'businessId': kCreateEmulatorWindow,
-        'dark': dark,
-      }),
-      // Show immediately from native so visibility doesn't depend on
-      // window_manager being available.
-      hiddenAtLaunch: false,
-    ));
+    await WindowController.create(
+      WindowConfiguration(
+        arguments: jsonEncode({
+          'businessId': kCreateEmulatorWindow,
+          'dark': dark,
+        }),
+        // Show immediately from native so visibility doesn't depend on
+        // window_manager being available.
+        hiddenAtLaunch: false,
+      ),
+    );
   }
 
   Future<void> _openConsoleWindow(Avd avd) async {
     final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
-    await WindowController.create(WindowConfiguration(
-      arguments: jsonEncode({
-        'businessId': kEmulatorConsoleWindow,
-        'dark': dark,
-        'avd': avd.name,
-      }),
-      hiddenAtLaunch: false,
-    ));
+    await WindowController.create(
+      WindowConfiguration(
+        arguments: jsonEncode({
+          'businessId': kEmulatorConsoleWindow,
+          'dark': dark,
+          'avd': avd.name,
+        }),
+        hiddenAtLaunch: false,
+      ),
+    );
   }
 
   @override
@@ -100,18 +104,21 @@ class _EmulatorManagerView extends StatelessWidget {
       listenWhen: (prev, curr) =>
           curr.errorMessage != null && prev.errorMessage != curr.errorMessage,
       listener: (context, state) {
-        displayInfoBar(context, builder: (context, close) {
-          return InfoBar(
-            title: const Text('Error'),
-            content: Text(state.errorMessage!),
-            severity: InfoBarSeverity.error,
-            isLong: true,
-            onClose: () {
-              close();
-              context.read<EmulatorListCubit>().clearError();
-            },
-          );
-        });
+        displayInfoBar(
+          context,
+          builder: (context, close) {
+            return InfoBar(
+              title: const Text('Error'),
+              content: Text(state.errorMessage!),
+              severity: InfoBarSeverity.error,
+              isLong: true,
+              onClose: () {
+                close();
+                context.read<EmulatorListCubit>().clearError();
+              },
+            );
+          },
+        );
       },
       builder: (context, state) {
         final cubit = context.read<EmulatorListCubit>();
@@ -206,11 +213,15 @@ class _EmulatorManagerView extends StatelessWidget {
   }
 
   Future<void> _confirmWipe(
-      BuildContext context, EmulatorListCubit cubit, Avd avd) async {
+    BuildContext context,
+    EmulatorListCubit cubit,
+    Avd avd,
+  ) async {
     final ok = await showConfirmDialog(
       context,
       title: 'Wipe "${avd.name}"?',
-      message: 'This clears all user data and snapshots. The emulator will '
+      message:
+          'This clears all user data and snapshots. The emulator will '
           'boot fresh next time. This cannot be undone.',
       confirmLabel: 'Wipe data',
     );
@@ -218,7 +229,10 @@ class _EmulatorManagerView extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, EmulatorListCubit cubit, Avd avd) async {
+    BuildContext context,
+    EmulatorListCubit cubit,
+    Avd avd,
+  ) async {
     final ok = await showConfirmDialog(
       context,
       title: 'Delete "${avd.name}"?',
@@ -229,7 +243,10 @@ class _EmulatorManagerView extends StatelessWidget {
   }
 
   Future<void> _promptDuplicate(
-      BuildContext context, EmulatorListCubit cubit, Avd avd) async {
+    BuildContext context,
+    EmulatorListCubit cubit,
+    Avd avd,
+  ) async {
     final name = await showTextPromptDialog(
       context,
       title: 'Duplicate "${avd.name}"',

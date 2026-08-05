@@ -18,8 +18,10 @@ class AppBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        border:
-            Border.all(color: palette.borderStrong, width: AppShape.hairline),
+        border: Border.all(
+          color: palette.borderStrong,
+          width: AppShape.hairline,
+        ),
       ),
       child: Text(text, style: AppTextStyles.of(context).badge),
     );

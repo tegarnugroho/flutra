@@ -69,19 +69,23 @@ class _DoctorProgressBarState extends State<DoctorProgressBar> {
                   decoration: BoxDecoration(
                     color: palette.border,
                     borderRadius: BorderRadius.circular(
-                        DoctorAnimations.progressHeight),
+                      DoctorAnimations.progressHeight,
+                    ),
                   ),
                   child: const SizedBox(width: double.infinity),
                 ),
                 AnimatedContainer(
-                  duration:
-                      DoctorAnimations.scale(context, DoctorAnimations.progress),
+                  duration: DoctorAnimations.scale(
+                    context,
+                    DoctorAnimations.progress,
+                  ),
                   curve: DoctorAnimations.progressCurve,
                   width: constraints.maxWidth * value,
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.circular(
-                        DoctorAnimations.progressHeight),
+                      DoctorAnimations.progressHeight,
+                    ),
                   ),
                 ),
               ],

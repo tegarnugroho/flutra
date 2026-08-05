@@ -160,7 +160,10 @@ class _AppLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(left: hasLeading ? 8 : 12, right: 4),
-      child: const Text('Flutter SDK Manager', style: AppTextStyles.of(context).titleBar),
+      child: Text(
+        'Flutter SDK Manager',
+        style: AppTextStyles.of(context).titleBar,
+      ),
     );
   }
 }
@@ -204,7 +207,7 @@ class _TitleBarActionButtonState extends State<TitleBarActionButton> {
     if (!_enabled) {
       background = Colors.transparent;
     } else if (_pressed) {
-      background = AppColors.captionPressed;
+      background = palette.captionPressed;
     } else if (_hovered || widget.isActive) {
       background = palette.surfaceRaised;
     } else {
@@ -274,13 +277,13 @@ class _CaptionButtonState extends State<_CaptionButton> {
   bool _hovered = false;
   bool _pressed = false;
 
-  Color get _background {
+  Color _background(AppPalette palette) {
     if (widget.isClose) {
-      if (_pressed) return AppColors.captionClosePressed;
-      if (_hovered) return AppColors.captionCloseHover;
+      if (_pressed) return palette.captionClosePressed;
+      if (_hovered) return palette.captionCloseHover;
     } else {
-      if (_pressed) return AppColors.captionPressed;
-      if (_hovered) return AppColors.surfaceRaised;
+      if (_pressed) return palette.captionPressed;
+      if (_hovered) return palette.captionHover;
     }
     return Colors.transparent;
   }
@@ -308,14 +311,16 @@ class _CaptionButtonState extends State<_CaptionButton> {
           child: Container(
             width: _kCaptionButtonWidth,
             height: kTitleBarHeight,
-            color: _background,
+            color: _background(palette),
             alignment: Alignment.center,
             // 10px is the design size of the Segoe chrome glyphs; larger and
             // they stop reading as caption controls.
             child: Icon(
               widget.icon,
               size: 10,
-              color: onRed ? Colors.white : palette.textSecondary,
+              color: onRed
+                  ? palette.captionCloseForeground
+                  : palette.textSecondary,
             ),
           ),
         ),

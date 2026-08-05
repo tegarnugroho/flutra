@@ -39,15 +39,23 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 24,
-                color: isError ? palette.statusError : palette.textSecondary),
+            Icon(
+              icon,
+              size: 24,
+              color: isError ? palette.statusError : palette.textSecondary,
+            ),
             const SizedBox(height: 14),
-            Text(title,
-                textAlign: TextAlign.center, style: AppTextStyles.of(context).heroTitle),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.of(context).heroTitle,
+            ),
             const SizedBox(height: 6),
-            Text(message,
-                textAlign: TextAlign.center, style: AppTextStyles.of(context).caption),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.of(context).caption,
+            ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 18),
               OutlinedActionButton(

@@ -55,10 +55,7 @@ class _AvdRowState extends State<AvdRow> {
       icon: _deviceIcon(avd),
       title: avd.name,
       secondary: _meta(avd).isEmpty ? null : _meta(avd).join(' · '),
-      trailing: [
-        if (widget.busy)
-          AppLoader(size: AppLoaderSize.small),
-      ],
+      trailing: [if (widget.busy) AppLoader(size: AppLoaderSize.small)],
       hoverActions: [
         if (!widget.busy) ...[
           if (avd.isRunning)
@@ -90,13 +87,13 @@ class _AvdRowState extends State<AvdRow> {
   }
 
   static List<String> _meta(Avd avd) => <String>[
-        if (avd.deviceName != null || avd.deviceId != null)
-          avd.deviceName ?? avd.deviceId!,
-        if (avd.apiLevel != null) 'API ${avd.apiLevel}',
-        if (avd.androidVersion != null) 'Android ${avd.androidVersion}',
-        if (avd.tag != null) avd.tag!,
-        if (avd.abi != null) avd.abi!,
-      ];
+    if (avd.deviceName != null || avd.deviceId != null)
+      avd.deviceName ?? avd.deviceId!,
+    if (avd.apiLevel != null) 'API ${avd.apiLevel}',
+    if (avd.androidVersion != null) 'Android ${avd.androidVersion}',
+    if (avd.tag != null) avd.tag!,
+    if (avd.abi != null) avd.abi!,
+  ];
 
   static IconData _deviceIcon(Avd avd) {
     if (avd.deviceId?.contains('tv') == true) return FluentIcons.t_v_monitor;
@@ -137,10 +134,15 @@ class _AvdRowState extends State<AvdRow> {
               onPressed: avd.isRunning ? null : () => run(widget.onWipe),
             ),
             MenuFlyoutItem(
-              leading: const Icon(FluentIcons.delete,
-                  size: 14, color: AppColors.statusError),
-              text: const Text('Delete',
-                  style: TextStyle(color: AppColors.statusError)),
+              leading: Icon(
+                FluentIcons.delete,
+                size: 14,
+                color: AppPalette.of(context).statusError,
+              ),
+              text: Text(
+                'Delete',
+                style: TextStyle(color: AppPalette.of(context).statusError),
+              ),
               onPressed: avd.isRunning ? null : () => run(widget.onDelete),
             ),
           ],

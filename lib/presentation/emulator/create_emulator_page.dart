@@ -75,7 +75,8 @@ class _CreateEmulatorView extends StatelessWidget {
             return const _CenteredMessage(
               icon: FluentIcons.download,
               title: 'No system images installed',
-              message: 'Install at least one system image from the SDK Manager '
+              message:
+                  'Install at least one system image from the SDK Manager '
                   '(e.g. "system-images;android-34;google_apis;x86_64") before '
                   'creating an emulator.',
             );
@@ -171,8 +172,9 @@ class _StepIndicator extends StatelessWidget {
   Widget _dot(FluentThemeData theme, WizardStep step) {
     final done = step.index < current.index;
     final active = step == current;
-    final color =
-        active || done ? theme.accentColor : theme.resources.controlStrokeColorDefault;
+    final color = active || done
+        ? theme.accentColor
+        : theme.resources.controlStrokeColorDefault;
     return GestureDetector(
       onTap: step.index <= current.index ? () => onTap(step) : null,
       child: Column(
@@ -186,30 +188,37 @@ class _StepIndicator extends StatelessWidget {
               color: active
                   ? theme.accentColor
                   : done
-                      ? theme.accentColor.withValues(alpha: 0.2)
-                      : Colors.transparent,
+                  ? theme.accentColor.withValues(alpha: 0.2)
+                  : Colors.transparent,
               border: Border.all(color: color, width: 1.5),
             ),
             child: Center(
               child: done
-                  ? Icon(FluentIcons.check_mark,
-                      size: 12, color: active ? Colors.white : theme.accentColor)
-                  : Text('${step.index + 1}',
+                  ? Icon(
+                      FluentIcons.check_mark,
+                      size: 12,
+                      color: active ? Colors.white : theme.accentColor,
+                    )
+                  : Text(
+                      '${step.index + 1}',
                       style: TextStyle(
                         fontSize: 12,
                         color: active
                             ? Colors.white
                             : theme.resources.textFillColorSecondary,
-                      )),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(step.title,
-              style: theme.typography.caption?.copyWith(
-                color: active
-                    ? theme.accentColor
-                    : theme.resources.textFillColorTertiary,
-              )),
+          Text(
+            step.title,
+            style: theme.typography.caption?.copyWith(
+              color: active
+                  ? theme.accentColor
+                  : theme.resources.textFillColorTertiary,
+            ),
+          ),
         ],
       ),
     );
@@ -256,8 +265,10 @@ class _DeviceStep extends StatelessWidget {
         for (final category in categories) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: Text(category.label,
-                style: FluentTheme.of(context).typography.bodyStrong),
+            child: Text(
+              category.label,
+              style: FluentTheme.of(context).typography.bodyStrong,
+            ),
           ),
           Wrap(
             spacing: 10,
@@ -282,13 +293,13 @@ class _DeviceStep extends StatelessWidget {
   }
 
   IconData _iconFor(DeviceCategory c) => switch (c) {
-        DeviceCategory.phone => FluentIcons.cell_phone,
-        DeviceCategory.tablet => FluentIcons.tablet,
-        DeviceCategory.foldable => FluentIcons.devices3,
-        DeviceCategory.wear => FluentIcons.circle_ring,
-        DeviceCategory.tv => FluentIcons.t_v_monitor,
-        DeviceCategory.automotive => FluentIcons.car,
-      };
+    DeviceCategory.phone => FluentIcons.cell_phone,
+    DeviceCategory.tablet => FluentIcons.tablet,
+    DeviceCategory.foldable => FluentIcons.devices3,
+    DeviceCategory.wear => FluentIcons.circle_ring,
+    DeviceCategory.tv => FluentIcons.t_v_monitor,
+    DeviceCategory.automotive => FluentIcons.car,
+  };
 }
 
 // ---- Step 2: API level ------------------------------------------------------
@@ -319,15 +330,15 @@ class _ApiStep extends StatelessWidget {
   }
 
   String _codeName(int api) => switch (api) {
-        36 => 'Android 16',
-        35 => 'Android 15 (VanillaIceCream)',
-        34 => 'Android 14 (UpsideDownCake)',
-        33 => 'Android 13 (Tiramisu)',
-        32 || 31 => 'Android 12 (S)',
-        30 => 'Android 11 (R)',
-        29 => 'Android 10 (Q)',
-        _ => 'API level $api',
-      };
+    36 => 'Android 16',
+    35 => 'Android 15 (VanillaIceCream)',
+    34 => 'Android 14 (UpsideDownCake)',
+    33 => 'Android 13 (Tiramisu)',
+    32 || 31 => 'Android 12 (S)',
+    30 => 'Android 11 (R)',
+    29 => 'Android 10 (Q)',
+    _ => 'API level $api',
+  };
 }
 
 // ---- Step 3: image tag ------------------------------------------------------
@@ -349,8 +360,8 @@ class _ImageStep extends StatelessWidget {
               icon: tag.contains('playstore')
                   ? FluentIcons.shop
                   : tag.contains('google')
-                      ? FluentIcons.cloud
-                      : FluentIcons.app_icon_default,
+                  ? FluentIcons.cloud
+                  : FluentIcons.app_icon_default,
               title: _label(state, tag),
               subtitle: tag,
               selected: state.tag == tag,
@@ -365,7 +376,12 @@ class _ImageStep extends StatelessWidget {
     final match = state.images.firstWhere(
       (i) => i.apiLevel == state.apiLevel && i.tag == tag,
       orElse: () => SystemImage(
-          packagePath: '', platform: '', apiLevel: 0, tag: tag, abi: ''),
+        packagePath: '',
+        platform: '',
+        apiLevel: 0,
+        tag: tag,
+        abi: '',
+      ),
     );
     return match.tagLabel;
   }
@@ -426,8 +442,7 @@ class _ConfigureStepState extends State<_ConfigureStep> {
   void didUpdateWidget(covariant _ConfigureStep oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Sync externally-suggested names in, but don't fight the user while typing.
-    if (!_nameFocus.hasFocus &&
-        widget.state.name != _nameController.text) {
+    if (!_nameFocus.hasFocus && widget.state.name != _nameController.text) {
       _nameController.text = widget.state.name;
     }
   }
@@ -577,13 +592,17 @@ class _ConfigureStepState extends State<_ConfigureStep> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                      width: 110,
-                      child: Text(row.$1,
-                          style: theme.typography.caption?.copyWith(
-                            color: theme.resources.textFillColorSecondary,
-                          ))),
+                    width: 110,
+                    child: Text(
+                      row.$1,
+                      style: theme.typography.caption?.copyWith(
+                        color: theme.resources.textFillColorSecondary,
+                      ),
+                    ),
+                  ),
                   Expanded(
-                      child: Text(row.$2, style: theme.typography.caption)),
+                    child: Text(row.$2, style: theme.typography.caption),
+                  ),
                 ],
               ),
             ),
@@ -609,7 +628,8 @@ class _WizardFooter extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-              color: FluentTheme.of(context).resources.controlStrokeColorDefault),
+            color: FluentTheme.of(context).resources.controlStrokeColorDefault,
+          ),
         ),
       ),
       child: Row(
@@ -618,7 +638,7 @@ class _WizardFooter extends StatelessWidget {
             Expanded(
               child: Text(
                 state.errorMessage!,
-                style: const TextStyle(color: AppColors.statusError),
+                style: TextStyle(color: AppPalette.of(context).statusError),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -632,8 +652,9 @@ class _WizardFooter extends StatelessWidget {
           const SizedBox(width: 10),
           if (isLast)
             FilledButton(
-              onPressed:
-                  state.canAdvance && !state.submitting ? cubit.submit : null,
+              onPressed: state.canAdvance && !state.submitting
+                  ? cubit.submit
+                  : null,
               child: state.submitting
                   ? const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -680,11 +701,13 @@ class _CenteredMessage extends StatelessWidget {
             const SizedBox(height: 14),
             Text(title, style: theme.typography.subtitle),
             const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: theme.typography.body?.copyWith(
-                  color: theme.resources.textFillColorSecondary,
-                )),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.typography.body?.copyWith(
+                color: theme.resources.textFillColorSecondary,
+              ),
+            ),
           ],
         ),
       ),

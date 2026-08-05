@@ -98,7 +98,10 @@ class _LoadingSwitcherState extends State<LoadingSwitcher> {
         children: [...previousChildren, ?currentChild],
       ),
       child: _showing
-          ? KeyedSubtree(key: const ValueKey('skeleton'), child: widget.skeleton)
+          ? KeyedSubtree(
+              key: const ValueKey('skeleton'),
+              child: widget.skeleton,
+            )
           : KeyedSubtree(
               key: const ValueKey('content'),
               child: widget.builder(context),

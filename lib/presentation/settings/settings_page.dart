@@ -71,11 +71,17 @@ class _SettingsView extends StatelessWidget {
                           value: settings.themeMode,
                           items: const [
                             CompactComboItem(
-                                value: ThemeMode.system, label: 'System'),
+                              value: ThemeMode.system,
+                              label: 'System',
+                            ),
                             CompactComboItem(
-                                value: ThemeMode.light, label: 'Light'),
+                              value: ThemeMode.light,
+                              label: 'Light',
+                            ),
                             CompactComboItem(
-                                value: ThemeMode.dark, label: 'Dark'),
+                              value: ThemeMode.dark,
+                              label: 'Dark',
+                            ),
                           ],
                           onChanged: cubit.setThemeMode,
                         ),
@@ -92,9 +98,11 @@ class _SettingsView extends StatelessWidget {
                       children: [
                         _PathSetting(
                           label: 'Android SDK',
-                          description: 'Override the auto-detected SDK '
+                          description:
+                              'Override the auto-detected SDK '
                               'location. Leave empty to auto-detect.',
-                          placeholder: r'e.g. C:\Users\you\AppData\Local'
+                          placeholder:
+                              r'e.g. C:\Users\you\AppData\Local'
                               r'\Android\Sdk',
                           path: settings.androidSdkPath,
                           resolved: detected.androidSdk,
@@ -103,7 +111,8 @@ class _SettingsView extends StatelessWidget {
                         ),
                         _PathSetting(
                           label: 'Flutter SDK',
-                          description: 'Point at a specific Flutter checkout. '
+                          description:
+                              'Point at a specific Flutter checkout. '
                               'Leave empty to use the one on your PATH.',
                           placeholder: r'e.g. C:\Dev\SDK\flutter',
                           path: settings.flutterSdkPath,
@@ -120,7 +129,8 @@ class _SettingsView extends StatelessWidget {
                         ),
                         _PathSetting(
                           label: 'API base URL',
-                          description: 'Base URL for the settings API — '
+                          description:
+                              'Base URL for the settings API — '
                               'addresses come from '
                               '"<base>/api/settings/addresses".',
                           placeholder: 'e.g. https://api.example.com',
@@ -138,7 +148,8 @@ class _SettingsView extends StatelessWidget {
                   children: [
                     GroupedListRow(
                       title: 'Run at startup',
-                      subtitle: 'Launch Flutter SDK Manager when you sign in '
+                      subtitle:
+                          'Launch Flutter SDK Manager when you sign in '
                           'to Windows.',
                       trailing: [
                         AppToggle(
@@ -149,7 +160,8 @@ class _SettingsView extends StatelessWidget {
                     ),
                     GroupedListRow(
                       title: 'Close to system tray',
-                      subtitle: 'Hide to the tray on close instead of '
+                      subtitle:
+                          'Hide to the tray on close instead of '
                           'quitting. Right-click the tray icon to exit.',
                       trailing: [
                         AppToggle(
@@ -160,7 +172,8 @@ class _SettingsView extends StatelessWidget {
                     ),
                     GroupedListRow(
                       title: 'Stop all Flutter and Dart processes',
-                      subtitle: 'Force-kills every running dart/flutter '
+                      subtitle:
+                          'Force-kills every running dart/flutter '
                           'process — frees a locked SDK (also stops the IDE '
                           'analyzer).',
                       trailing: [
@@ -181,7 +194,8 @@ class _SettingsView extends StatelessWidget {
                   children: [
                     GroupedListRow(
                       title: 'Developer mode',
-                      subtitle: 'Capture every command/request in an in-app '
+                      subtitle:
+                          'Capture every command/request in an in-app '
                           'log viewer for debugging.',
                       trailing: [
                         AppToggle(
@@ -193,7 +207,8 @@ class _SettingsView extends StatelessWidget {
                     if (settings.developerMode)
                       GroupedListRow(
                         title: 'Request log',
-                        subtitle: 'Opens the captured command and request log '
+                        subtitle:
+                            'Opens the captured command and request log '
                             'in its own window.',
                         trailing: [
                           OutlinedActionButton(
@@ -224,24 +239,31 @@ Future<void> _stopProcesses(BuildContext context) async {
   final ok = await showConfirmDialog(
     context,
     title: 'Stop all Flutter and Dart processes?',
-    message: 'This force-kills every running dart/flutter process, including '
+    message:
+        'This force-kills every running dart/flutter process, including '
         "your IDE's analysis server. Use it to free a locked SDK.",
     confirmLabel: 'Stop all',
   );
   if (!ok || !context.mounted) return;
   final killed = await getIt<ProcessService>().stopFlutterAndDart();
   if (!context.mounted) return;
-  await displayInfoBar(context, builder: (context, close) {
-    return InfoBar(
-      title:
-          Text(killed > 0 ? 'Stopped $killed process(es)' : 'Nothing running'),
-      content: Text(killed > 0
-          ? 'All Flutter/Dart processes were terminated.'
-          : 'No Flutter/Dart processes were running.'),
-      severity: killed > 0 ? InfoBarSeverity.success : InfoBarSeverity.info,
-      onClose: close,
-    );
-  });
+  await displayInfoBar(
+    context,
+    builder: (context, close) {
+      return InfoBar(
+        title: Text(
+          killed > 0 ? 'Stopped $killed process(es)' : 'Nothing running',
+        ),
+        content: Text(
+          killed > 0
+              ? 'All Flutter/Dart processes were terminated.'
+              : 'No Flutter/Dart processes were running.',
+        ),
+        severity: killed > 0 ? InfoBarSeverity.success : InfoBarSeverity.info,
+        onClose: close,
+      );
+    },
+  );
 }
 
 /// Fetches and lists addresses from the settings API.
@@ -281,7 +303,7 @@ class _AddressesSection extends StatelessWidget {
                   ),
                   if (state.status == AddressStatus.failure)
                     GroupedListRow(
-                      statusColor: AppColors.statusError,
+                      statusColor: AppPalette.of(context).statusError,
                       showStatusSlot: true,
                       title: 'Could not load addresses',
                       subtitle: state.errorMessage ?? 'Unknown error.',
@@ -314,10 +336,12 @@ class _AddressRow extends StatelessWidget {
       titleWidget: Row(
         children: [
           Flexible(
-            child: Text(address.label,
-                style: AppTextStyles.of(context).rowTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
+            child: Text(
+              address.label,
+              style: AppTextStyles.of(context).rowTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(width: 8),
           AppBadge(address.type),
@@ -335,10 +359,12 @@ class _AddressRow extends StatelessWidget {
 /// Opens the Developer Logs as a separate OS window.
 Future<void> openDevLogsWindow() async {
   final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
-  await WindowController.create(WindowConfiguration(
-    arguments: jsonEncode({'businessId': kDevLogsWindow, 'dark': dark}),
-    hiddenAtLaunch: false,
-  ));
+  await WindowController.create(
+    WindowConfiguration(
+      arguments: jsonEncode({'businessId': kDevLogsWindow, 'dark': dark}),
+      hiddenAtLaunch: false,
+    ),
+  );
 }
 
 /// A path override: description, editable value and apply/auto actions.
@@ -458,7 +484,9 @@ class _PathValue extends StatelessWidget {
       return Text(
         // A quiet ellipsis while resolving, an em dash when there is nothing.
         loading ? '\u2026' : '\u2014',
-        style: AppTextStyles.of(context).monoPath.copyWith(color: palette.textMuted),
+        style: AppTextStyles.of(
+          context,
+        ).monoPath.copyWith(color: palette.textMuted),
       );
     }
     return Row(

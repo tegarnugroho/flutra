@@ -27,8 +27,9 @@ Future<bool> showConfirmDialog(
         FilledButton(
           style: destructive
               ? ButtonStyle(
-                  backgroundColor:
-                      WidgetStateProperty.all(AppColors.statusError),
+                  backgroundColor: WidgetStateProperty.all(
+                    AppColors.statusError,
+                  ),
                   foregroundColor: WidgetStateProperty.all(Colors.white),
                 )
               : null,

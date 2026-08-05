@@ -38,17 +38,19 @@ class LicenseManagerPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Accept SDK licenses',
-                      style: AppTextStyles.of(context).heroTitle),
+                  Text(
+                    'Accept SDK licenses',
+                    style: AppTextStyles.of(context).heroTitle,
+                  ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Before you can install most SDK packages, Google requires '
                     'you to accept their licenses. "Accept all" runs '
                     '"sdkmanager --licenses" and answers yes to every prompt.',
                     style: AppTextStyles.of(context).statusLine,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     'One-time step — you only need this once per SDK, or after '
                     'installing new package types.',
                     style: AppTextStyles.of(context).caption,
@@ -75,14 +77,17 @@ class LicenseManagerPage extends StatelessWidget {
       start: () => getIt<SdkRepository>().acceptAllLicenses(),
     );
     if (ok && context.mounted) {
-      await displayInfoBar(context, builder: (context, close) {
-        return InfoBar(
-          title: const Text('Licenses accepted'),
-          content: const Text('All SDK licenses were accepted.'),
-          severity: InfoBarSeverity.success,
-          onClose: close,
-        );
-      });
+      await displayInfoBar(
+        context,
+        builder: (context, close) {
+          return InfoBar(
+            title: const Text('Licenses accepted'),
+            content: const Text('All SDK licenses were accepted.'),
+            severity: InfoBarSeverity.success,
+            onClose: close,
+          );
+        },
+      );
     }
   }
 }

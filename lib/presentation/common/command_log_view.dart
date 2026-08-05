@@ -41,7 +41,7 @@ class _CommandLogViewState extends State<CommandLogView> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.logBg,
+        color: palette.logBg,
         borderRadius: BorderRadius.circular(AppShape.radiusGroup),
         border: Border.all(color: palette.border, width: AppShape.hairline),
       ),
@@ -49,8 +49,11 @@ class _CommandLogViewState extends State<CommandLogView> {
         builder: (context, state) {
           _autoScroll();
           if (state.lines.isEmpty && state.running) {
-            return const Center(
-              child: Text('Starting…', style: AppTextStyles.of(context).caption),
+            return Center(
+              child: Text(
+                'Starting…',
+                style: AppTextStyles.of(context).caption,
+              ),
             );
           }
           return ListView.builder(

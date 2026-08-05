@@ -36,18 +36,21 @@ class _DeviceManagerView extends StatelessWidget {
       listenWhen: (p, c) =>
           c.errorMessage != null && p.errorMessage != c.errorMessage,
       listener: (context, state) {
-        displayInfoBar(context, builder: (context, close) {
-          return InfoBar(
-            title: const Text('Error'),
-            content: Text(state.errorMessage!),
-            severity: InfoBarSeverity.error,
-            isLong: true,
-            onClose: () {
-              close();
-              context.read<DeviceManagerCubit>().clearError();
-            },
-          );
-        });
+        displayInfoBar(
+          context,
+          builder: (context, close) {
+            return InfoBar(
+              title: const Text('Error'),
+              content: Text(state.errorMessage!),
+              severity: InfoBarSeverity.error,
+              isLong: true,
+              onClose: () {
+                close();
+                context.read<DeviceManagerCubit>().clearError();
+              },
+            );
+          },
+        );
       },
       builder: (context, state) {
         final cubit = context.read<DeviceManagerCubit>();
@@ -98,7 +101,8 @@ class _DeviceManagerView extends StatelessWidget {
       return EmptyState(
         icon: FluentIcons.plug_disconnected,
         title: 'No devices connected',
-        message: 'Connect a device over USB (with USB debugging on) or start '
+        message:
+            'Connect a device over USB (with USB debugging on) or start '
             'an emulator, then refresh.',
         actionLabel: 'Refresh',
         onAction: cubit.load,
@@ -135,22 +139,31 @@ class _DeviceManagerView extends StatelessWidget {
   }
 
   Future<void> _screenshot(
-      BuildContext context, DeviceManagerCubit cubit, Device device) async {
+    BuildContext context,
+    DeviceManagerCubit cubit,
+    Device device,
+  ) async {
     final path = await cubit.screenshot(device);
     if (path == null || !context.mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: const Text('Screenshot saved'),
-        content: Text(path),
-        severity: InfoBarSeverity.success,
-        isLong: true,
-        onClose: close,
-      );
-    });
+    await displayInfoBar(
+      context,
+      builder: (context, close) {
+        return InfoBar(
+          title: const Text('Screenshot saved'),
+          content: Text(path),
+          severity: InfoBarSeverity.success,
+          isLong: true,
+          onClose: close,
+        );
+      },
+    );
   }
 
   Future<void> _installApk(
-      BuildContext context, DeviceManagerCubit cubit, Device device) async {
+    BuildContext context,
+    DeviceManagerCubit cubit,
+    Device device,
+  ) async {
     final path = await showTextPromptDialog(
       context,
       title: 'Install APK on ${device.displayName}',
@@ -165,8 +178,12 @@ class _DeviceManagerView extends StatelessWidget {
     );
   }
 
-  Future<void> _reboot(BuildContext context, DeviceManagerCubit cubit,
-      Device device, RebootTarget target) async {
+  Future<void> _reboot(
+    BuildContext context,
+    DeviceManagerCubit cubit,
+    Device device,
+    RebootTarget target,
+  ) async {
     final label = switch (target) {
       RebootTarget.system => 'reboot',
       RebootTarget.bootloader => 'reboot to bootloader',
@@ -183,7 +200,10 @@ class _DeviceManagerView extends StatelessWidget {
   }
 
   Future<void> _disconnect(
-      BuildContext context, DeviceManagerCubit cubit, Device device) async {
+    BuildContext context,
+    DeviceManagerCubit cubit,
+    Device device,
+  ) async {
     final emulator = device.isEmulator;
     final ok = await showConfirmDialog(
       context,

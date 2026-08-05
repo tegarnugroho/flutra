@@ -87,11 +87,7 @@ class _AppShellState extends State<AppShell> {
       label: 'Logcat',
       body: LogcatViewerPage(),
     ),
-    _Destination(
-      icon: FluentIcons.sync,
-      label: 'Updates',
-      body: UpdatesPage(),
-    ),
+    _Destination(icon: FluentIcons.sync, label: 'Updates', body: UpdatesPage()),
     _Destination(
       icon: FluentIcons.developer_tools,
       label: 'Flutter SDK',
@@ -117,8 +113,9 @@ class _AppShellState extends State<AppShell> {
   ];
 
   /// Pane index of the Settings destination, for the app menu's shortcut to it.
-  static final int _settingsIndex =
-      _destinations.indexWhere((d) => d.label == 'Settings');
+  static final int _settingsIndex = _destinations.indexWhere(
+    (d) => d.label == 'Settings',
+  );
 
   int _index = 0;
   bool _paneCollapsed = false;
@@ -248,11 +245,11 @@ class _AppShellState extends State<AppShell> {
 
   /// A nav destination: 15px icon, 12px sentence-case label, raised tile when
   /// active.
-  static PaneItem _item(_Destination destination) {
+  static PaneItem _item(_Destination destination, AppPalette palette) {
     return PaneItem(
       icon: Icon(destination.icon, size: 15),
       title: Text(destination.label),
-      selectedTileColor: WidgetStateProperty.all(AppColors.surfaceRaised),
+      selectedTileColor: WidgetStateProperty.all(palette.surfaceRaised),
       body: destination.body,
     );
   }
@@ -265,21 +262,26 @@ class _AppShellState extends State<AppShell> {
   static PaneItemWidgetAdapter _sectionLabel(String text) {
     return PaneItemWidgetAdapter(
       applyPadding: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
-        child: Text(text, style: AppTextStyles.of(context).sectionLabel),
+      // Built through a Builder so the label resolves its style from the
+      // active theme — this factory is static and has no context of its own.
+      child: Builder(
+        builder: (context) => Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 4),
+          child: Text(text, style: AppTextStyles.of(context).sectionLabel),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     final items = <NavigationPaneItem>[];
     for (final destination in _destinations.where((d) => !d.inFooter)) {
       if (destination.group != null) {
         items.add(_sectionLabel(destination.group!));
       }
-      items.add(_item(destination));
+      items.add(_item(destination, palette));
     }
 
     return NavigationView(
@@ -297,16 +299,17 @@ class _AppShellState extends State<AppShell> {
       ),
       // Hairline outline around the content area — this is what draws the
       // divider between the sidebar and the page.
-      contentShape: const RoundedRectangleBorder(
-        side: BorderSide(color: AppColors.border, width: AppShape.hairline),
+      contentShape: RoundedRectangleBorder(
+        side: BorderSide(color: palette.border, width: AppShape.hairline),
       ),
       pane: NavigationPane(
         selected: _index,
         onChanged: _go,
         // Collapsing pins the pane to icons-only; expanded stays adaptive, so a
         // narrow window still falls back to compact on its own.
-        displayMode:
-            _paneCollapsed ? PaneDisplayMode.compact : PaneDisplayMode.auto,
+        displayMode: _paneCollapsed
+            ? PaneDisplayMode.compact
+            : PaneDisplayMode.auto,
         // compactWidth is 2px over fluent's 50 default on purpose. A pane item
         // lays out at compactWidth minus its 12px margin, and while the pane
         // animates between compact and open it is briefly measured with the
@@ -318,11 +321,11 @@ class _AppShellState extends State<AppShell> {
         items: items,
         footerItems: [
           PaneItemSeparator(
-            color: AppColors.border,
+            color: palette.border,
             thickness: AppShape.hairline,
           ),
           for (final destination in _destinations.where((d) => d.inFooter))
-            _item(destination),
+            _item(destination, palette),
         ],
       ),
     );

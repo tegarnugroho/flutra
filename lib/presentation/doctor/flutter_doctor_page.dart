@@ -110,14 +110,17 @@ class _FlutterDoctorView extends StatelessWidget {
   Future<void> _copy(BuildContext context, String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    await displayInfoBar(context, builder: (context, close) {
-      return InfoBar(
-        title: const Text('Copied'),
-        content: const Text('Doctor output copied to clipboard.'),
-        severity: InfoBarSeverity.info,
-        onClose: close,
-      );
-    });
+    await displayInfoBar(
+      context,
+      builder: (context, close) {
+        return InfoBar(
+          title: const Text('Copied'),
+          content: const Text('Doctor output copied to clipboard.'),
+          severity: InfoBarSeverity.info,
+          onClose: close,
+        );
+      },
+    );
   }
 }
 
@@ -172,10 +175,10 @@ class _RunViewState extends State<_RunView> {
                   expanded: _expanded.contains(check.name),
                   onTap: check.isDone && check.canExpand
                       ? () => setState(() {
-                            _expanded.contains(check.name)
-                                ? _expanded.remove(check.name)
-                                : _expanded.add(check.name);
-                          })
+                          _expanded.contains(check.name)
+                              ? _expanded.remove(check.name)
+                              : _expanded.add(check.name);
+                        })
                       : null,
                 ),
             ],
@@ -209,7 +212,10 @@ class _StatusLine extends StatelessWidget {
         style: AppTextStyles.of(context).statusLine,
       );
     } else {
-      message = Text(_summary(state), style: AppTextStyles.of(context).statusLine);
+      message = Text(
+        _summary(state),
+        style: AppTextStyles.of(context).statusLine,
+      );
     }
 
     return Row(
@@ -218,7 +224,10 @@ class _StatusLine extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(child: message),
         const SizedBox(width: 12),
-        Text(_format(state.elapsed), style: AppTextStyles.of(context).monoValue),
+        Text(
+          _format(state.elapsed),
+          style: AppTextStyles.of(context).monoValue,
+        ),
       ],
     );
   }
@@ -292,23 +301,31 @@ class _CheckRow extends StatelessWidget {
         children: [
           _dot(),
           const SizedBox(width: 10),
-          Flexible(child: _title()),
+          Flexible(child: _title(palette)),
         ],
       ),
       trailing: [
         if (running)
           const RowSpinner()
         else if (check.elapsed != null)
-          Text(_format(check.elapsed!), style: AppTextStyles.of(context).monoValue),
+          Text(
+            _format(check.elapsed!),
+            style: AppTextStyles.of(context).monoValue,
+          ),
         if (check.isDone && check.canExpand)
           SizedBox(
             width: 13,
             child: AnimatedRotation(
               turns: expanded ? 0.5 : 0,
-              duration:
-                  DoctorAnimations.scale(context, DoctorAnimations.rowEnter),
-              child: Icon(FluentIcons.chevron_down,
-                  size: 13, color: palette.textMuted),
+              duration: DoctorAnimations.scale(
+                context,
+                DoctorAnimations.rowEnter,
+              ),
+              child: Icon(
+                FluentIcons.chevron_down,
+                size: 13,
+                color: palette.textMuted,
+              ),
             ),
           ),
       ],
@@ -347,14 +364,18 @@ class _CheckRow extends StatelessWidget {
     }
   }
 
-  Widget _title() {
+  Widget _title(AppPalette palette) {
+    final text = AppTextStyles.fromPalette(palette);
     if (check.phase == DoctorCheckPhase.running) {
       return Text.rich(
         TextSpan(
           text: check.name,
-          style: AppTextStyles.of(context).rowTitle,
-          children: const [
-            TextSpan(text: ' · checking', style: AppTextStyles.of(context).rowSecondary),
+          style: text.rowTitle,
+          children: [
+            TextSpan(
+              text: ' · checking',
+              style: text.rowSecondary,
+            ),
           ],
         ),
         maxLines: 1,
@@ -364,12 +385,12 @@ class _CheckRow extends StatelessWidget {
     return Text.rich(
       TextSpan(
         text: check.name,
-        style: AppTextStyles.of(context).rowTitle,
+        style: text.rowTitle,
         children: [
           if (check.summary != null)
             TextSpan(
               text: ' · ${check.summary}',
-              style: AppTextStyles.of(context).rowSecondary,
+              style: text.rowSecondary,
             ),
         ],
       ),
@@ -379,6 +400,7 @@ class _CheckRow extends StatelessWidget {
   }
 
   Widget _details(AppPalette palette) {
+    final text = AppTextStyles.fromPalette(palette);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 10, left: 16),
@@ -390,7 +412,7 @@ class _CheckRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final line in check.details)
-            SelectableText(line, style: AppTextStyles.of(context).monoBody),
+            SelectableText(line, style: text.monoBody),
         ],
       ),
     );

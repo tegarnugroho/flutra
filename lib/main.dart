@@ -104,19 +104,23 @@ Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
   // window_manager, so we don't touch it here. The window is shown by native
   // (hiddenAtLaunch: false) at its default size with a standard title bar.
   final controller = await WindowController.fromCurrentEngine();
-  runApp(CreateEmulatorWindowApp(
-    windowController: controller,
-    dark: args['dark'] == true,
-  ));
+  runApp(
+    CreateEmulatorWindowApp(
+      windowController: controller,
+      dark: args['dark'] == true,
+    ),
+  );
 }
 
 Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
   final controller = await WindowController.fromCurrentEngine();
-  runApp(EmulatorConsoleWindowApp(
-    windowController: controller,
-    dark: args['dark'] == true,
-    avdName: args['avd'] as String? ?? '',
-  ));
+  runApp(
+    EmulatorConsoleWindowApp(
+      windowController: controller,
+      dark: args['dark'] == true,
+      avdName: args['avd'] as String? ?? '',
+    ),
+  );
 }
 
 /// Removes the native caption so [CustomTitleBar] can draw it instead.
@@ -141,8 +145,9 @@ Future<void> _restoreWindowBounds() async {
   final s = getIt<SettingsService>().settings;
   if (!s.hasWindowBounds) return;
   try {
-    await windowManager.setBounds(Rect.fromLTWH(
-        s.windowX!, s.windowY!, s.windowWidth!, s.windowHeight!));
+    await windowManager.setBounds(
+      Rect.fromLTWH(s.windowX!, s.windowY!, s.windowWidth!, s.windowHeight!),
+    );
   } on MissingPluginException catch (_) {
     // window_manager unavailable — keep native default bounds.
   } catch (_) {}
@@ -150,10 +155,9 @@ Future<void> _restoreWindowBounds() async {
 
 Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {
   final controller = await WindowController.fromCurrentEngine();
-  runApp(DevLogsWindowApp(
-    windowController: controller,
-    dark: args['dark'] == true,
-  ));
+  runApp(
+    DevLogsWindowApp(windowController: controller, dark: args['dark'] == true),
+  );
 }
 
 void _setupLogging() {

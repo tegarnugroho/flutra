@@ -9,12 +9,12 @@ import '../../theme/app_text_styles.dart';
 
 /// Maps a detected [ToolState] onto a semantic status token.
 Color statusColorOf(ToolState state, AppPalette palette) => switch (state) {
-      ToolState.installed => palette.statusOk,
-      ToolState.needsUpdate => palette.statusWarn,
-      ToolState.missing => palette.statusError,
-      ToolState.error => palette.statusError,
-      ToolState.checking => palette.textMuted,
-    };
+  ToolState.installed => palette.statusOk,
+  ToolState.needsUpdate => palette.statusWarn,
+  ToolState.missing => palette.statusError,
+  ToolState.error => palette.statusError,
+  ToolState.checking => palette.textMuted,
+};
 
 /// The toolchain as a single dense row list: icon, name, inline detail,
 /// right-aligned version and a status dot.
@@ -70,7 +70,11 @@ class _ToolchainRowState extends State<ToolchainRow> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Row(
           children: [
-            Icon(_kindIcon(status.kind), size: 16, color: palette.textSecondary),
+            Icon(
+              _kindIcon(status.kind),
+              size: 16,
+              color: palette.textSecondary,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text.rich(
@@ -110,10 +114,10 @@ class _ToolchainRowState extends State<ToolchainRow> {
   }
 
   static IconData _kindIcon(ToolKind kind) => switch (kind) {
-        ToolKind.sdk => FluentIcons.build_queue,
-        ToolKind.java => FluentIcons.coffee_script,
-        ToolKind.flutter => FluentIcons.developer_tools,
-        ToolKind.emulator => FluentIcons.cell_phone,
-        ToolKind.adb => FluentIcons.plug_connected,
-      };
+    ToolKind.sdk => FluentIcons.build_queue,
+    ToolKind.java => FluentIcons.coffee_script,
+    ToolKind.flutter => FluentIcons.developer_tools,
+    ToolKind.emulator => FluentIcons.cell_phone,
+    ToolKind.adb => FluentIcons.plug_connected,
+  };
 }

@@ -31,8 +31,7 @@ class _LiveLogViewState extends State<LiveLogView> {
 
   void _onScroll() {
     if (!_scroll.hasClients) return;
-    final atBottom =
-        _scroll.offset >= _scroll.position.maxScrollExtent - 40;
+    final atBottom = _scroll.offset >= _scroll.position.maxScrollExtent - 40;
     if (atBottom != _stickToBottom) {
       setState(() => _stickToBottom = atBottom);
     }
