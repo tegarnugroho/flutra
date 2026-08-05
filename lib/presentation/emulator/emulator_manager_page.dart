@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../application/emulator/emulator_events.dart';
 import '../../application/emulator/emulator_list_cubit.dart';
@@ -20,6 +19,7 @@ import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
+import '../window/window_placement.dart';
 import 'widgets/avd_row.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
@@ -60,24 +60,16 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
         arguments: jsonEncode({
           'businessId': kCreateEmulatorWindow,
           'dark': dark,
-          // The wizard centres itself over us; it cannot read our frame from
-          // its own engine, so it rides along in the arguments.
-          'parentBounds': await _windowBounds(),
+          // Where the wizard should open. It can't read our frame from its own
+          // engine, so the finished rect rides along in the arguments.
+          'frame': await centeredOverMainWindow(kWizardWindowSize),
         }),
-        // Show immediately from native so visibility doesn't depend on
-        // window_manager being available.
-        hiddenAtLaunch: false,
+        // Created hidden on purpose: the wizard positions itself and reveals
+        // itself once its first frame is on the surface. Showing here would
+        // paint it at the native default spot first and then jump.
+        hiddenAtLaunch: true,
       ),
     );
-  }
-
-  Future<List<double>?> _windowBounds() async {
-    try {
-      final b = await windowManager.getBounds();
-      return [b.left, b.top, b.width, b.height];
-    } catch (_) {
-      return null;
-    }
   }
 
   Future<void> _openConsoleWindow(Avd avd) async {

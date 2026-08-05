@@ -17,6 +17,7 @@ import 'presentation/app.dart';
 import 'presentation/window/create_emulator_window.dart';
 import 'presentation/window/dev_logs_window.dart';
 import 'presentation/window/emulator_console_window.dart';
+import 'presentation/window/window_placement.dart';
 
 /// Business id marking the standalone Create-Emulator window.
 const String kCreateEmulatorWindow = 'createEmulator';
@@ -103,13 +104,9 @@ Map<String, dynamic>? _tryDecode(String arguments) {
   }
 }
 
-/// Default and floor sizes for the Create Emulator window. It is a task window:
-/// big enough for the category grid without scrolling, no bigger.
-const Size kWizardWindowSize = Size(720, 640);
-const Size kWizardWindowMinSize = Size(640, 560);
-
 Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
-  await _sizeWizardWindow(args);
+  // Position first, while the window is still hidden — see _revealWindow.
+  await _placeWizardWindow(args);
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     CreateEmulatorWindowApp(
@@ -117,6 +114,7 @@ Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
       dark: args['dark'] == true,
     ),
   );
+  _revealWindow();
 }
 
 Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
@@ -145,32 +143,42 @@ Future<void> _hideNativeTitleBar() async {
   );
 }
 
-/// Sizes the Create Emulator window and centres it over the window that opened
-/// it — its bounds ride along in the arguments, since a sub-window can't read
-/// the main window's frame itself.
-Future<void> _sizeWizardWindow(Map<String, dynamic> args) async {
+/// Applies the frame the opener worked out for this window, before anything is
+/// visible.
+///
+/// The rect arrives in the arguments already centred (see
+/// `centeredOverMainWindow`); this side only applies it. Falling back to
+/// centring on this window's own display is the defensive path for a missing or
+/// malformed argument — never show unpositioned.
+Future<void> _placeWizardWindow(Map<String, dynamic> args) async {
   await _tryWindow(() async {
     await windowManager.setMinimumSize(kWizardWindowMinSize);
-    final parent = (args['parentBounds'] as List?)?.cast<num>();
-    if (parent == null || parent.length != 4) {
+    final frame = (args['frame'] as List?)?.cast<num>();
+    if (frame == null || frame.length != 4) {
       await windowManager.setSize(kWizardWindowSize);
       await windowManager.setAlignment(Alignment.center);
       return;
     }
-    // Centre on the opener rather than the screen, so a multi-monitor setup
-    // doesn't fling the wizard onto the other display.
-    final left =
-        parent[0] + (parent[2] - kWizardWindowSize.width) / 2;
-    final top =
-        parent[1] + (parent[3] - kWizardWindowSize.height) / 2;
     await windowManager.setBounds(
       Rect.fromLTWH(
-        left,
-        top,
-        kWizardWindowSize.width,
-        kWizardWindowSize.height,
+        frame[0].toDouble(),
+        frame[1].toDouble(),
+        frame[2].toDouble(),
+        frame[3].toDouble(),
       ),
     );
+  });
+}
+
+/// Reveals a window created hidden, once its first frame has been rasterised.
+///
+/// The only `show()` in the sub-window flow, and it runs strictly after the
+/// bounds above are applied — so the first painted frame is already in its
+/// final place. Ordering, not a timer: the post-frame callback fires when the
+/// frame is actually on the surface.
+void _revealWindow() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _tryWindow(() => windowManager.show());
   });
 }
 
