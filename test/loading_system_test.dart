@@ -150,6 +150,36 @@ void main() {
       expect(find.text('skeleton'), findsNothing);
     });
 
+    testWidgets('anchors both children to the top, not the centre',
+        (tester) async {
+      // A page body that shrink-wraps is the trap: the default AnimatedSwitcher
+      // layout centres it, leaving the content floating mid-window.
+      Widget page(bool showSkeleton) => _host(
+            LoadingSwitcher(
+              showSkeleton: showSkeleton,
+              skeleton: const SingleChildScrollView(
+                child: SizedBox(height: 40, key: ValueKey('skeleton-body')),
+              ),
+              builder: (context) => const SingleChildScrollView(
+                child: SizedBox(height: 40, key: ValueKey('content-body')),
+              ),
+            ),
+          );
+
+      await tester.pumpWidget(page(true));
+      await tester.pump();
+      final top = tester.getTopLeft(find.byType(LoadingSwitcher)).dy;
+      expect(tester.getTopLeft(find.byKey(const ValueKey('skeleton-body'))).dy,
+          top);
+
+      await tester.pump(kSkeletonMinDisplay);
+      await tester.pumpWidget(page(false));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.byKey(const ValueKey('content-body'))).dy,
+          top);
+    });
+
     testWidgets('swaps immediately once the minimum has already elapsed',
         (tester) async {
       await tester.pumpWidget(build(true));

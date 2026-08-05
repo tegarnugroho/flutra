@@ -89,6 +89,14 @@ class _LoadingSwitcherState extends State<LoadingSwitcher> {
       duration: kSkeletonFade,
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeOut,
+      // The default layout centres its children in a loosely-fitted Stack,
+      // which makes a shrink-wrapping page body (a SingleChildScrollView)
+      // float in the middle of the window. Page bodies fill from the top.
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topLeft,
+        fit: StackFit.expand,
+        children: [...previousChildren, ?currentChild],
+      ),
       child: _showing
           ? KeyedSubtree(key: const ValueKey('skeleton'), child: widget.skeleton)
           : KeyedSubtree(
