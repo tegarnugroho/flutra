@@ -12,6 +12,7 @@ import '../sdk/updates_page.dart';
 import '../settings/settings_page.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'custom_title_bar.dart';
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
 ///
@@ -57,7 +58,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return NavigationView(
-      titleBar: const _TitleBar(),
+      titleBar: const CustomTitleBar(),
       // Hairline outline around the content area — this is what draws the
       // divider between the sidebar and the page.
       contentShape: const RoundedRectangleBorder(
@@ -95,33 +96,6 @@ class _AppShellState extends State<AppShell> {
             thickness: AppShape.hairline,
           ),
           _item(FluentIcons.settings, 'Settings', const SettingsPage()),
-        ],
-      ),
-    );
-  }
-}
-
-/// Custom title bar drawn at the top of the [NavigationView].
-///
-/// It shares the sidebar surface so the two read as one chrome band. The OS
-/// window frame around it is native (`WS_OVERLAPPEDWINDOW` + DWM dark mode) and
-/// is left untouched.
-class _TitleBar extends StatelessWidget {
-  const _TitleBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Container(
-      height: 40,
-      color: palette.sidebarBg,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          Icon(FluentIcons.cell_phone, size: 15, color: palette.textSecondary),
-          const SizedBox(width: 8),
-          const Text('Flutter SDK Manager', style: AppTextStyles.titleBar),
         ],
       ),
     );

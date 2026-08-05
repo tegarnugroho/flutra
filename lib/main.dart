@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -46,6 +47,10 @@ Future<void> main(List<String> args) async {
   final arguments = await _currentWindowArguments();
   final decoded = _tryDecode(arguments);
   final businessId = decoded?['businessId'];
+
+  // Only the main window draws its own caption; the sub-windows keep the native
+  // one. Done here, before any IO, so the native bar isn't visible at startup.
+  if (businessId == null) await _hideNativeTitleBar();
 
   // Capture the log/command flow for producing windows, but NOT the viewer
   // window itself (it only reads the shared log file).
@@ -112,6 +117,23 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
     dark: args['dark'] == true,
     avdName: args['avd'] as String? ?? '',
   ));
+}
+
+/// Removes the native caption so [CustomTitleBar] can draw it instead.
+///
+/// [TitleBarStyle.hidden] only strips the caption band — the resize borders and
+/// Windows Snap keep working. `setAsFrameless()` would remove those too, so it
+/// is deliberately not used.
+Future<void> _hideNativeTitleBar() async {
+  if (!Platform.isWindows) return;
+  try {
+    await windowManager.setTitleBarStyle(
+      TitleBarStyle.hidden,
+      windowButtonVisibility: false,
+    );
+  } on MissingPluginException catch (_) {
+    // window_manager unavailable — keep the native caption.
+  } catch (_) {}
 }
 
 /// Restores the last main-window position/size from settings.

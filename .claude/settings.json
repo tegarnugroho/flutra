@@ -46,7 +46,8 @@
       "Bash(rm -f C:/Temp/pg_*.png C:/Temp/patch_settings.py)",
       "Bash(python \"C:/Temp/probe_doctor.py\")",
       "Bash(python -X utf8 \"C:/Temp/probe_doctor.py\")",
-      "Bash(cd \"e:/Projects/me/android_sdk_manager\" && flutter analyze 2>&1 | tail -3 && flutter test 2>&1 | tail -2 && powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\" ; flutter build windows --debug 2>&1 | tail -2 && rm -f C:/Temp/probe_doctor.py /tmp/doctor_probe.txt; echo cleaned)"
+      "Bash(cd \"e:/Projects/me/android_sdk_manager\" && flutter analyze 2>&1 | tail -3 && flutter test 2>&1 | tail -2 && powershell -NoProfile -Command \"Get-Process android_sdk_manager -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\" ; flutter build windows --debug 2>&1 | tail -2 && rm -f C:/Temp/probe_doctor.py /tmp/doctor_probe.txt; echo cleaned)",
+      "Bash(\"C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe\" -DBUILD_TYPE=Debug -P cmake_install.cmake)"
     ],
     "additionalDirectories": [
       "\\tmp"

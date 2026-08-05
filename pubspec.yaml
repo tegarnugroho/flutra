@@ -57,6 +57,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/app_icon.ico
+    - assets/app_icon.png
 
 # Windows MSIX packaging. Build with: dart run msix:create
 msix_config:

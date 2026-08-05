@@ -24,6 +24,18 @@ class AppColors {
   /// panes read as chrome, not as content.
   static const logBg = Color(0xFF161618);
 
+  // ---- Window caption ------------------------------------------------------
+
+  /// Pressed state of a caption button. One step darker than [surfaceRaised]
+  /// (its hover state), the way the Windows caption buttons behave.
+  static const captionPressed = Color(0xFF202024);
+
+  /// Hovered close button — the Windows 11 caption red.
+  static const captionCloseHover = Color(0xFFC42B1C);
+
+  /// Pressed close button.
+  static const captionClosePressed = Color(0xFFB0271A);
+
   // ---- Borders -------------------------------------------------------------
 
   /// Hairline dividers and grouped-list outlines.
