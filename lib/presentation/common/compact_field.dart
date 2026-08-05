@@ -21,6 +21,8 @@ class CompactField extends StatelessWidget {
     this.controller,
     this.icon = FluentIcons.search,
     this.width,
+    this.autofocus = false,
+    this.onSubmitted,
   });
 
   final String placeholder;
@@ -32,6 +34,12 @@ class CompactField extends StatelessWidget {
 
   final double? width;
 
+  /// Takes focus as soon as the field is mounted — for fields that *are* the
+  /// screen, such as the command palette.
+  final bool autofocus;
+
+  final ValueChanged<String>? onSubmitted;
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -40,6 +48,8 @@ class CompactField extends StatelessWidget {
       height: kCompactFieldHeight,
       child: TextBox(
         controller: controller,
+        autofocus: autofocus,
+        onSubmitted: onSubmitted,
         placeholder: placeholder,
         style: AppTextStyles.input,
         placeholderStyle:

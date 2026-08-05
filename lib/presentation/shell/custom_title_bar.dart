@@ -24,7 +24,14 @@ const double _kCaptionButtonWidth = 46;
 /// sub-windows keep their native title bar (their engines don't register
 /// window_manager at all).
 class CustomTitleBar extends StatefulWidget {
-  const CustomTitleBar({super.key});
+  const CustomTitleBar({super.key, this.leading, this.actions = const []});
+
+  /// Control placed where an app icon would normally sit, before the app name.
+  final Widget? leading;
+
+  /// Shell controls placed after the app name — usually
+  /// [TitleBarActionButton]s. Everything to their right stays drag area.
+  final List<Widget> actions;
 
   @override
   State<CustomTitleBar> createState() => _CustomTitleBarState();
@@ -86,6 +93,11 @@ class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
     }
   }
 
+  /// Turns [child] into a window-drag handle, or leaves it alone on platforms
+  /// where the OS still owns the caption.
+  Widget _draggable(Widget child) =>
+      _managesWindow ? DragToMoveArea(child: child) : child;
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -94,13 +106,18 @@ class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
       color: palette.sidebarBg,
       child: Row(
         children: [
-          // The label area doubles as the drag region. [DragToMoveArea] also
-          // maps a double-tap to maximize/restore.
-          Expanded(
-            child: _managesWindow
-                ? DragToMoveArea(child: _AppLabel(palette: palette))
-                : _AppLabel(palette: palette),
-          ),
+          // The label and the empty stretch after the actions both drag the
+          // window; [DragToMoveArea] also maps a double-tap to maximize.
+          if (widget.leading != null) ...[
+            const SizedBox(width: 6),
+            widget.leading!,
+          ],
+          _draggable(_AppLabel(hasLeading: widget.leading != null)),
+          if (widget.actions.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            ...widget.actions,
+          ],
+          Expanded(child: _draggable(const SizedBox.expand())),
           if (_managesWindow) ...[
             _CaptionButton(
               icon: WindowsIcons.chrome_minimize,
@@ -129,40 +146,104 @@ class _CustomTitleBarState extends State<CustomTitleBar> with WindowListener {
   }
 }
 
-/// App icon + name, left-aligned in the caption.
+/// The app name, left-aligned in the caption.
+///
+/// No app icon: the leading slot carries the sidebar toggle instead, and a
+/// glyph plus an icon button side by side just reads as noise.
 class _AppLabel extends StatelessWidget {
-  const _AppLabel({required this.palette});
+  const _AppLabel({required this.hasLeading});
 
-  final AppPalette palette;
+  /// Tightens the left inset — the leading control already provides the gap.
+  final bool hasLeading;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          // The .ico next to it is for the tray and the installer — Flutter's
-          // image pipeline can't decode it, so the caption uses the .png.
-          // cacheWidth keeps the 941px source out of the raster cache at full
-          // size; it is only ever drawn at 16 logical pixels.
-          Image.asset(
-            'assets/app_icon.png',
-            width: 16,
-            height: 16,
-            cacheWidth: 64,
-            filterQuality: FilterQuality.medium,
-            // A missing/undecodable asset must not take the whole shell down.
-            errorBuilder: (context, _, _) => Icon(
-              FluentIcons.cell_phone,
-              size: 15,
-              color: palette.textSecondary,
-            ),
+      padding: EdgeInsets.only(left: hasLeading ? 8 : 12, right: 4),
+      child: const Text('Flutter SDK Manager', style: AppTextStyles.titleBar),
+    );
+  }
+}
+
+/// A shell control in the title bar (sidebar toggle, search, back/forward).
+///
+/// Smaller and rounded, unlike the caption buttons — these are app affordances,
+/// not window chrome, and they aren't corner-fling targets. A null [onPressed]
+/// renders the disabled look and swallows hover.
+class TitleBarActionButton extends StatefulWidget {
+  const TitleBarActionButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  /// Keeps the hover surface on to show a toggled-on state.
+  final bool isActive;
+
+  @override
+  State<TitleBarActionButton> createState() => _TitleBarActionButtonState();
+}
+
+class _TitleBarActionButtonState extends State<TitleBarActionButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  bool get _enabled => widget.onPressed != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+
+    final Color background;
+    if (!_enabled) {
+      background = Colors.transparent;
+    } else if (_pressed) {
+      background = AppColors.captionPressed;
+    } else if (_hovered || widget.isActive) {
+      background = palette.surfaceRaised;
+    } else {
+      background = Colors.transparent;
+    }
+
+    final button = MouseRegion(
+      cursor: _enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+        onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
+        onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
+        onTap: widget.onPressed,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(AppShape.radiusControl),
           ),
-          const SizedBox(width: 8),
-          const Text('Flutter SDK Manager', style: AppTextStyles.titleBar),
-        ],
+          alignment: Alignment.center,
+          child: Icon(
+            widget.icon,
+            size: 14,
+            color: _enabled ? palette.textSecondary : palette.textMuted,
+          ),
+        ),
       ),
     );
+
+    // A tooltip on a disabled control reads as a broken affordance.
+    if (!_enabled) return button;
+    return Tooltip(message: widget.tooltip, child: button);
   }
 }
 

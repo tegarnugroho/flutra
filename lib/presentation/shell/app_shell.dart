@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
@@ -12,13 +13,43 @@ import '../sdk/updates_page.dart';
 import '../settings/settings_page.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'command_palette.dart';
 import 'custom_title_bar.dart';
+
+/// A navigable page in the shell.
+///
+/// The order of [_AppShellState._destinations] *is* the index space of
+/// [NavigationPane.selected]: fluent counts only navigable [PaneItem]s, so the
+/// section labels and the footer separator don't shift it. Footer entries must
+/// therefore stay last in the list, matching `items + footerItems`.
+class _Destination {
+  const _Destination({
+    required this.icon,
+    required this.label,
+    required this.body,
+    this.group,
+    this.inFooter = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget body;
+
+  /// Section label drawn immediately above this item in the pane.
+  final String? group;
+
+  /// Rendered in the pane footer instead of the main list.
+  final bool inFooter;
+}
 
 /// Root navigation shell using a Fluent [NavigationView] side pane.
 ///
 /// The groups are always expanded, so they are plain section labels rather than
 /// expanders — no chevrons. Item colours and text styles come from the
 /// navigation pane theme in `AppTheme`.
+///
+/// The shell also owns the title bar controls: sidebar collapse, the jump-to-
+/// page palette, and the back/forward history.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -27,16 +58,158 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  static const _destinations = <_Destination>[
+    _Destination(
+      icon: FluentIcons.view_dashboard,
+      label: 'Dashboard',
+      body: DashboardPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.packages,
+      label: 'SDK manager',
+      body: SdkManagerPage(),
+      group: 'Android',
+    ),
+    _Destination(
+      icon: FluentIcons.cell_phone,
+      label: 'Virtual devices',
+      body: EmulatorManagerPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.permissions,
+      label: 'Licenses',
+      body: LicenseManagerPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.text_document,
+      label: 'Logcat',
+      body: LogcatViewerPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.sync,
+      label: 'Updates',
+      body: UpdatesPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.developer_tools,
+      label: 'Flutter SDK',
+      body: FlutterSdkPage(),
+      group: 'Flutter',
+    ),
+    _Destination(
+      icon: FluentIcons.health,
+      label: 'Flutter doctor',
+      body: FlutterDoctorPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.plug_connected,
+      label: 'Devices',
+      body: DeviceManagerPage(),
+    ),
+    _Destination(
+      icon: FluentIcons.settings,
+      label: 'Settings',
+      body: SettingsPage(),
+      inFooter: true,
+    ),
+  ];
+
   int _index = 0;
+  bool _paneCollapsed = false;
+  bool _paletteOpen = false;
+
+  /// Visited destinations, oldest first. [_forward] holds what a back step
+  /// undid and is dropped as soon as a new destination is chosen.
+  final List<int> _back = [];
+  final List<int> _forward = [];
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  /// Ctrl+K opens the palette from anywhere, including while a page's own text
+  /// field has focus — hence a global handler rather than a [Shortcuts] scope.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (!HardwareKeyboard.instance.isControlPressed) return false;
+    if (event.logicalKey != LogicalKeyboardKey.keyK) return false;
+    _openPalette();
+    return true;
+  }
+
+  /// Navigates to [index] and records the jump in the history.
+  void _go(int index) {
+    if (index == _index) return;
+    setState(() {
+      _back.add(_index);
+      _forward.clear();
+      _index = index;
+    });
+  }
+
+  void _goBack() {
+    if (_back.isEmpty) return;
+    setState(() {
+      _forward.add(_index);
+      _index = _back.removeLast();
+    });
+  }
+
+  void _goForward() {
+    if (_forward.isEmpty) return;
+    setState(() {
+      _back.add(_index);
+      _index = _forward.removeLast();
+    });
+  }
+
+  Future<void> _openPalette() async {
+    if (_paletteOpen) return;
+    setState(() => _paletteOpen = true);
+    final target = await showCommandPalette(
+      context,
+      entries: [
+        for (var i = 0; i < _destinations.length; i++)
+          PaletteEntry(
+            index: i,
+            icon: _destinations[i].icon,
+            label: _destinations[i].label,
+            group: _groupOf(i),
+          ),
+      ],
+    );
+    if (!mounted) return;
+    setState(() => _paletteOpen = false);
+    if (target != null) _go(target);
+  }
+
+  /// The section a destination belongs to — the nearest [_Destination.group]
+  /// at or above it, since a group label applies until the next one. Footer
+  /// destinations sit below the separator and belong to no section.
+  static String? _groupOf(int index) {
+    if (_destinations[index].inFooter) return null;
+    for (var i = index; i >= 0; i--) {
+      if (_destinations[i].group != null) return _destinations[i].group;
+    }
+    return null;
+  }
 
   /// A nav destination: 15px icon, 12px sentence-case label, raised tile when
   /// active.
-  static PaneItem _item(IconData icon, String label, Widget body) {
+  static PaneItem _item(_Destination destination) {
     return PaneItem(
-      icon: Icon(icon, size: 15),
-      title: Text(label),
+      icon: Icon(destination.icon, size: 15),
+      title: Text(destination.label),
       selectedTileColor: WidgetStateProperty.all(AppColors.surfaceRaised),
-      body: body,
+      body: destination.body,
     );
   }
 
@@ -57,8 +230,24 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final items = <NavigationPaneItem>[];
+    for (final destination in _destinations.where((d) => !d.inFooter)) {
+      if (destination.group != null) {
+        items.add(_sectionLabel(destination.group!));
+      }
+      items.add(_item(destination));
+    }
+
     return NavigationView(
-      titleBar: const CustomTitleBar(),
+      titleBar: CustomTitleBar(
+        // The sidebar toggle takes the app-icon slot, ahead of the name.
+        leading: TitleBarActionButton(
+          icon: FluentIcons.global_nav_button,
+          tooltip: _paneCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+          onPressed: () => setState(() => _paneCollapsed = !_paneCollapsed),
+        ),
+        actions: _titleBarActions(),
+      ),
       // Hairline outline around the content area — this is what draws the
       // divider between the sidebar and the page.
       contentShape: const RoundedRectangleBorder(
@@ -66,38 +255,45 @@ class _AppShellState extends State<AppShell> {
       ),
       pane: NavigationPane(
         selected: _index,
-        onChanged: (i) => setState(() => _index = i),
-        displayMode: PaneDisplayMode.auto,
+        onChanged: _go,
+        // Collapsing pins the pane to icons-only; expanded stays adaptive, so a
+        // narrow window still falls back to compact on its own.
+        displayMode:
+            _paneCollapsed ? PaneDisplayMode.compact : PaneDisplayMode.auto,
         size: const NavigationPaneSize(openWidth: 190),
         // The active item is marked by its raised tile, not an accent bar.
         indicator: null,
-        items: [
-          _item(FluentIcons.view_dashboard, 'Dashboard', const DashboardPage()),
-          _sectionLabel('Android'),
-          _item(FluentIcons.packages, 'SDK manager', const SdkManagerPage()),
-          _item(FluentIcons.cell_phone, 'Virtual devices',
-              const EmulatorManagerPage()),
-          _item(FluentIcons.permissions, 'Licenses',
-              const LicenseManagerPage()),
-          _item(FluentIcons.text_document, 'Logcat',
-              const LogcatViewerPage()),
-          _item(FluentIcons.sync, 'Updates', const UpdatesPage()),
-          _sectionLabel('Flutter'),
-          _item(FluentIcons.developer_tools, 'Flutter SDK',
-              const FlutterSdkPage()),
-          _item(FluentIcons.health, 'Flutter doctor',
-              const FlutterDoctorPage()),
-          _item(FluentIcons.plug_connected, 'Devices',
-              const DeviceManagerPage()),
-        ],
+        items: items,
         footerItems: [
           PaneItemSeparator(
             color: AppColors.border,
             thickness: AppShape.hairline,
           ),
-          _item(FluentIcons.settings, 'Settings', const SettingsPage()),
+          for (final destination in _destinations.where((d) => d.inFooter))
+            _item(destination),
         ],
       ),
     );
+  }
+
+  List<Widget> _titleBarActions() {
+    return [
+      TitleBarActionButton(
+        icon: FluentIcons.search,
+        tooltip: 'Go to page (Ctrl+K)',
+        onPressed: _openPalette,
+      ),
+      const SizedBox(width: 6),
+      TitleBarActionButton(
+        icon: FluentIcons.back,
+        tooltip: 'Back',
+        onPressed: _back.isEmpty ? null : _goBack,
+      ),
+      TitleBarActionButton(
+        icon: FluentIcons.forward,
+        tooltip: 'Forward',
+        onPressed: _forward.isEmpty ? null : _goForward,
+      ),
+    ];
   }
 }
