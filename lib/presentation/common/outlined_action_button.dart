@@ -20,6 +20,7 @@ class OutlinedActionButton extends StatefulWidget {
     this.tooltip,
     this.hoverLabel,
     this.hoverIcon,
+    this.danger = false,
   });
 
   final IconData icon;
@@ -40,6 +41,10 @@ class OutlinedActionButton extends StatefulWidget {
 
   final String? tooltip;
 
+  /// Destructive styling: error-tinted fill, error border and label. For
+  /// actions that take something away — always pair with a confirmation.
+  final bool danger;
+
   @override
   State<OutlinedActionButton> createState() => _OutlinedActionButtonState();
 }
@@ -55,7 +60,17 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
         widget.onPressed != null && (!widget.busy || widget.hoverLabel != null);
     final label = _hovered ? (widget.hoverLabel ?? widget.label) : widget.label;
     final icon = _hovered ? (widget.hoverIcon ?? widget.icon) : widget.icon;
-    final foreground = enabled ? palette.textTertiary : palette.textMuted;
+    final foreground = !enabled
+        ? palette.textMuted
+        : widget.danger
+        ? palette.statusError
+        : palette.textTertiary;
+    final border = widget.danger && enabled
+        ? palette.statusError
+        : palette.borderStrong;
+    final fill = widget.danger && enabled
+        ? palette.dangerSurface
+        : Colors.transparent;
 
     Widget button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
@@ -69,12 +84,15 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
               : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: _hovered && enabled
-                ? palette.surfaceRaised
-                : Colors.transparent,
-            border: Border.all(
-              color: palette.borderStrong,
-              width: AppShape.hairline,
-            ),
+                ? (widget.danger
+                      // Hover deepens the wash rather than switching hue.
+                      ? Color.alphaBlend(
+                          palette.statusError.withValues(alpha: 0.14),
+                          fill,
+                        )
+                      : palette.surfaceRaised)
+                : fill,
+            border: Border.all(color: border, width: AppShape.hairline),
             borderRadius: BorderRadius.circular(AppShape.radiusControl),
           ),
           child: Row(

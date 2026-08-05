@@ -60,6 +60,10 @@ class AppColors {
   /// Missing required tool, failure.
   static const statusError = Color(0xFFF85149);
 
+  /// Fill behind a destructive control — the error hue at low strength, so the
+  /// button reads as dangerous without shouting.
+  static const dangerSurface = Color(0xFF2A1719);
+
   /// The one accent in the app. Reserved for the selected channel chip on the
   /// Flutter SDK screen — do not spend it anywhere else.
   static const accent = Color(0xFF4B7BEC);
@@ -119,6 +123,7 @@ class AppColors {
   static const statusOkLight = Color(0xFF1A7F37);
   static const statusWarnLight = Color(0xFF8A6100);
   static const statusErrorLight = Color(0xFFC8232C);
+  static const dangerSurfaceLight = Color(0xFFFDECEC);
   static const accentLight = Color(0xFF2F5FD1);
   static const accentBgTintLight = Color(0xFFEDF2FD);
 
@@ -195,6 +200,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.statusOk,
     required this.statusWarn,
     required this.statusError,
+    required this.dangerSurface,
     required this.accent,
     required this.accentBgTint,
     required this.captionPressed,
@@ -217,6 +223,11 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color statusOk;
   final Color statusWarn;
   final Color statusError;
+
+  /// Fill behind destructive controls. The border and label stay
+  /// [statusError] — this is only the wash behind them.
+  final Color dangerSurface;
+
   final Color accent;
   final Color accentBgTint;
   final Color captionPressed;
@@ -249,6 +260,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusOk: AppColors.statusOk,
     statusWarn: AppColors.statusWarn,
     statusError: AppColors.statusError,
+    dangerSurface: AppColors.dangerSurface,
     accent: AppColors.accent,
     accentBgTint: AppColors.accentBgTint,
     captionPressed: AppColors.captionPressed,
@@ -269,6 +281,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusOk: AppColors.statusOkLight,
     statusWarn: AppColors.statusWarnLight,
     statusError: AppColors.statusErrorLight,
+    dangerSurface: AppColors.dangerSurfaceLight,
     accent: AppColors.accentLight,
     accentBgTint: AppColors.accentBgTintLight,
     captionPressed: AppColors.captionPressedLight,
@@ -295,6 +308,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? statusOk,
     Color? statusWarn,
     Color? statusError,
+    Color? dangerSurface,
     Color? accent,
     Color? accentBgTint,
     Color? captionPressed,
@@ -314,6 +328,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusOk: statusOk ?? this.statusOk,
       statusWarn: statusWarn ?? this.statusWarn,
       statusError: statusError ?? this.statusError,
+      dangerSurface: dangerSurface ?? this.dangerSurface,
       accent: accent ?? this.accent,
       accentBgTint: accentBgTint ?? this.accentBgTint,
       captionPressed: captionPressed ?? this.captionPressed,
@@ -341,6 +356,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusOk: c(statusOk, other.statusOk),
       statusWarn: c(statusWarn, other.statusWarn),
       statusError: c(statusError, other.statusError),
+      dangerSurface: c(dangerSurface, other.dangerSurface),
       accent: c(accent, other.accent),
       accentBgTint: c(accentBgTint, other.accentBgTint),
       captionPressed: c(captionPressed, other.captionPressed),

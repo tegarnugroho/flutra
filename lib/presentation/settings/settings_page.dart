@@ -22,8 +22,10 @@ import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
+import '../common/segmented_control.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'widgets/path_setting_row.dart';
 
 /// Settings: theme, SDK path overrides, behaviour and developer tools.
 ///
@@ -43,8 +45,21 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-class _SettingsView extends StatelessWidget {
+class _SettingsView extends StatefulWidget {
   const _SettingsView();
+
+  @override
+  State<_SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<_SettingsView> {
+  /// The row currently in edit state, if any. Held here rather than in the rows
+  /// so opening one closes the other — two half-finished paths on screen is
+  /// exactly the confusion this redesign removes.
+  PathKind? _editing;
+
+  void _beginEdit(PathKind kind) => setState(() => _editing = kind);
+  void _endEdit() => setState(() => _editing = null);
 
   @override
   Widget build(BuildContext context) {
@@ -55,177 +70,180 @@ class _SettingsView extends StatelessWidget {
         builder: (context, settings) {
           return SingleChildScrollView(
             padding: kPageBodyPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SectionLabel('General'),
-                const SizedBox(height: 8),
-                GroupedList(
-                  children: [
-                    GroupedListRow(
-                      title: 'Theme',
-                      subtitle: 'Choose light, dark, or follow the system.',
-                      trailing: [
-                        CompactCombo<ThemeMode>(
-                          width: 130,
-                          value: settings.themeMode,
-                          items: const [
-                            CompactComboItem(
-                              value: ThemeMode.system,
-                              label: 'System',
-                            ),
-                            CompactComboItem(
-                              value: ThemeMode.light,
-                              label: 'Light',
-                            ),
-                            CompactComboItem(
-                              value: ThemeMode.dark,
-                              label: 'Dark',
-                            ),
-                          ],
-                          onChanged: cubit.setThemeMode,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const SectionLabel('Paths'),
-                const SizedBox(height: 8),
-                BlocBuilder<DetectedPathsCubit, DetectedPathsState>(
-                  builder: (context, detected) {
-                    return GroupedList(
-                      children: [
-                        _PathSetting(
-                          label: 'Android SDK',
-                          description:
-                              'Override the auto-detected SDK '
-                              'location. Leave empty to auto-detect.',
-                          placeholder:
-                              r'e.g. C:\Users\you\AppData\Local'
-                              r'\Android\Sdk',
-                          path: settings.androidSdkPath,
-                          resolved: detected.androidSdk,
-                          loading: detected.isLoading,
-                          onApply: cubit.setAndroidSdkPath,
-                        ),
-                        _PathSetting(
-                          label: 'Flutter SDK',
-                          description:
-                              'Point at a specific Flutter checkout. '
-                              'Leave empty to use the one on your PATH.',
-                          placeholder: r'e.g. C:\Dev\SDK\flutter',
-                          path: settings.flutterSdkPath,
-                          resolved: detected.flutter,
-                          loading: detected.isLoading,
-                          onApply: cubit.setFlutterSdkPath,
-                        ),
-                        // Java has no override — it is read from JAVA_HOME or
-                        // PATH — so this row only reports where it was found.
-                        _ResolvedPathRow(
-                          label: 'Java',
-                          path: detected.java,
-                          loading: detected.isLoading,
-                        ),
-                        _PathSetting(
-                          label: 'API base URL',
-                          description:
-                              'Base URL for the settings API — '
-                              'addresses come from '
-                              '"<base>/api/settings/addresses".',
-                          placeholder: 'e.g. https://api.example.com',
-                          path: settings.apiBaseUrl,
-                          onApply: cubit.setApiBaseUrl,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                const SectionLabel('Behaviour'),
-                const SizedBox(height: 8),
-                GroupedList(
-                  children: [
-                    GroupedListRow(
-                      title: 'Run at startup',
-                      subtitle:
-                          'Launch Flutter SDK Manager when you sign in '
-                          'to Windows.',
-                      trailing: [
-                        AppToggle(
-                          checked: settings.runAtStartup,
-                          onChanged: cubit.setRunAtStartup,
-                        ),
-                      ],
-                    ),
-                    GroupedListRow(
-                      title: 'Close to system tray',
-                      subtitle:
-                          'Hide to the tray on close instead of '
-                          'quitting. Right-click the tray icon to exit.',
-                      trailing: [
-                        AppToggle(
-                          checked: settings.closeToTray,
-                          onChanged: cubit.setCloseToTray,
-                        ),
-                      ],
-                    ),
-                    GroupedListRow(
-                      title: 'Stop all Flutter and Dart processes',
-                      subtitle:
-                          'Force-kills every running dart/flutter '
-                          'process — frees a locked SDK (also stops the IDE '
-                          'analyzer).',
-                      trailing: [
-                        OutlinedActionButton(
-                          icon: FluentIcons.blocked2,
-                          label: 'Stop all',
-                          dense: true,
-                          onPressed: () => _stopProcesses(context),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const SectionLabel('Developer'),
-                const SizedBox(height: 8),
-                GroupedList(
-                  children: [
-                    GroupedListRow(
-                      title: 'Developer mode',
-                      subtitle:
-                          'Capture every command/request in an in-app '
-                          'log viewer for debugging.',
-                      trailing: [
-                        AppToggle(
-                          checked: settings.developerMode,
-                          onChanged: cubit.setDeveloperMode,
-                        ),
-                      ],
-                    ),
-                    if (settings.developerMode)
+            child: ConstrainedBox(
+              // The form reads as a column, not a full-width table.
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionLabel('General'),
+                  const SizedBox(height: 8),
+                  GroupedList(
+                    children: [
                       GroupedListRow(
-                        title: 'Request log',
-                        subtitle:
-                            'Opens the captured command and request log '
-                            'in its own window.',
+                        title: 'Theme',
+                        subtitle: 'Choose light, dark, or follow the system.',
                         trailing: [
-                          OutlinedActionButton(
-                            icon: FluentIcons.text_document,
-                            label: 'Open log',
-                            dense: true,
-                            onPressed: openDevLogsWindow,
+                          SegmentedControl<ThemeMode>(
+                            selected: settings.themeMode,
+                            segments: const [
+                              Segment(value: ThemeMode.light, label: 'Light'),
+                              Segment(value: ThemeMode.dark, label: 'Dark'),
+                              Segment(value: ThemeMode.system, label: 'System'),
+                            ],
+                            onChanged: cubit.setThemeMode,
                           ),
                         ],
                       ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const SectionLabel('Addresses'),
-                const SizedBox(height: 8),
-                _AddressesSection(hasBaseUrl: settings.apiBaseUrl != null),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const SectionLabel('Paths'),
+                  const SizedBox(height: 8),
+                  BlocBuilder<DetectedPathsCubit, DetectedPathsState>(
+                    builder: (context, detected) {
+                      return Column(
+                        children: [
+                          PathSettingRow(
+                            label: 'Android SDK',
+                            description:
+                                'Where the Android tools are read from.',
+                            kind: PathKind.androidSdk,
+                            overridePath: settings.androidSdkPath,
+                            detected: detected.androidSdk,
+                            loading: detected.isLoading,
+                            onApply: cubit.setAndroidSdkPath,
+                            editing: _editing == PathKind.androidSdk,
+                            onBeginEdit: () => _beginEdit(PathKind.androidSdk),
+                            onEndEdit: _endEdit,
+                          ),
+                          const SizedBox(height: 8),
+                          PathSettingRow(
+                            label: 'Flutter SDK',
+                            description:
+                                'Which Flutter checkout the app drives.',
+                            kind: PathKind.flutterSdk,
+                            overridePath: settings.flutterSdkPath,
+                            detected: detected.flutter,
+                            loading: detected.isLoading,
+                            onApply: cubit.setFlutterSdkPath,
+                            editing: _editing == PathKind.flutterSdk,
+                            onBeginEdit: () => _beginEdit(PathKind.flutterSdk),
+                            onEndEdit: _endEdit,
+                          ),
+                          const SizedBox(height: 8),
+                          // Java has no override — it is read from JAVA_HOME or
+                          // PATH — so this row only reports where it was found.
+                          _ResolvedPathRow(
+                            label: 'Java',
+                            path: detected.java,
+                            loading: detected.isLoading,
+                          ),
+                          const SizedBox(height: 8),
+                          PathSettingRow(
+                            label: 'API base URL',
+                            description:
+                                'Addresses come from '
+                                '"<base>/api/settings/addresses".',
+                            kind: PathKind.url,
+                            overridePath: settings.apiBaseUrl,
+                            detected: null,
+                            onApply: cubit.setApiBaseUrl,
+                            editing: _editing == PathKind.url,
+                            onBeginEdit: () => _beginEdit(PathKind.url),
+                            onEndEdit: _endEdit,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const SectionLabel('Behaviour'),
+                  const SizedBox(height: 8),
+                  GroupedList(
+                    children: [
+                      GroupedListRow(
+                        title: 'Run at startup',
+                        subtitle:
+                            'Launch Flutter SDK Manager when you sign in '
+                            'to Windows.',
+                        trailing: [
+                          AppToggle(
+                            checked: settings.runAtStartup,
+                            onChanged: cubit.setRunAtStartup,
+                          ),
+                        ],
+                      ),
+                      GroupedListRow(
+                        title: 'Close to system tray',
+                        subtitle:
+                            'Hide to the tray on close instead of '
+                            'quitting. Right-click the tray icon to exit.',
+                        trailing: [
+                          AppToggle(
+                            checked: settings.closeToTray,
+                            onChanged: cubit.setCloseToTray,
+                          ),
+                        ],
+                      ),
+                      GroupedListRow(
+                        title: 'Stop all Flutter and Dart processes',
+                        subtitle:
+                            'Force-kills every running dart/flutter '
+                            'process — frees a locked SDK (also stops the IDE '
+                            'analyzer).',
+                        trailing: [
+                          OutlinedActionButton(
+                            icon: FluentIcons.blocked2,
+                            label: 'Stop all',
+                            dense: true,
+                            danger: true,
+                            onPressed: () => _stopProcesses(context),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const SectionLabel('Developer'),
+                  const SizedBox(height: 8),
+                  GroupedList(
+                    children: [
+                      GroupedListRow(
+                        title: 'Developer mode',
+                        subtitle:
+                            'Capture every command/request in an in-app '
+                            'log viewer for debugging.',
+                        trailing: [
+                          AppToggle(
+                            checked: settings.developerMode,
+                            onChanged: cubit.setDeveloperMode,
+                          ),
+                        ],
+                      ),
+                      if (settings.developerMode)
+                        GroupedListRow(
+                          title: 'Request log',
+                          subtitle:
+                              'Opens the captured command and request log '
+                              'in its own window.',
+                          trailing: [
+                            OutlinedActionButton(
+                              icon: FluentIcons.text_document,
+                              label: 'Open log',
+                              dense: true,
+                              onPressed: openDevLogsWindow,
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const SectionLabel('Addresses'),
+                  const SizedBox(height: 8),
+                  _AddressesSection(hasBaseUrl: settings.apiBaseUrl != null),
+                ],
+              ),
             ),
           );
         },
@@ -241,7 +259,7 @@ Future<void> _stopProcesses(BuildContext context) async {
     title: 'Stop all Flutter and Dart processes?',
     message:
         'This force-kills every running dart/flutter process, including '
-        "your IDE's analysis server. Use it to free a locked SDK.",
+        "other IDEs' analyzers. Continue?",
     confirmLabel: 'Stop all',
   );
   if (!ok || !context.mounted) return;
@@ -368,103 +386,6 @@ Future<void> openDevLogsWindow() async {
 }
 
 /// A path override: description, editable value and apply/auto actions.
-class _PathSetting extends StatefulWidget {
-  const _PathSetting({
-    required this.label,
-    required this.description,
-    required this.placeholder,
-    required this.path,
-    required this.onApply,
-    this.resolved,
-    this.loading = false,
-  });
-
-  final String label;
-  final String description;
-  final String placeholder;
-
-  /// The configured override; empty means auto-detect.
-  final String? path;
-
-  final ValueChanged<String> onApply;
-
-  /// Where the tool actually resolved to, so this group answers "where is it?"
-  /// as well as "where should it be?".
-  final String? resolved;
-
-  final bool loading;
-
-  @override
-  State<_PathSetting> createState() => _PathSettingState();
-}
-
-class _PathSettingState extends State<_PathSetting> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.path ?? '');
-  }
-
-  @override
-  void didUpdateWidget(covariant _PathSetting old) {
-    super.didUpdateWidget(old);
-    if (old.path != widget.path && (widget.path ?? '') != _controller.text) {
-      _controller.text = widget.path ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GroupedListRow(
-      title: widget.label,
-      subtitle: widget.description,
-      trailing: [
-        if (widget.resolved != null || widget.loading)
-          _PathValue(path: widget.resolved, loading: widget.loading),
-      ],
-      below: Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: CompactField(
-                controller: _controller,
-                icon: FluentIcons.folder_open,
-                placeholder: widget.placeholder,
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedActionButton(
-              icon: FluentIcons.check_mark,
-              label: 'Apply',
-              dense: true,
-              onPressed: () => widget.onApply(_controller.text),
-            ),
-            const SizedBox(width: 8),
-            OutlinedActionButton(
-              icon: FluentIcons.reset,
-              label: 'Auto',
-              dense: true,
-              onPressed: () {
-                _controller.clear();
-                widget.onApply('');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The resolved location of a tool: ellipsized mono path plus copy.
 ///
 /// Same row anatomy as the Paths list that used to sit on the Dashboard.
