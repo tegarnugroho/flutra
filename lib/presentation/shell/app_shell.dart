@@ -1,6 +1,13 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+// fluent_ui exports a FluentIcons of its own (the older MDL2 set), so the
+// system icons — the rounded outline family the sidebar is drawn in — need a
+// prefix to sit alongside it.
+import 'package:fluentui_system_icons/fluentui_system_icons.dart' as sys;
+// One brand glyph the Fluent set has no equivalent for: the Flutter logo the
+// mockup puts beside the Flutter section.
+import 'package:simple_icons/simple_icons.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -66,50 +73,54 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   static const _destinations = <_Destination>[
     _Destination(
-      icon: FluentIcons.view_dashboard,
+      icon: sys.FluentIcons.grid_24_regular,
       label: 'Dashboard',
       body: DashboardPage(),
     ),
     _Destination(
-      icon: FluentIcons.packages,
+      icon: sys.FluentIcons.layer_24_regular,
       label: 'SDK manager',
       body: SdkManagerPage(),
       group: 'Android',
     ),
     _Destination(
-      icon: FluentIcons.cell_phone,
+      icon: sys.FluentIcons.phone_24_regular,
       label: 'Virtual devices',
       body: EmulatorManagerPage(),
     ),
     _Destination(
-      icon: FluentIcons.permissions,
+      icon: sys.FluentIcons.document_ribbon_24_regular,
       label: 'Licenses',
       body: LicenseManagerPage(),
     ),
     _Destination(
-      icon: FluentIcons.text_document,
+      icon: sys.FluentIcons.document_bullet_list_24_regular,
       label: 'Logcat',
       body: LogcatViewerPage(),
     ),
-    _Destination(icon: FluentIcons.sync, label: 'Updates', body: UpdatesPage()),
     _Destination(
-      icon: FluentIcons.developer_tools,
+      icon: sys.FluentIcons.arrow_sync_24_regular,
+      label: 'Updates',
+      body: UpdatesPage(),
+    ),
+    _Destination(
+      icon: SimpleIcons.flutter,
       label: 'Flutter SDK',
       body: FlutterSdkPage(),
       group: 'Flutter',
     ),
     _Destination(
-      icon: FluentIcons.health,
+      icon: sys.FluentIcons.heart_pulse_24_regular,
       label: 'Flutter doctor',
       body: FlutterDoctorPage(),
     ),
     _Destination(
-      icon: FluentIcons.plug_connected,
+      icon: sys.FluentIcons.plug_connected_24_regular,
       label: 'Devices',
       body: DeviceManagerPage(),
     ),
     _Destination(
-      icon: FluentIcons.settings,
+      icon: sys.FluentIcons.settings_24_regular,
       label: 'Settings',
       body: SettingsPage(),
       inFooter: true,
@@ -257,7 +268,7 @@ class _AppShellState extends State<AppShell> {
   /// active.
   static PaneItem _item(_Destination destination, AppPalette palette) {
     return PaneItem(
-      icon: Icon(destination.icon, size: 15),
+      icon: Icon(destination.icon, size: 16),
       title: Text(destination.label),
       selectedTileColor: WidgetStateProperty.all(palette.surfaceRaised),
       body: destination.body,
