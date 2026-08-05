@@ -55,8 +55,10 @@ int _columnsFor(double width) => width < 900 ? 2 : 3;
 /// Card heights are fixed rather than derived from an aspect ratio: the grid
 /// stretches with the window, and a ratio would grow the cards with it until a
 /// two-line device row sat in a 110px box.
-const _kCategoryCardHeight = 104.0;
-const _kDeviceCardHeight = 64.0;
+/// Horizontal cards at both phases: six categories then fit the default window
+/// without scrolling, and the two grids read at the same density.
+const _kCategoryCardHeight = 58.0;
+const _kDeviceCardHeight = 58.0;
 
 // ---------------------------------------------------------------------------
 // Phase 1a — categories
@@ -79,22 +81,22 @@ class _CategoryPicker extends StatelessWidget {
       builder: (context, constraints) {
         final columns = _columnsFor(constraints.maxWidth);
         return ListView(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 16),
           children: [
-            Text('What are you building for?', style: text.pageTitle),
-            const SizedBox(height: 6),
+            Text('What are you building for?', style: text.rowTitle),
+            const SizedBox(height: 3),
             Text(
               'Choose a device category to see available hardware profiles',
-              style: text.statusLine.copyWith(color: palette.textMuted),
+              style: text.caption,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             GridView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
                 mainAxisExtent: _kCategoryCardHeight,
               ),
               children: [
@@ -145,25 +147,33 @@ class _CategoryCardState extends State<_CategoryCard> {
       semanticLabel: '${widget.category.label}, ${widget.count} profiles',
       border: lifted ? palette.borderStrong : palette.border,
       background: lifted ? palette.surfaceRaised : Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
           Icon(
             iconForCategory(widget.category),
-            size: 26,
+            size: 18,
             color: lifted ? palette.textPrimary : palette.textSecondary,
           ),
-          const SizedBox(height: 10),
-          Text(
-            widget.category.label,
-            style: text.rowTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${widget.count} ${widget.count == 1 ? 'profile' : 'profiles'}',
-            style: text.caption,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.category.label,
+                  style: text.rowTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${widget.count} ${widget.count == 1 ? 'profile' : 'profiles'}',
+                  style: text.caption,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -230,8 +240,6 @@ class _DeviceListState extends State<_DeviceList> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    final palette = AppPalette.of(context);
-    final text = AppTextStyles.fromPalette(palette);
     final cubit = context.read<CreateEmulatorCubit>();
     final category = state.browsingCategory;
     if (category == null) return const SizedBox.shrink();
@@ -271,7 +279,7 @@ class _DeviceListState extends State<_DeviceList> {
                       crossAxisSpacing: 10,
                       mainAxisExtent: _kDeviceCardHeight,
                     ),
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 16),
                     children: [
                       for (final device in devices)
                         _DeviceCard(
@@ -288,14 +296,6 @@ class _DeviceListState extends State<_DeviceList> {
                   ),
                 ),
         ),
-        if (devices.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Double-click a profile to continue',
-              style: text.caption,
-            ),
-          ),
       ],
     );
   }
@@ -536,7 +536,7 @@ class _CardShell extends StatelessWidget {
           onTap: onTap,
           onDoubleTap: onDoubleTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: background,
               border: Border.all(color: border, width: borderWidth),

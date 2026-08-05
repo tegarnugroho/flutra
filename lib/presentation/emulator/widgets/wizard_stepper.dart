@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../../application/emulator/create_emulator_cubit.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import 'wizard_title_bar.dart' show kWizardInset;
 
 /// The wizard's progress rail: one numbered circle per step, joined by the
 /// lines that fill in behind you.
@@ -26,9 +27,13 @@ class WizardStepper extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      padding: const EdgeInsets.fromLTRB(
+        kWizardInset,
+        14,
+        kWizardInset,
+        12,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final step in WizardStep.values) ...[
             _StepMarker(step: step, current: current, onTap: onTap),
@@ -64,8 +69,8 @@ class _Connector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 2,
-      // Aligns with the middle of the 22px circle above the labels.
-      margin: const EdgeInsets.only(top: 10, left: 8, right: 8),
+      // Aligns with the middle of the 20px circle beside it.
+      margin: const EdgeInsets.only(left: 8, right: 8),
       color: palette.borderStrong,
       child: FractionallySizedBox(
         alignment: Alignment.centerLeft,
@@ -112,38 +117,45 @@ class _StepMarker extends StatelessWidget {
       foreground = palette.textMuted;
     }
 
-    return MouseRegion(
-      cursor: reachable ? SystemMouseCursors.click : MouseCursor.defer,
-      child: GestureDetector(
-        onTap: reachable ? () => onTap(step) : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: fill,
-                border: Border.all(color: outline, width: 1.5),
+    return Tooltip(
+      message: step.shortTitle,
+      child: MouseRegion(
+        cursor: reachable ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          onTap: reachable ? () => onTap(step) : null,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: fill,
+                  border: Border.all(color: outline, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: done
+                    ? Icon(FluentIcons.check_mark, size: 9, color: foreground)
+                    : Text(
+                        '${step.index + 1}',
+                        style: text.caption.copyWith(color: foreground),
+                      ),
               ),
-              alignment: Alignment.center,
-              child: done
-                  ? Icon(FluentIcons.check_mark, size: 10, color: foreground)
-                  : Text(
-                      '${step.index + 1}',
-                      style: text.caption.copyWith(color: foreground),
-                    ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              step.shortTitle,
-              style: text.caption.copyWith(
-                color: active ? palette.textPrimary : palette.textMuted,
-                fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-              ),
-            ),
-          ],
+              // Only the current step spells itself out; five labels in a row
+              // wrap in a 640px window, and the others carry tooltips.
+              if (active) ...[
+                const SizedBox(width: 7),
+                Text(
+                  step.shortTitle,
+                  style: text.caption.copyWith(
+                    color: palette.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

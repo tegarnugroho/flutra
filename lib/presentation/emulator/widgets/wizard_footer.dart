@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../common/app_loader.dart';
+import 'wizard_title_bar.dart' show kWizardInset;
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import 'wizard_stepper.dart' show onAccent;
@@ -17,6 +18,7 @@ class WizardFooter extends StatelessWidget {
     required this.onBack,
     required this.onNext,
     this.nextLabel = 'Next',
+    this.backLabel = 'Back',
     this.nextDisabledTooltip,
     this.busy = false,
   });
@@ -31,6 +33,9 @@ class WizardFooter extends StatelessWidget {
 
   final String nextLabel;
 
+  /// "Cancel" on the wizard's first screen, where Back leaves the window.
+  final String backLabel;
+
   /// Explains why the primary action is unavailable.
   final String? nextDisabledTooltip;
 
@@ -41,7 +46,8 @@ class WizardFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: kWizardInset),
       decoration: BoxDecoration(
         color: palette.sidebarBg,
         border: Border(
@@ -52,7 +58,7 @@ class WizardFooter extends StatelessWidget {
         children: [
           Expanded(child: summary),
           const SizedBox(width: 16),
-          _OutlinedButton(label: 'Back', onPressed: onBack),
+          _OutlinedButton(label: backLabel, onPressed: onBack),
           const SizedBox(width: 10),
           _PrimaryButton(
             label: nextLabel,
@@ -139,43 +145,52 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
     final palette = AppPalette.of(context);
     final text = AppTextStyles.fromPalette(palette);
     final enabled = widget.onPressed != null && !widget.busy;
-    final foreground = enabled ? onAccent(palette) : palette.textMuted;
+    // The fill stays accent even when disabled, so the label keeps its
+    // on-accent tone and the Opacity below carries the disabled signal.
+    final foreground = onAccent(palette);
+
+    final label = widget.busy
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLoader(size: AppLoaderSize.small, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: text.buttonLabel.copyWith(color: foreground),
+              ),
+            ],
+          )
+        : Text(
+            widget.label,
+            style: text.buttonLabel.copyWith(color: foreground),
+          );
 
     Widget button = MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      // A basic cursor over a disabled primary says "not yet" before the
+      // tooltip gets a chance to.
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: enabled ? widget.onPressed : null,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-          decoration: BoxDecoration(
-            color: enabled
-                ? (_hovered
-                      ? Color.alphaBlend(
-                          palette.textPrimary.withValues(alpha: 0.12),
-                          palette.accent,
-                        )
-                      : palette.accent)
-                : palette.surfaceRaised,
-            borderRadius: BorderRadius.circular(AppShape.radiusControl),
+        child: Opacity(
+          // Dimmed rather than greyed out: it keeps its accent shape, so it
+          // still reads as the primary action — just not available yet.
+          opacity: enabled ? 1 : 0.45,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+            decoration: BoxDecoration(
+              color: _hovered && enabled
+                  ? Color.alphaBlend(
+                      palette.textPrimary.withValues(alpha: 0.12),
+                      palette.accent,
+                    )
+                  : palette.accent,
+              borderRadius: BorderRadius.circular(AppShape.radiusControl),
+            ),
+            child: label,
           ),
-          child: widget.busy
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppLoader(size: AppLoaderSize.small, color: foreground),
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.label,
-                      style: text.buttonLabel.copyWith(color: foreground),
-                    ),
-                  ],
-                )
-              : Text(
-                  widget.label,
-                  style: text.buttonLabel.copyWith(color: foreground),
-                ),
         ),
       ),
     );

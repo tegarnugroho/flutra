@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../application/emulator/create_emulator_cubit.dart';
 import '../../core/di/injection.dart';
@@ -14,6 +17,7 @@ import 'widgets/device_step.dart';
 import 'widgets/select_tile.dart';
 import 'widgets/wizard_footer.dart';
 import 'widgets/wizard_stepper.dart';
+import 'widgets/wizard_title_bar.dart';
 
 /// Multi-step wizard for creating a new AVD.
 ///
@@ -34,14 +38,42 @@ class CreateEmulatorPage extends StatelessWidget {
   }
 }
 
-class _CreateEmulatorView extends StatelessWidget {
+class _CreateEmulatorView extends StatefulWidget {
   const _CreateEmulatorView({this.onClose});
 
   final void Function(bool created)? onClose;
 
+  @override
+  State<_CreateEmulatorView> createState() => _CreateEmulatorViewState();
+}
+
+/// Owns the window-close hook: the caption X and the footer's Cancel must run
+/// the same discard check, so the listener lives where the cubit is readable.
+class _CreateEmulatorViewState extends State<_CreateEmulatorView>
+    with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    if (!Platform.isWindows) return;
+    windowManager.addListener(this);
+    // Intercept the native close so an accidental X can still be taken back.
+    windowManager.setPreventClose(true).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isWindows) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() {
+    _exit(context);
+  }
+
   void _close(BuildContext context, bool created) {
-    if (onClose != null) {
-      onClose!(created);
+    if (widget.onClose != null) {
+      widget.onClose!(created);
     } else if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop(created);
     }
@@ -66,17 +98,36 @@ class _CreateEmulatorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The window's caption *is* the header — no second heading below it.
+    return BlocBuilder<CreateEmulatorCubit, CreateEmulatorState>(
+      buildWhen: (p, c) =>
+          p.devicePhase != c.devicePhase ||
+          p.step != c.step ||
+          p.deviceId != c.deviceId,
+      builder: (context, state) {
+        final atStart =
+            state.step == WizardStep.device &&
+            state.devicePhase == DeviceStepPhase.categories;
+        return Column(
+          children: [
+            WizardTitleBar(
+              backTooltip: atStart ? 'Close' : 'Back to categories',
+              contextLabel: state.selectedDevice?.name,
+              onBack: () {
+                if (!context.read<CreateEmulatorCubit>().back()) _exit(context);
+              },
+              onClose: () => _exit(context),
+            ),
+            Expanded(child: _content()),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _content() {
     return ScaffoldPage(
-      header: PageHeader(
-        title: const Text('Create Emulator'),
-        leading: Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: IconButton(
-            icon: const Icon(FluentIcons.back, size: 16),
-            onPressed: () => _exit(context),
-          ),
-        ),
-      ),
+      padding: EdgeInsets.zero,
       content: BlocConsumer<CreateEmulatorCubit, CreateEmulatorState>(
         listenWhen: (p, c) => p.createdName != c.createdName,
         listener: (context, state) {
@@ -103,10 +154,7 @@ class _CreateEmulatorView extends StatelessWidget {
                   'creating an emulator.',
             );
           }
-          return _WizardBody(
-            state: state,
-            onExit: () => _exit(context),
-          );
+          return _WizardBody(state: state, onExit: () => _exit(context));
         },
       ),
     );
@@ -158,9 +206,7 @@ class _WizardBody extends StatelessWidget {
 
     return CallbackShortcuts(
       // Esc mirrors Back at every level: device list → categories → out.
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): goBack,
-      },
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): goBack},
       child: FocusScope(
         autofocus: true,
         child: Column(
@@ -168,15 +214,27 @@ class _WizardBody extends StatelessWidget {
             WizardStepper(current: state.step, onTap: cubit.goTo),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  kWizardInset,
+                  2,
+                  kWizardInset,
+                  10,
+                ),
                 child: _StepContent(state: state),
               ),
             ),
             WizardFooter(
               summary: _FooterSummary(state: state),
+              backLabel:
+                  state.step == WizardStep.device &&
+                      state.devicePhase == DeviceStepPhase.categories
+                  ? 'Cancel'
+                  : 'Back',
               onBack: goBack,
               onNext: isLast
-                  ? (state.canAdvance && !state.submitting ? cubit.submit : null)
+                  ? (state.canAdvance && !state.submitting
+                        ? cubit.submit
+                        : null)
                   : (state.canAdvance ? cubit.next : null),
               nextLabel: isLast ? 'Create emulator' : 'Next',
               nextDisabledTooltip: _nextBlockedReason(state),
@@ -589,7 +647,6 @@ class _ConfigureStepState extends State<_ConfigureStep> {
     );
   }
 }
-
 
 class _CenteredMessage extends StatelessWidget {
   const _CenteredMessage({
