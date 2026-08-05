@@ -20,16 +20,13 @@ class AppInfo {
   static const String issuesUrl = '$repositoryUrl/issues';
   static const String releaseNotesUrl = '$repositoryUrl/releases';
 
+  // Values below are supplied by `tooluild.ps1`, which reads them from
+  // pubspec, `flutter --version --machine` and git. A build that skips the
+  // script reports the fallbacks, which is why they are honest placeholders
+  // rather than stale copies of last release's numbers.
+  //
   // TODO(ci): no CI config exists in this repository yet. When one is added,
-  // pass these along with the version so a release build reports itself
-  // accurately:
-  //   flutter build windows \
-  //     --dart-define=APP_VERSION=1.0.4 \
-  //     --dart-define=APP_BUILD_NUMBER=4 \
-  //     --dart-define=APP_FLUTTER_VERSION=$(flutter --version --machine | ...) \
-  //     --dart-define=APP_DART_VERSION=... \
-  //     --dart-define=APP_COMMIT=$(git rev-parse --short HEAD) \
-  //     --dart-define=APP_CHANNEL=stable
+  // call tool/build.ps1 from it rather than re-deriving the defines there.
 
   /// Mirrors `version:` in pubspec.yaml.
   ///

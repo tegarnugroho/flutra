@@ -57,7 +57,9 @@
       "Bash(grep -v \"test.\\\\\\\\\\\\\\\\\")",
       "Bash(sed -n '/Future<void> openDevLogsWindow/,/^}/p' lib/presentation/settings/settings_page.dart)",
       "Bash(sed -n '/_runDevLogsWindow\\(Map/,/^}/p' lib/main.dart)",
-      "Bash(dart -e 'import \"dart:io\"; void main\\(\\){print\\(Platform.version\\);}')"
+      "Bash(dart -e 'import \"dart:io\"; void main\\(\\){print\\(Platform.version\\);}')",
+      "Bash(flutter --version --machine)",
+      "Bash(powershell -NoProfile -Command '$m = flutter --version --machine | ConvertFrom-Json; $m.dartSdkVersion; $m.channel; $m.frameworkVersion')"
     ],
     "additionalDirectories": [
       "\\tmp"
