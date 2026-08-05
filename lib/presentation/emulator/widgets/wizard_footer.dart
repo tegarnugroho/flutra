@@ -1,7 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../common/app_loader.dart';
-import 'wizard_title_bar.dart' show kWizardInset;
+import '../../common/task_window_title_bar.dart' show kTaskWindowInset;
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import 'wizard_stepper.dart' show onAccent;
@@ -47,7 +47,7 @@ class WizardFooter extends StatelessWidget {
     final palette = AppPalette.of(context);
     return Container(
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: kWizardInset),
+      padding: const EdgeInsets.symmetric(horizontal: kTaskWindowInset),
       decoration: BoxDecoration(
         color: palette.sidebarBg,
         border: Border(

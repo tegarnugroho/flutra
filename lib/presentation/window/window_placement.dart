@@ -6,6 +6,10 @@ import 'package:window_manager/window_manager.dart';
 const Size kWizardWindowSize = Size(720, 640);
 const Size kWizardWindowMinSize = Size(640, 560);
 
+/// The Developer Logs viewer wants width for long mono lines.
+const Size kDevLogsWindowSize = Size(900, 640);
+const Size kDevLogsWindowMinSize = Size(640, 480);
+
 /// The frame a [size]d task window should open at: centred over the window
 /// calling this.
 ///

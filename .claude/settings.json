@@ -54,7 +54,9 @@
       "Bash(dart fix *)",
       "Bash(grep -v \"^\\\\s*///\")",
       "Bash(awk '{print $2}')",
-      "Bash(grep -v \"test.\\\\\\\\\\\\\\\\\")"
+      "Bash(grep -v \"test.\\\\\\\\\\\\\\\\\")",
+      "Bash(sed -n '/Future<void> openDevLogsWindow/,/^}/p' lib/presentation/settings/settings_page.dart)",
+      "Bash(sed -n '/_runDevLogsWindow\\(Map/,/^}/p' lib/main.dart)"
     ],
     "additionalDirectories": [
       "\\tmp"

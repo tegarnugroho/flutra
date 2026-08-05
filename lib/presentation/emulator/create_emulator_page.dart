@@ -18,7 +18,7 @@ import 'widgets/install_badge.dart';
 import 'widgets/wizard_option_row.dart';
 import 'widgets/wizard_footer.dart';
 import 'widgets/wizard_stepper.dart';
-import 'widgets/wizard_title_bar.dart';
+import '../common/task_window_title_bar.dart';
 
 /// Multi-step wizard for creating a new AVD.
 ///
@@ -127,12 +127,20 @@ class _CreateEmulatorViewState extends State<_CreateEmulatorView>
             state.devicePhase == DeviceStepPhase.categories;
         return Column(
           children: [
-            WizardTitleBar(
-              backTooltip: atStart ? 'Close' : 'Back to categories',
-              contextLabel: state.selectedDevice?.name,
-              onBack: () {
-                if (!context.read<CreateEmulatorCubit>().back()) _exit(context);
-              },
+            TaskWindowTitleBar(
+              title: 'Create emulator',
+              leading: TitleBarIconButton(
+                icon: FluentIcons.back,
+                tooltip: atStart ? 'Close' : 'Back to categories',
+                onPressed: () {
+                  if (!context.read<CreateEmulatorCubit>().back()) {
+                    _exit(context);
+                  }
+                },
+              ),
+              trailing: state.selectedDevice == null
+                  ? null
+                  : TitleBarChip(label: state.selectedDevice!.name),
               onClose: () => _exit(context),
             ),
             Expanded(child: _content()),
@@ -231,9 +239,9 @@ class _WizardBody extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  kWizardInset,
+                  kTaskWindowInset,
                   2,
-                  kWizardInset,
+                  kTaskWindowInset,
                   10,
                 ),
                 child: _StepContent(state: state),

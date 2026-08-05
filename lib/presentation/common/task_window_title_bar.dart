@@ -1,39 +1,43 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../common/window_caption_buttons.dart';
-import '../../theme/app_colors.dart';
-import '../../theme/app_text_styles.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
+import 'window_caption_buttons.dart';
 
-/// The horizontal inset every band of the wizard window shares — title bar,
-/// stepper, content and footer all start on this line.
-const double kWizardInset = 22;
+/// The horizontal inset every band of a task window shares — title bar,
+/// toolbar, content and footer all start on this line.
+const double kTaskWindowInset = 22;
 
-/// The wizard window's caption, which doubles as its header.
+/// The caption of a secondary window, which doubles as its header.
 ///
-/// One 40px band instead of a caption plus a page heading: back button, title,
-/// the selected device as a chip, drag area, then minimize and close. No
-/// maximize — a task window has no use for the whole screen.
-class WizardTitleBar extends StatelessWidget {
-  const WizardTitleBar({
+/// One 40px band instead of a caption plus a page heading. Shared by the
+/// Create Emulator wizard and the Developer Logs viewer — a task window has a
+/// fixed job, so there is no maximize button.
+class TaskWindowTitleBar extends StatelessWidget {
+  const TaskWindowTitleBar({
     super.key,
-    required this.onBack,
-    required this.backTooltip,
+    required this.title,
     required this.onClose,
-    this.contextLabel,
+    this.leading,
+    this.icon,
+    this.trailing,
   });
 
-  /// Back one level: the device list falls back to categories, and the
-  /// categories screen closes the window.
-  final VoidCallback onBack;
+  final String title;
 
-  /// Names what Back will actually do at this level.
-  final String backTooltip;
-
+  /// What the caption's close button does. Windows that need to confirm or
+  /// clean up first pass their own handler.
   final VoidCallback onClose;
 
-  /// Shown as a muted pill after the title once a device is picked.
-  final String? contextLabel;
+  /// Control in the app-icon slot, e.g. a back button.
+  final Widget? leading;
+
+  /// Glyph in the app-icon slot, used when there is no [leading] control.
+  final IconData? icon;
+
+  /// Sits after the title — a context chip, a count pill.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -45,18 +49,14 @@ class WizardTitleBar extends StatelessWidget {
       color: palette.sidebarBg,
       child: Row(
         children: [
-          const SizedBox(width: kWizardInset - 6),
-          WizardIconButton(
-            icon: FluentIcons.back,
-            tooltip: backTooltip,
-            onPressed: onBack,
-          ),
+          const SizedBox(width: kTaskWindowInset - 6),
+          if (leading != null)
+            leading!
+          else if (icon != null)
+            Icon(icon, size: 15, color: palette.textSecondary),
           const SizedBox(width: 10),
-          Text('Create emulator', style: text.titleBar),
-          if (contextLabel != null) ...[
-            const SizedBox(width: 8),
-            _ContextChip(label: contextLabel!),
-          ],
+          Text(title, style: text.titleBar),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           Expanded(child: DragToMoveArea(child: Container())),
           WindowCaptionButtons(
             showMaximize: false,
@@ -69,10 +69,9 @@ class WizardTitleBar extends StatelessWidget {
   }
 }
 
-/// A small pill naming the current selection, so the title bar carries context
-/// once the user is deeper in the wizard.
-class _ContextChip extends StatelessWidget {
-  const _ContextChip({required this.label});
+/// A muted pill for a count or a context label in the title bar.
+class TitleBarChip extends StatelessWidget {
+  const TitleBarChip({super.key, required this.label});
 
   final String label;
 
@@ -97,9 +96,9 @@ class _ContextChip extends StatelessWidget {
 }
 
 /// A 26px square icon button with a resting surface, for chrome actions that
-/// need to read as buttons rather than as bare glyphs.
-class WizardIconButton extends StatefulWidget {
-  const WizardIconButton({
+/// must read as buttons rather than as bare glyphs.
+class TitleBarIconButton extends StatefulWidget {
+  const TitleBarIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
@@ -111,10 +110,10 @@ class WizardIconButton extends StatefulWidget {
   final VoidCallback? onPressed;
 
   @override
-  State<WizardIconButton> createState() => _WizardIconButtonState();
+  State<TitleBarIconButton> createState() => _TitleBarIconButtonState();
 }
 
-class _WizardIconButtonState extends State<WizardIconButton> {
+class _TitleBarIconButtonState extends State<TitleBarIconButton> {
   bool _hovered = false;
   bool _pressed = false;
 
@@ -131,8 +130,8 @@ class _WizardIconButtonState extends State<WizardIconButton> {
     } else if (_hovered) {
       background = palette.borderStrong;
     } else {
-      // Unlike the main window's chrome buttons this one rests visible: it is
-      // the only way back, so it must not read as a bare glyph.
+      // Unlike the caption glyphs this one rests visible: it is often the only
+      // way back, so it must not read as decoration.
       background = palette.surfaceRaised;
     }
 

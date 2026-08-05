@@ -60,6 +60,9 @@ class AppColors {
   /// Missing required tool, failure.
   static const statusError = Color(0xFFF85149);
 
+  /// Trace-level log lines — present but never competing with INFO.
+  static const logTrace = Color(0xFF6E8FC7);
+
   /// Fill behind a destructive control — the error hue at low strength, so the
   /// button reads as dangerous without shouting.
   static const dangerSurface = Color(0xFF2A1719);
@@ -124,6 +127,7 @@ class AppColors {
   static const statusWarnLight = Color(0xFF8A6100);
   static const statusErrorLight = Color(0xFFC8232C);
   static const dangerSurfaceLight = Color(0xFFFDECEC);
+  static const logTraceLight = Color(0xFF3E63A8);
   static const accentLight = Color(0xFF2F5FD1);
   static const accentBgTintLight = Color(0xFFEDF2FD);
 
@@ -201,6 +205,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.statusWarn,
     required this.statusError,
     required this.dangerSurface,
+    required this.logTrace,
     required this.accent,
     required this.accentBgTint,
     required this.captionPressed,
@@ -227,6 +232,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Fill behind destructive controls. The border and label stay
   /// [statusError] — this is only the wash behind them.
   final Color dangerSurface;
+
+  /// FINE/DEBUG log lines.
+  final Color logTrace;
 
   final Color accent;
   final Color accentBgTint;
@@ -261,6 +269,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusWarn: AppColors.statusWarn,
     statusError: AppColors.statusError,
     dangerSurface: AppColors.dangerSurface,
+    logTrace: AppColors.logTrace,
     accent: AppColors.accent,
     accentBgTint: AppColors.accentBgTint,
     captionPressed: AppColors.captionPressed,
@@ -282,6 +291,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusWarn: AppColors.statusWarnLight,
     statusError: AppColors.statusErrorLight,
     dangerSurface: AppColors.dangerSurfaceLight,
+    logTrace: AppColors.logTraceLight,
     accent: AppColors.accentLight,
     accentBgTint: AppColors.accentBgTintLight,
     captionPressed: AppColors.captionPressedLight,
@@ -309,6 +319,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? statusWarn,
     Color? statusError,
     Color? dangerSurface,
+    Color? logTrace,
     Color? accent,
     Color? accentBgTint,
     Color? captionPressed,
@@ -329,6 +340,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusWarn: statusWarn ?? this.statusWarn,
       statusError: statusError ?? this.statusError,
       dangerSurface: dangerSurface ?? this.dangerSurface,
+      logTrace: logTrace ?? this.logTrace,
       accent: accent ?? this.accent,
       accentBgTint: accentBgTint ?? this.accentBgTint,
       captionPressed: captionPressed ?? this.captionPressed,
@@ -357,6 +369,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusWarn: c(statusWarn, other.statusWarn),
       statusError: c(statusError, other.statusError),
       dangerSurface: c(dangerSurface, other.dangerSurface),
+      logTrace: c(logTrace, other.logTrace),
       accent: c(accent, other.accent),
       accentBgTint: c(accentBgTint, other.accentBgTint),
       captionPressed: c(captionPressed, other.captionPressed),

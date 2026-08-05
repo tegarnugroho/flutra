@@ -106,7 +106,7 @@ Map<String, dynamic>? _tryDecode(String arguments) {
 
 Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
   // Position first, while the window is still hidden — see _revealWindow.
-  await _placeWizardWindow(args);
+  await _placeTaskWindow(args, kWizardWindowSize, kWizardWindowMinSize);
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     CreateEmulatorWindowApp(
@@ -150,12 +150,16 @@ Future<void> _hideNativeTitleBar() async {
 /// `centeredOverMainWindow`); this side only applies it. Falling back to
 /// centring on this window's own display is the defensive path for a missing or
 /// malformed argument — never show unpositioned.
-Future<void> _placeWizardWindow(Map<String, dynamic> args) async {
+Future<void> _placeTaskWindow(
+  Map<String, dynamic> args,
+  Size defaultSize,
+  Size minSize,
+) async {
   await _tryWindow(() async {
-    await windowManager.setMinimumSize(kWizardWindowMinSize);
+    await windowManager.setMinimumSize(minSize);
     final frame = (args['frame'] as List?)?.cast<num>();
     if (frame == null || frame.length != 4) {
-      await windowManager.setSize(kWizardWindowSize);
+      await windowManager.setSize(defaultSize);
       await windowManager.setAlignment(Alignment.center);
       return;
     }
@@ -206,10 +210,12 @@ Future<void> _restoreWindowBounds() async {
 }
 
 Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {
+  await _placeTaskWindow(args, kDevLogsWindowSize, kDevLogsWindowMinSize);
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     DevLogsWindowApp(windowController: controller, dark: args['dark'] == true),
   );
+  _revealWindow();
 }
 
 void _setupLogging() {

@@ -3,7 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../../application/emulator/create_emulator_cubit.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
-import 'wizard_title_bar.dart' show kWizardInset;
+import '../../common/task_window_title_bar.dart' show kTaskWindowInset;
 
 /// The wizard's progress rail: one numbered circle per step, joined by the
 /// lines that fill in behind you.
@@ -28,9 +28,9 @@ class WizardStepper extends StatelessWidget {
     final palette = AppPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        kWizardInset,
+        kTaskWindowInset,
         14,
-        kWizardInset,
+        kTaskWindowInset,
         12,
       ),
       child: Row(

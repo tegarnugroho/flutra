@@ -25,6 +25,7 @@ import '../common/skeleton/skeleton_layouts.dart';
 import '../common/segmented_control.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../window/window_placement.dart';
 import 'widgets/path_setting_row.dart';
 
 /// Settings: theme, SDK path overrides, behaviour and developer tools.
@@ -379,8 +380,13 @@ Future<void> openDevLogsWindow() async {
   final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
   await WindowController.create(
     WindowConfiguration(
-      arguments: jsonEncode({'businessId': kDevLogsWindow, 'dark': dark}),
-      hiddenAtLaunch: false,
+      arguments: jsonEncode({
+        'businessId': kDevLogsWindow,
+        'dark': dark,
+        // Positions itself before its first paint — see _placeTaskWindow.
+        'frame': await centeredOverMainWindow(kDevLogsWindowSize),
+      }),
+      hiddenAtLaunch: true,
     ),
   );
 }
