@@ -24,6 +24,7 @@ import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import '../sdk/updates_page.dart';
 import '../settings/settings_page.dart' show SettingsPage, openDevLogsWindow;
+import '../window/task_windows.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'command_palette.dart';
@@ -177,6 +178,12 @@ class _AppShellState extends State<AppShell> {
             leading: const Icon(WindowsIcons.developer_tools),
             text: const Text('Developer logs'),
             onPressed: openDevLogsWindow,
+          ),
+          const MenuFlyoutSeparator(),
+          MenuFlyoutItem(
+            leading: const Icon(WindowsIcons.info),
+            text: const Text('About Flutter SDK Manager'),
+            onPressed: openAboutWindow,
           ),
           const MenuFlyoutSeparator(),
           MenuFlyoutItem(

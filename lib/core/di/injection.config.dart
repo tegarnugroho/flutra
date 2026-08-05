@@ -72,12 +72,16 @@ import 'package:android_sdk_manager/infrastructure/repositories/sdk_repository_i
     as _i77;
 import 'package:android_sdk_manager/infrastructure/sdk/flutter_locator.dart'
     as _i1034;
+import 'package:android_sdk_manager/infrastructure/sdk/path_probe_service.dart'
+    as _i220;
 import 'package:android_sdk_manager/infrastructure/sdk/sdk_locator.dart'
     as _i839;
 import 'package:android_sdk_manager/infrastructure/settings/settings_service.dart'
     as _i517;
 import 'package:android_sdk_manager/infrastructure/settings/startup_service.dart'
     as _i104;
+import 'package:android_sdk_manager/infrastructure/system/external_link_service.dart'
+    as _i1017;
 import 'package:android_sdk_manager/infrastructure/system/host_info_service.dart'
     as _i361;
 import 'package:android_sdk_manager/infrastructure/system/process_service.dart'
@@ -110,8 +114,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i706.DoctorRunner>(
       () => _i706.DoctorRunner(gh<_i144.CommandRunner>()),
     );
+    gh.lazySingleton<_i220.PathProbeService>(
+      () => _i220.PathProbeService(gh<_i144.CommandRunner>()),
+    );
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
+    );
+    gh.lazySingleton<_i1017.ExternalLinkService>(
+      () => _i1017.ExternalLinkService(gh<_i144.CommandRunner>()),
     );
     gh.lazySingleton<_i361.HostInfoService>(
       () => _i361.HostInfoService(gh<_i144.CommandRunner>()),

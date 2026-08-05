@@ -14,6 +14,7 @@ import 'infrastructure/logging/dev_log_service.dart';
 import 'infrastructure/settings/settings_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
+import 'presentation/window/about_window.dart';
 import 'presentation/window/create_emulator_window.dart';
 import 'presentation/window/dev_logs_window.dart';
 import 'presentation/window/emulator_console_window.dart';
@@ -27,6 +28,9 @@ const String kEmulatorConsoleWindow = 'emulatorConsole';
 
 /// Business id marking the standalone Developer-Logs window.
 const String kDevLogsWindow = 'devLogs';
+
+/// Business id marking the standalone About window.
+const String kAboutWindow = 'about';
 
 Future<void> main(List<String> args) async {
   _setupLogging();
@@ -73,6 +77,10 @@ Future<void> main(List<String> args) async {
   }
   if (businessId == kDevLogsWindow) {
     await _runDevLogsWindow(decoded!);
+    return;
+  }
+  if (businessId == kAboutWindow) {
+    await _runAboutWindow(decoded!);
     return;
   }
 
@@ -214,6 +222,17 @@ Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     DevLogsWindowApp(windowController: controller, dark: args['dark'] == true),
+  );
+  _revealWindow();
+}
+
+Future<void> _runAboutWindow(Map<String, dynamic> args) async {
+  await _placeTaskWindow(args, kAboutWindowSize, kAboutWindowSize);
+  // A fixed card: nothing in it reflows, so resizing only ever makes it worse.
+  await _tryWindow(() => windowManager.setResizable(false));
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(
+    AboutWindowApp(windowController: controller, dark: args['dark'] == true),
   );
   _revealWindow();
 }
