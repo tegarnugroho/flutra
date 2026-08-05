@@ -1,13 +1,13 @@
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart';
-import 'package:android_sdk_manager/domain/entities/system_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-SystemImage _img(int api, String tag, String abi) => SystemImage(
+ImageOption _img(int api, String tag, String abi, {bool installed = true}) =>
+    ImageOption(
       packagePath: 'system-images;android-$api;$tag;$abi',
-      platform: 'android-$api',
       apiLevel: api,
       tag: tag,
       abi: abi,
+      installed: installed,
     );
 
 void main() {
@@ -20,18 +20,18 @@ void main() {
 
   group('CreateEmulatorState derivations', () {
     test('availableApiLevels are distinct and newest-first', () {
-      final state = CreateEmulatorState(images: images);
+      final state = CreateEmulatorState(options: images);
       expect(state.availableApiLevels, [35, 34]);
     });
 
     test('tagsForApi filters by selected API level', () {
-      final state = CreateEmulatorState(images: images, apiLevel: 34);
+      final state = CreateEmulatorState(options: images, apiLevel: 34);
       expect(state.tagsForApi, ['google_apis', 'google_apis_playstore']);
     });
 
     test('abisForSelection filters by API level and tag', () {
       final state = CreateEmulatorState(
-        images: images,
+        options: images,
         apiLevel: 35,
         tag: 'google_apis',
       );
@@ -40,14 +40,14 @@ void main() {
 
     test('selectedImage resolves only when fully specified', () {
       final incomplete = CreateEmulatorState(
-        images: images,
+        options: images,
         apiLevel: 35,
         tag: 'google_apis',
       );
       expect(incomplete.selectedImage, isNull);
 
       final complete = CreateEmulatorState(
-        images: images,
+        options: images,
         apiLevel: 35,
         tag: 'google_apis',
         abi: 'x86_64',
@@ -71,7 +71,7 @@ void main() {
       expect(device.canAdvance, isTrue);
 
       final configIncompleteName = CreateEmulatorState(
-        images: images,
+        options: images,
         step: WizardStep.configure,
         apiLevel: 35,
         tag: 'google_apis',

@@ -14,7 +14,8 @@ import '../common/confirm_dialog.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'widgets/device_step.dart';
-import 'widgets/select_tile.dart';
+import 'widgets/install_badge.dart';
+import 'widgets/wizard_option_row.dart';
 import 'widgets/wizard_footer.dart';
 import 'widgets/wizard_stepper.dart';
 import 'widgets/wizard_title_bar.dart';
@@ -87,20 +88,29 @@ class _CreateEmulatorViewState extends State<_CreateEmulatorView>
   /// something to lose — a device the user already picked.
   Future<void> _exit(BuildContext context) async {
     if (_leaving) return;
-    final state = context.read<CreateEmulatorCubit>().state;
-    if (state.deviceId == null) {
+    final cubit = context.read<CreateEmulatorCubit>();
+    final state = cubit.state;
+    if (state.deviceId == null && !state.isWorking) {
       _close(context, false);
       return;
     }
     _leaving = true;
+    // A running download is worth naming: leaving throws away a partial
+    // multi-hundred-megabyte fetch, not just a few clicks.
     final discard = await showConfirmDialog(
       context,
-      title: 'Discard this emulator?',
-      message: 'The device you picked and any other choices will be lost.',
-      confirmLabel: 'Discard',
+      title: state.isWorking
+          ? 'A download is in progress'
+          : 'Discard this emulator?',
+      message: state.isWorking
+          ? 'Cancel it and close the wizard?'
+          : 'The device you picked and any other choices will be lost.',
+      confirmLabel: state.isWorking ? 'Cancel & close' : 'Discard',
     );
     _leaving = false;
-    if (discard && context.mounted) _close(context, false);
+    if (!discard) return;
+    if (state.isWorking) cubit.cancelInstall();
+    if (context.mounted) _close(context, false);
   }
 
   @override
@@ -151,14 +161,13 @@ class _CreateEmulatorViewState extends State<_CreateEmulatorView>
               message: state.errorMessage ?? 'Unknown error.',
             );
           }
-          if (state.images.isEmpty) {
+          if (state.options.isEmpty) {
             return const _CenteredMessage(
               icon: FluentIcons.download,
-              title: 'No system images installed',
+              title: 'No system images available',
               message:
-                  'Install at least one system image from the SDK Manager '
-                  '(e.g. "system-images;android-34;google_apis;x86_64") before '
-                  'creating an emulator.',
+                  'sdkmanager reported no system-image packages. Check the '
+                  'SDK path in Settings, then try again.',
             );
           }
           return _WizardBody(state: state, onExit: () => _exit(context));
@@ -231,19 +240,30 @@ class _WizardBody extends StatelessWidget {
               ),
             ),
             WizardFooter(
-              summary: _FooterSummary(state: state),
-              backLabel:
-                  state.step == WizardStep.device &&
-                      state.devicePhase == DeviceStepPhase.categories
+              summary: state.isWorking
+                  ? _InstallProgress(state: state)
+                  : _FooterSummary(state: state),
+              // A running install owns the left button: it aborts the
+              // download instead of stepping the wizard back under it.
+              backLabel: state.isWorking
+                  ? 'Cancel'
+                  : (state.step == WizardStep.device &&
+                        state.devicePhase == DeviceStepPhase.categories)
                   ? 'Cancel'
                   : 'Back',
-              onBack: goBack,
+              onBack: state.isWorking ? cubit.cancelInstall : goBack,
               onNext: isLast
                   ? (state.canAdvance && !state.submitting
                         ? cubit.submit
                         : null)
                   : (state.canAdvance ? cubit.next : null),
-              nextLabel: isLast ? 'Create emulator' : 'Next',
+              nextLabel: isLast
+                  ? (state.errorMessage != null
+                        ? 'Retry'
+                        : state.needsDownload
+                        ? 'Download & create'
+                        : 'Create emulator')
+                  : 'Next',
               nextDisabledTooltip: _nextBlockedReason(state),
               busy: state.submitting,
             ),
@@ -263,6 +283,42 @@ class _WizardBody extends StatelessWidget {
       WizardStep.abi => 'Choose an ABI first',
       WizardStep.configure => 'Name the emulator first',
     };
+  }
+}
+
+/// The footer while the deferred download and AVD creation run.
+///
+/// Determinate whenever sdkmanager prints a percentage; otherwise the phase
+/// label alone carries the state, which is honest about what is knowable.
+class _InstallProgress extends StatelessWidget {
+  const _InstallProgress({required this.state});
+
+  final CreateEmulatorState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    final progress = state.installProgress;
+    return Row(
+      children: [
+        const AppLoader(size: AppLoaderSize.small),
+        const SizedBox(width: 10),
+        Text(state.installPhase.label, style: text.statusLine),
+        if (progress != null) ...[
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 120,
+            child: ProgressBar(
+              value: progress * 100,
+              activeColor: palette.accent,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('${(progress * 100).round()}%', style: text.caption),
+        ],
+      ],
+    );
   }
 }
 
@@ -355,33 +411,106 @@ class _ApiStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<CreateEmulatorCubit>();
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+
     return ListView(
       children: [
-        for (final api in state.availableApiLevels)
+        Text('Android version', style: text.rowTitle),
+        const SizedBox(height: 3),
+        Text(
+          'Versions without an image will be downloaded when the emulator is '
+          'created',
+          style: text.caption,
+        ),
+        const SizedBox(height: 12),
+        for (final api in state.visibleApiLevels)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SelectTile(
-              icon: FluentIcons.build_queue,
-              title: 'Android API $api',
-              subtitle: _codeName(api),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ApiRow(
+              api: api,
+              installed: state.isApiInstalled(api),
               selected: state.apiLevel == api,
               onTap: () => cubit.selectApiLevel(api),
+            ),
+          ),
+        if (state.olderApiLevels.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _LinkButton(
+              label: state.showOlderApis
+                  ? 'Hide older versions'
+                  : 'Show older versions (${state.olderApiLevels.length})',
+              onTap: cubit.toggleOlderApis,
+            ),
+          ),
+        if (state.apiLevel != null && !state.isApiInstalled(state.apiLevel!))
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: DeferredDownloadBanner(
+              message:
+                  '${androidVersionOf(state.apiLevel!).version} is not '
+                  'installed yet — the system image will download during '
+                  'creation',
             ),
           ),
       ],
     );
   }
+}
 
-  String _codeName(int api) => switch (api) {
-    36 => 'Android 16',
-    35 => 'Android 15 (VanillaIceCream)',
-    34 => 'Android 14 (UpsideDownCake)',
-    33 => 'Android 13 (Tiramisu)',
-    32 || 31 => 'Android 12 (S)',
-    30 => 'Android 11 (R)',
-    29 => 'Android 10 (Q)',
-    _ => 'API level $api',
-  };
+/// One Android version: name + API on the left, install state on the right.
+class _ApiRow extends StatelessWidget {
+  const _ApiRow({
+    required this.api,
+    required this.installed,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int api;
+  final bool installed;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final version = androidVersionOf(api);
+    return WizardOptionRow(
+      selected: selected,
+      onTap: onTap,
+      title: '${version.version} · API $api',
+      subtitle: version.codename,
+      trailing: InstallBadge(installed: installed),
+    );
+  }
+}
+
+/// A quiet text button for in-list affordances (expanders, clear actions).
+class _LinkButton extends StatelessWidget {
+  const _LinkButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            label,
+            style: text.rowLabel.copyWith(color: palette.accent),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ---- Step 3: image tag ------------------------------------------------------
@@ -391,43 +520,59 @@ class _ImageStep extends StatelessWidget {
 
   final CreateEmulatorState state;
 
+  /// The flavour most projects want: Google APIs without the Play Store.
+  static const _recommendedTag = 'google_apis';
+
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<CreateEmulatorCubit>();
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    final selectedMissing =
+        state.tag != null && !state.isTagInstalled(state.tag!);
+
     return ListView(
       children: [
+        Text('System image', style: text.rowTitle),
+        const SizedBox(height: 3),
+        Text(
+          'Flavours available for API ${state.apiLevel}',
+          style: text.caption,
+        ),
+        const SizedBox(height: 12),
         for (final tag in state.tagsForApi)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SelectTile(
-              icon: tag.contains('playstore')
-                  ? FluentIcons.shop
-                  : tag.contains('google')
-                  ? FluentIcons.cloud
-                  : FluentIcons.app_icon_default,
-              title: _label(state, tag),
-              subtitle: tag,
+            padding: const EdgeInsets.only(bottom: 8),
+            child: WizardOptionRow(
               selected: state.tag == tag,
               onTap: () => cubit.selectTag(tag),
+              title: _tagLabel(tag),
+              subtitle: tag,
+              leading: tag == _recommendedTag ? const RecommendedTag() : null,
+              trailing: InstallBadge(installed: state.isTagInstalled(tag)),
+            ),
+          ),
+        if (selectedMissing)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: DeferredDownloadBanner(
+              message:
+                  '${_tagLabel(state.tag!)} is not installed yet — it will '
+                  'download during creation',
             ),
           ),
       ],
     );
   }
 
-  String _label(CreateEmulatorState state, String tag) {
-    final match = state.images.firstWhere(
-      (i) => i.apiLevel == state.apiLevel && i.tag == tag,
-      orElse: () => SystemImage(
-        packagePath: '',
-        platform: '',
-        apiLevel: 0,
-        tag: tag,
-        abi: '',
-      ),
-    );
-    return match.tagLabel;
-  }
+  /// Friendly name for a tag, without needing an installed image to ask.
+  static String _tagLabel(String tag) => SystemImage(
+    packagePath: '',
+    platform: '',
+    apiLevel: 0,
+    tag: tag,
+    abi: '',
+  ).tagLabel;
 }
 
 // ---- Step 4: ABI ------------------------------------------------------------
@@ -440,19 +585,42 @@ class _AbiStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<CreateEmulatorCubit>();
+    final palette = AppPalette.of(context);
+    final text = AppTextStyles.fromPalette(palette);
+    final option = state.selectedOption;
+
     return ListView(
       children: [
+        Text('ABI', style: text.rowTitle),
+        const SizedBox(height: 3),
+        Text(
+          'Only ABIs published for this image are listed',
+          style: text.caption,
+        ),
+        const SizedBox(height: 12),
         for (final abi in state.abisForSelection)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SelectTile(
-              icon: FluentIcons.processing,
+            padding: const EdgeInsets.only(bottom: 8),
+            child: WizardOptionRow(
+              selected: state.abi == abi,
+              onTap: () => cubit.selectAbi(abi),
               title: abi,
               subtitle: abi.startsWith('x86')
                   ? 'Intel/AMD — fastest on this PC'
                   : 'ARM — slower via translation',
-              selected: state.abi == abi,
-              onTap: () => cubit.selectAbi(abi),
+              trailing: InstallBadge(
+                // Per exact package now, not per flavour.
+                installed: state.optionForAbi(abi)?.installed ?? false,
+              ),
+            ),
+          ),
+        if (option != null && !option.installed)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: DeferredDownloadBanner(
+              message:
+                  '${option.packagePath} will download when the emulator is '
+                  'created',
             ),
           ),
       ],

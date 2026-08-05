@@ -24,6 +24,103 @@ extension WizardStepInfo on WizardStep {
   };
 }
 
+/// How far along the deferred install + create pipeline the wizard is.
+enum InstallPhase {
+  idle,
+  downloading,
+  installing,
+  verifying,
+  creating,
+}
+
+extension InstallPhaseLabel on InstallPhase {
+  String get label => switch (this) {
+    InstallPhase.idle => '',
+    InstallPhase.downloading => 'Downloading system image…',
+    InstallPhase.installing => 'Installing system image…',
+    InstallPhase.verifying => 'Verifying install…',
+    InstallPhase.creating => 'Creating AVD…',
+  };
+}
+
+/// One `system-images;…` package the wizard can build an AVD on, whether or not
+/// it is on disk yet.
+///
+/// The catalogue comes from `sdkmanager --list`, so "available" entries are
+/// selectable and downloaded during the final step.
+class ImageOption extends Equatable {
+  const ImageOption({
+    required this.packagePath,
+    required this.apiLevel,
+    required this.tag,
+    required this.abi,
+    required this.installed,
+  });
+
+  /// Parses a `system-images;android-34;google_apis;x86_64` path.
+  ///
+  /// Returns null for anything that isn't a four-part system-image path with a
+  /// numeric API level — `android-TiramisuPrivacySandbox` and friends.
+  static ImageOption? tryParse(String path, {required bool installed}) {
+    final parts = path.split(';');
+    if (parts.length != 4 || parts.first != 'system-images') return null;
+    final api = int.tryParse(parts[1].replaceFirst('android-', ''));
+    if (api == null) return null;
+    return ImageOption(
+      packagePath: path,
+      apiLevel: api,
+      tag: parts[2],
+      abi: parts[3],
+      installed: installed,
+    );
+  }
+
+  final String packagePath;
+  final int apiLevel;
+  final String tag;
+  final String abi;
+  final bool installed;
+
+  SystemImage toSystemImage() => SystemImage(
+    packagePath: packagePath,
+    platform: 'android-$apiLevel',
+    apiLevel: apiLevel,
+    tag: tag,
+    abi: abi,
+  );
+
+  ImageOption copyWith({bool? installed}) => ImageOption(
+    packagePath: packagePath,
+    apiLevel: apiLevel,
+    tag: tag,
+    abi: abi,
+    installed: installed ?? this.installed,
+  );
+
+  @override
+  List<Object?> get props => [packagePath, installed];
+}
+
+/// Marketing name and codename for an API level.
+///
+/// Only the levels the emulator still ships images for are named; anything
+/// older falls back to the bare level, which is what sdkmanager shows anyway.
+({String version, String? codename}) androidVersionOf(int api) => switch (api) {
+  36 => (version: 'Android 16', codename: 'Baklava'),
+  35 => (version: 'Android 15', codename: 'VanillaIceCream'),
+  34 => (version: 'Android 14', codename: 'UpsideDownCake'),
+  33 => (version: 'Android 13', codename: 'Tiramisu'),
+  32 => (version: 'Android 12L', codename: 'Sv2'),
+  31 => (version: 'Android 12', codename: 'S'),
+  30 => (version: 'Android 11', codename: 'R'),
+  29 => (version: 'Android 10', codename: 'Q'),
+  28 => (version: 'Android 9', codename: 'Pie'),
+  27 || 26 => (version: 'Android 8', codename: 'Oreo'),
+  25 || 24 => (version: 'Android 7', codename: 'Nougat'),
+  23 => (version: 'Android 6', codename: 'Marshmallow'),
+  _ => (version: 'API $api', codename: null),
+};
+
 /// Which half of the device step is showing.
 ///
 /// Both halves are step 1: the user picks a form factor first, then a profile
@@ -84,8 +181,11 @@ class CreateEmulatorState extends Equatable {
     this.devicePhase = DeviceStepPhase.categories,
     this.browsingCategory,
     this.deviceQuery = '',
-    this.images = const [],
+    this.options = const [],
     this.devices = const [],
+    this.showOlderApis = false,
+    this.installPhase = InstallPhase.idle,
+    this.installProgress,
     this.deviceId,
     this.apiLevel,
     this.tag,
@@ -110,8 +210,19 @@ class CreateEmulatorState extends Equatable {
   /// Search text, scoped to [browsingCategory].
   final String deviceQuery;
 
-  final List<SystemImage> images;
+  /// Every system-image package sdkmanager knows about, installed or not.
+  final List<ImageOption> options;
+
   final List<DeviceDefinition> devices;
+
+  /// Whether the API list is showing everything or just the recent levels.
+  final bool showOlderApis;
+
+  /// Where the final Create step is in the install + create pipeline.
+  final InstallPhase installPhase;
+
+  /// 0..1 while sdkmanager reports a percentage; null when indeterminate.
+  final double? installProgress;
 
   final String? deviceId;
   final int? apiLevel;
@@ -130,45 +241,79 @@ class CreateEmulatorState extends Equatable {
   bool get isReady => loadStatus == LoadStatus.ready;
   bool get isSuccess => createdName != null;
 
-  /// Distinct API levels among the installed system images, newest first.
+  /// How many API levels the list shows before the "older versions" expander.
+  static const int recentApiCount = 6;
+
+  /// Distinct API levels with at least one system image, newest first.
   List<int> get availableApiLevels {
-    final set = images.map((i) => i.apiLevel).toSet().toList()
+    final set = options.map((o) => o.apiLevel).toSet().toList()
       ..sort((a, b) => b.compareTo(a));
     return set;
   }
 
+  /// The levels shown by default — the newest few.
+  List<int> get recentApiLevels =>
+      availableApiLevels.take(recentApiCount).toList();
+
+  /// Everything behind the "Show older versions" expander.
+  List<int> get olderApiLevels =>
+      availableApiLevels.skip(recentApiCount).toList();
+
+  /// The levels currently on screen.
+  List<int> get visibleApiLevels =>
+      showOlderApis ? availableApiLevels : recentApiLevels;
+
+  /// True when any image for [api] is already on disk.
+  bool isApiInstalled(int api) =>
+      options.any((o) => o.apiLevel == api && o.installed);
+
   /// Distinct tags available for the currently-selected API level.
   List<String> get tagsForApi {
     if (apiLevel == null) return const [];
-    return images
-        .where((i) => i.apiLevel == apiLevel)
-        .map((i) => i.tag)
+    return options
+        .where((o) => o.apiLevel == apiLevel)
+        .map((o) => o.tag)
         .toSet()
         .toList()
       ..sort();
   }
+
+  /// True when any ABI of [tag] is installed for the selected API. The exact
+  /// package is only pinned down once an ABI is chosen.
+  bool isTagInstalled(String tag) => options.any(
+    (o) => o.apiLevel == apiLevel && o.tag == tag && o.installed,
+  );
 
   /// ABIs available for the selected API level + tag.
   List<String> get abisForSelection {
     if (apiLevel == null || tag == null) return const [];
-    return images
-        .where((i) => i.apiLevel == apiLevel && i.tag == tag)
-        .map((i) => i.abi)
+    return options
+        .where((o) => o.apiLevel == apiLevel && o.tag == tag)
+        .map((o) => o.abi)
         .toSet()
         .toList()
       ..sort();
   }
 
-  /// The concrete image matching the full selection, if any.
-  SystemImage? get selectedImage {
-    if (apiLevel == null || tag == null || abi == null) return null;
-    for (final image in images) {
-      if (image.apiLevel == apiLevel && image.tag == tag && image.abi == abi) {
-        return image;
-      }
+  /// The catalogue entry for [abi] under the current API + tag.
+  ImageOption? optionForAbi(String abi) {
+    for (final o in options) {
+      if (o.apiLevel == apiLevel && o.tag == tag && o.abi == abi) return o;
     }
     return null;
   }
+
+  /// The entry matching the full selection, if any.
+  ImageOption? get selectedOption => abi == null ? null : optionForAbi(abi!);
+
+  /// The concrete image matching the full selection, if any.
+  SystemImage? get selectedImage => selectedOption?.toSystemImage();
+
+  /// True when Create has to fetch the chosen package first.
+  bool get needsDownload => selectedOption?.installed == false;
+
+  /// True while the Create step is downloading, installing or creating.
+  bool get isWorking => installPhase != InstallPhase.idle;
 
   /// How many profiles each category holds. Categories with none are absent,
   /// so the picker can render exactly what the catalog offers.
@@ -223,8 +368,12 @@ class CreateEmulatorState extends Equatable {
     DeviceStepPhase? devicePhase,
     DeviceCategory? browsingCategory,
     String? deviceQuery,
-    List<SystemImage>? images,
+    List<ImageOption>? options,
     List<DeviceDefinition>? devices,
+    bool? showOlderApis,
+    InstallPhase? installPhase,
+    double? installProgress,
+    bool clearProgress = false,
     String? deviceId,
     int? apiLevel,
     String? tag,
@@ -245,8 +394,13 @@ class CreateEmulatorState extends Equatable {
       devicePhase: devicePhase ?? this.devicePhase,
       browsingCategory: browsingCategory ?? this.browsingCategory,
       deviceQuery: deviceQuery ?? this.deviceQuery,
-      images: images ?? this.images,
+      options: options ?? this.options,
       devices: devices ?? this.devices,
+      showOlderApis: showOlderApis ?? this.showOlderApis,
+      installPhase: installPhase ?? this.installPhase,
+      installProgress: clearProgress
+          ? null
+          : (installProgress ?? this.installProgress),
       deviceId: deviceId ?? this.deviceId,
       apiLevel: apiLevel ?? this.apiLevel,
       tag: clearTag ? null : (tag ?? this.tag),
@@ -267,8 +421,11 @@ class CreateEmulatorState extends Equatable {
         devicePhase,
         browsingCategory,
         deviceQuery,
-        images,
+        options,
         devices,
+        showOlderApis,
+        installPhase,
+        installProgress,
         deviceId,
         apiLevel,
         tag,

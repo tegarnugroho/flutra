@@ -182,11 +182,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i643.LogcatDevicesCubit>(
       () => _i643.LogcatDevicesCubit(gh<_i720.DeviceRepository>()),
     );
-    gh.factory<_i622.CreateEmulatorCubit>(
-      () => _i622.CreateEmulatorCubit(gh<_i277.EmulatorRepository>()),
-    );
     gh.factory<_i6.EmulatorListCubit>(
       () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
+    );
+    gh.factory<_i622.CreateEmulatorCubit>(
+      () => _i622.CreateEmulatorCubit(
+        gh<_i277.EmulatorRepository>(),
+        gh<_i374.SdkRepository>(),
+      ),
     );
     gh.lazySingleton<_i595.EnvironmentRepository>(
       () => _i465.EnvironmentRepositoryImpl(

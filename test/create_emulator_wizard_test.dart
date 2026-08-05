@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart';
 import 'package:android_sdk_manager/domain/entities/device_definition.dart';
+import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
+import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart';
 import 'package:android_sdk_manager/domain/entities/system_image.dart';
 import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart';
 import 'package:android_sdk_manager/presentation/emulator/widgets/device_step.dart';
@@ -44,9 +48,45 @@ const _images = <SystemImage>[
   ),
 ];
 
+/// Serves the sdkmanager catalogue: everything the wizard can offer, whether
+/// or not it is on disk.
+class _FakeSdkRepository implements SdkRepository {
+  _FakeSdkRepository(this.packages);
+
+  final List<SdkPackage> packages;
+
+  @override
+  Future<List<SdkPackage>> listPackages() async => packages;
+
+  @override
+  noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not used here');
+}
+
+SdkPackage _pkg(String path, PackageState state) =>
+    SdkPackage(path: path, description: path, state: state);
+
+final _packages = <SdkPackage>[
+  _pkg('system-images;android-34;google_apis;x86_64', PackageState.installed),
+  _pkg('system-images;android-35;google_apis;x86_64', PackageState.available),
+  _pkg('system-images;android-35;google_apis;arm64-v8a', PackageState.available),
+  _pkg(
+    'system-images;android-35;google_apis_playstore;x86_64',
+    PackageState.available,
+  ),
+  _pkg('system-images;android-33;default;x86_64', PackageState.available),
+  // Non-image and unparseable rows must never reach the wizard's lists.
+  _pkg('platform-tools', PackageState.installed),
+  _pkg(
+    'system-images;android-TiramisuPrivacySandbox;google_apis;x86_64',
+    PackageState.available,
+  ),
+];
+
 Future<CreateEmulatorCubit> loadedCubit() async {
   final cubit = CreateEmulatorCubit(
     _FakeEmulatorRepository(_devices, _images),
+    _FakeSdkRepository(_packages),
   );
   await cubit.load();
   return cubit;
@@ -248,4 +288,222 @@ void main() {
       expect(heights[1], heights[3]);
     });
   });
+
+  group('image catalogue', () {
+    test('offers packages that are not installed yet', () async {
+      final cubit = await loadedCubit();
+      final state = cubit.state;
+
+      // API 35 has no local image at all and must still be listed.
+      expect(state.availableApiLevels, [35, 34, 33]);
+      expect(state.isApiInstalled(34), isTrue);
+      expect(state.isApiInstalled(35), isFalse);
+      expect(state.isApiInstalled(33), isFalse);
+    });
+
+    test('drops non-image and unparseable package paths', () async {
+      final cubit = await loadedCubit();
+      final paths = cubit.state.options.map((o) => o.packagePath);
+
+      expect(paths, isNot(contains('platform-tools')));
+      expect(
+        paths.where((p) => p.contains('TiramisuPrivacySandbox')),
+        isEmpty,
+        reason: 'a non-numeric API level has no place in the version list',
+      );
+    });
+
+    test('an image on disk counts as installed even if the catalogue lags',
+        () async {
+      // _images (the emulator repo's on-disk scan) reports API 34, which the
+      // sdkmanager fixture also lists as installed; the merge must not
+      // downgrade it.
+      final cubit = await loadedCubit();
+      final option = cubit.state.options.firstWhere(
+        (o) => o.packagePath == 'system-images;android-34;google_apis;x86_64',
+      );
+      expect(option.installed, isTrue);
+    });
+
+    test('flavours and ABIs come from the selected API only', () async {
+      final cubit = await loadedCubit();
+      cubit.selectApiLevel(35);
+      expect(cubit.state.tagsForApi, [
+        'google_apis',
+        'google_apis_playstore',
+      ]);
+
+      cubit.selectTag('google_apis');
+      expect(cubit.state.abisForSelection, ['arm64-v8a', 'x86_64']);
+
+      cubit.selectTag('google_apis_playstore');
+      expect(cubit.state.abisForSelection, ['x86_64']);
+    });
+
+    test('install state is per exact package at the ABI step', () async {
+      final cubit = await loadedCubit();
+      cubit.selectApiLevel(34);
+      cubit.selectTag('google_apis');
+      expect(cubit.state.optionForAbi('x86_64')?.installed, isTrue);
+
+      cubit.selectApiLevel(35);
+      cubit.selectTag('google_apis');
+      expect(cubit.state.optionForAbi('x86_64')?.installed, isFalse);
+      expect(cubit.state.optionForAbi('arm64-v8a')?.installed, isFalse);
+    });
+
+    test('needsDownload tracks the fully-specified selection', () async {
+      final cubit = await loadedCubit();
+      cubit.selectApiLevel(35);
+      cubit.selectTag('google_apis');
+      // No ABI yet — nothing to say.
+      expect(cubit.state.selectedOption, isNull);
+      expect(cubit.state.needsDownload, isFalse);
+
+      cubit.selectAbi('x86_64');
+      expect(cubit.state.needsDownload, isTrue);
+
+      cubit.selectApiLevel(34);
+      cubit.selectTag('google_apis');
+      cubit.selectAbi('x86_64');
+      expect(cubit.state.needsDownload, isFalse);
+    });
+
+    test('older levels sit behind the expander', () async {
+      final cubit = await loadedCubit();
+      // The fixture has fewer levels than the cut-off, so all are visible.
+      expect(cubit.state.olderApiLevels, isEmpty);
+      expect(
+        cubit.state.visibleApiLevels,
+        cubit.state.availableApiLevels,
+      );
+
+      final many = CreateEmulatorState(
+        options: [
+          for (var api = 20; api < 40; api++)
+            ImageOption(
+              packagePath: 'system-images;android-$api;google_apis;x86_64',
+              apiLevel: api,
+              tag: 'google_apis',
+              abi: 'x86_64',
+              installed: false,
+            ),
+        ],
+      );
+      expect(
+        many.visibleApiLevels,
+        hasLength(CreateEmulatorState.recentApiCount),
+      );
+      expect(many.visibleApiLevels.first, 39, reason: 'newest first');
+      expect(many.olderApiLevels, isNotEmpty);
+      expect(
+        many.copyWith(showOlderApis: true).visibleApiLevels,
+        many.availableApiLevels,
+      );
+    });
+  });
+
+  group('android version naming', () {
+    test('names the levels the emulator still ships', () {
+      expect(androidVersionOf(35).version, 'Android 15');
+      expect(androidVersionOf(35).codename, 'VanillaIceCream');
+      expect(androidVersionOf(34).codename, 'UpsideDownCake');
+    });
+
+    test('falls back to the bare level for anything unnamed', () {
+      expect(androidVersionOf(19).version, 'API 19');
+      expect(androidVersionOf(19).codename, isNull);
+    });
+  });
+
+  group('load concurrency', () {
+    /// Repositories that never complete on their own, so the test can see
+    /// exactly which calls were issued before any of them returned.
+    test('starts every catalogue query before awaiting one', () async {
+      final packages = Completer<List<SdkPackage>>();
+      final images = Completer<List<SystemImage>>();
+      final devices = Completer<List<DeviceDefinition>>();
+
+      final cubit = CreateEmulatorCubit(
+        _BlockingEmulatorRepository(images: images, devices: devices),
+        _BlockingSdkRepository(packages),
+      );
+      addTearDown(cubit.close);
+
+      final load = cubit.load();
+      // One microtask turn is enough for load() to reach its first await.
+      await Future<void>.delayed(Duration.zero);
+
+      // All three JVM/disk calls must already be in flight. If load() chained
+      // them, only the first would have been touched by now.
+      expect(packages.isCompleted, isFalse);
+      expect(
+        _BlockingSdkRepository.started,
+        isTrue,
+        reason: 'sdkmanager --list not started',
+      );
+      expect(
+        _BlockingEmulatorRepository.imagesStarted,
+        isTrue,
+        reason: 'on-disk image scan not started',
+      );
+      expect(
+        _BlockingEmulatorRepository.devicesStarted,
+        isTrue,
+        reason: 'avdmanager list device not started — it was chained',
+      );
+
+      packages.complete(_packages);
+      images.complete(const []);
+      devices.complete(_devices);
+      await load;
+      expect(cubit.state.loadStatus, LoadStatus.ready);
+    });
+  });
+}
+
+class _BlockingSdkRepository implements SdkRepository {
+  _BlockingSdkRepository(this._packages) {
+    started = false;
+  }
+
+  static bool started = false;
+  final Completer<List<SdkPackage>> _packages;
+
+  @override
+  Future<List<SdkPackage>> listPackages() {
+    started = true;
+    return _packages.future;
+  }
+
+  @override
+  noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+class _BlockingEmulatorRepository implements EmulatorRepository {
+  _BlockingEmulatorRepository({required this.images, required this.devices}) {
+    imagesStarted = false;
+    devicesStarted = false;
+  }
+
+  static bool imagesStarted = false;
+  static bool devicesStarted = false;
+
+  final Completer<List<SystemImage>> images;
+  final Completer<List<DeviceDefinition>> devices;
+
+  @override
+  Future<List<SystemImage>> listSystemImages() {
+    imagesStarted = true;
+    return images.future;
+  }
+
+  @override
+  Future<List<DeviceDefinition>> listDeviceDefinitions() {
+    devicesStarted = true;
+    return devices.future;
+  }
+
+  @override
+  noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
