@@ -7,12 +7,12 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../application/emulator/create_emulator_cubit.dart';
 import '../../core/di/injection.dart';
-import '../../domain/entities/avd_create_request.dart';
 import '../../domain/entities/system_image.dart';
 import '../common/app_loader.dart';
 import '../common/confirm_dialog.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'widgets/configure_form.dart';
 import 'widgets/device_step.dart';
 import 'widgets/install_badge.dart';
 import 'widgets/wizard_option_row.dart';
@@ -630,197 +630,13 @@ class _AbiStep extends StatelessWidget {
 
 // ---- Step 5: configuration --------------------------------------------------
 
-class _ConfigureStep extends StatefulWidget {
+class _ConfigureStep extends StatelessWidget {
   const _ConfigureStep({required this.state});
 
   final CreateEmulatorState state;
 
   @override
-  State<_ConfigureStep> createState() => _ConfigureStepState();
-}
-
-class _ConfigureStepState extends State<_ConfigureStep> {
-  late final TextEditingController _nameController;
-  final FocusNode _nameFocus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.state.name);
-  }
-
-  @override
-  void didUpdateWidget(covariant _ConfigureStep oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Sync externally-suggested names in, but don't fight the user while typing.
-    if (!_nameFocus.hasFocus && widget.state.name != _nameController.text) {
-      _nameController.text = widget.state.name;
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _nameFocus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<CreateEmulatorCubit>();
-    final state = widget.state;
-    final config = state.config;
-
-    return ListView(
-      children: [
-        InfoLabel(
-          label: 'AVD name',
-          child: TextBox(
-            controller: _nameController,
-            focusNode: _nameFocus,
-            placeholder: 'e.g. Pixel_6_API_34',
-            onChanged: cubit.setName,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _numberField(
-                'RAM (MB)',
-                config.ramMb,
-                (v) => cubit.updateConfig(config.copyWith(ramMb: v)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _numberField(
-                'VM heap (MB)',
-                config.vmHeapMb,
-                (v) => cubit.updateConfig(config.copyWith(vmHeapMb: v)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _numberField(
-                'Internal storage (MB)',
-                config.internalStorageMb,
-                (v) =>
-                    cubit.updateConfig(config.copyWith(internalStorageMb: v)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _numberField(
-                'SD card (MB, 0 = none)',
-                config.sdCardMb,
-                (v) => cubit.updateConfig(config.copyWith(sdCardMb: v)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _numberField(
-                'CPU cores',
-                config.cpuCores,
-                (v) => cubit.updateConfig(config.copyWith(cpuCores: v)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InfoLabel(
-                label: 'GPU mode',
-                child: ComboBox<GpuMode>(
-                  isExpanded: true,
-                  value: config.gpuMode,
-                  items: [
-                    for (final mode in GpuMode.values)
-                      ComboBoxItem(value: mode, child: Text(mode.label)),
-                  ],
-                  onChanged: (v) => v == null
-                      ? null
-                      : cubit.updateConfig(config.copyWith(gpuMode: v)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        ToggleSwitch(
-          checked: config.enableCamera,
-          onChanged: (v) =>
-              cubit.updateConfig(config.copyWith(enableCamera: v)),
-          content: const Text('Enable cameras (front & back)'),
-        ),
-        const SizedBox(height: 20),
-        _summary(context, state),
-      ],
-    );
-  }
-
-  Widget _numberField(String label, int value, ValueChanged<int> onChanged) {
-    return InfoLabel(
-      label: label,
-      child: NumberBox<int>(
-        value: value,
-        mode: SpinButtonPlacementMode.inline,
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
-      ),
-    );
-  }
-
-  Widget _summary(BuildContext context, CreateEmulatorState state) {
-    final theme = FluentTheme.of(context);
-    final image = state.selectedImage;
-    final rows = <(String, String)>[
-      ('Device', state.selectedDevice?.name ?? state.deviceId ?? '—'),
-      ('System image', image?.packagePath ?? '—'),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.resources.subtleFillColorSecondary,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Summary', style: theme.typography.bodyStrong),
-          const SizedBox(height: 8),
-          for (final row in rows)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 110,
-                    child: Text(
-                      row.$1,
-                      style: theme.typography.caption?.copyWith(
-                        color: theme.resources.textFillColorSecondary,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(row.$2, style: theme.typography.caption),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ConfigureForm(state: state);
 }
 
 class _CenteredMessage extends StatelessWidget {

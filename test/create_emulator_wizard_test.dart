@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart';
+import 'package:android_sdk_manager/domain/entities/avd.dart';
+import 'package:android_sdk_manager/domain/entities/avd_create_request.dart';
 import 'package:android_sdk_manager/domain/entities/device_definition.dart';
 import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
 import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart';
+import 'package:android_sdk_manager/infrastructure/system/host_info_service.dart';
 import 'package:android_sdk_manager/domain/entities/system_image.dart';
 import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart';
 import 'package:android_sdk_manager/presentation/emulator/widgets/device_step.dart';
@@ -24,6 +27,30 @@ class _FakeEmulatorRepository implements EmulatorRepository {
 
   @override
   Future<List<SystemImage>> listSystemImages() async => images;
+
+  @override
+  Future<List<Avd>> listAvds() async => const [];
+
+  @override
+  noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not used here');
+}
+
+/// Host facts the tests control, so preset caps are deterministic.
+class _FakeHostInfo implements HostInfoService {
+  const _FakeHostInfo();
+
+  /// A roomy but ordinary developer machine, so the preset caps are exercised
+  /// rather than skipped.
+  static const cores = 8;
+  static const ramMb = 16384;
+
+  @override
+  Future<HostInfo> info() async =>
+      const HostInfo(cores: cores, totalRamMb: ramMb);
+
+  @override
+  Future<int?> freeSpaceMb(String path) async => null;
 
   @override
   noSuchMethod(Invocation invocation) =>
@@ -87,6 +114,7 @@ Future<CreateEmulatorCubit> loadedCubit() async {
   final cubit = CreateEmulatorCubit(
     _FakeEmulatorRepository(_devices, _images),
     _FakeSdkRepository(_packages),
+    _FakeHostInfo(),
   );
   await cubit.load();
   return cubit;
@@ -427,6 +455,7 @@ void main() {
       final cubit = CreateEmulatorCubit(
         _BlockingEmulatorRepository(images: images, devices: devices),
         _BlockingSdkRepository(packages),
+        _FakeHostInfo(),
       );
       addTearDown(cubit.close);
 
@@ -458,6 +487,148 @@ void main() {
       devices.complete(_devices);
       await load;
       expect(cubit.state.loadStatus, LoadStatus.ready);
+    });
+  });
+
+  group('presets', () {
+    test('balanced is the starting point and respects host caps', () async {
+      final cubit = await loadedCubit();
+      final config = cubit.state.config;
+
+      expect(cubit.state.preset, EmulatorPreset.balanced);
+      expect(config.ramMb, 2048);
+      expect(config.internalStorageMb, 6144);
+      // Half of the fake host's 8 cores.
+      expect(config.cpuCores, 4);
+      expect(config.gpuMode, GpuMode.auto);
+    });
+
+    test('performance caps RAM at a quarter of the host', () {
+      final onSmallHost = configForPreset(
+        EmulatorPreset.performance,
+        null,
+        hostCores: 8,
+        hostRamMb: 8192,
+      );
+      // 4096 would be half the machine; the cap pulls it to 2048.
+      expect(onSmallHost.ramMb, 2048);
+      expect(onSmallHost.cpuCores, 6);
+      expect(onSmallHost.gpuMode, GpuMode.host);
+
+      final onBigHost = configForPreset(
+        EmulatorPreset.performance,
+        null,
+        hostCores: 4,
+        hostRamMb: 65536,
+      );
+      expect(onBigHost.ramMb, 4096, reason: 'baseline, not host/4');
+      expect(onBigHost.cpuCores, 2, reason: 'host - 2');
+    });
+
+    test('unknown host facts skip the caps instead of guessing', () {
+      final blind = configForPreset(EmulatorPreset.performance, null);
+      expect(blind.ramMb, 4096);
+      expect(blind.cpuCores, 6);
+    });
+
+    test('lean form factors get smaller baselines', () {
+      final wear = configForPreset(
+        EmulatorPreset.balanced,
+        DeviceCategory.wear,
+        hostCores: 8,
+      );
+      final phone = configForPreset(
+        EmulatorPreset.balanced,
+        DeviceCategory.phone,
+        hostCores: 8,
+      );
+      expect(wear.ramMb, lessThan(phone.ramMb));
+
+      final wearMinimal = configForPreset(
+        EmulatorPreset.minimal,
+        DeviceCategory.wear,
+      );
+      expect(wearMinimal.ramMb, 512);
+    });
+
+    test('editing a field flips the control to Custom', () async {
+      final cubit = await loadedCubit();
+      cubit.updateConfig(cubit.state.config.copyWith(ramMb: 3072));
+
+      expect(cubit.state.preset, EmulatorPreset.custom);
+      expect(cubit.state.config.ramMb, 3072, reason: 'the edit is kept');
+
+      // Picking a baseline again overwrites everything, advanced included.
+      cubit.selectPreset(EmulatorPreset.minimal);
+      expect(cubit.state.preset, EmulatorPreset.minimal);
+      expect(cubit.state.config.ramMb, 1024);
+      expect(cubit.state.config.sdCardMb, 0);
+      expect(cubit.state.config.vmHeapMb, 256);
+    });
+
+    test('the advanced section remembers its state', () async {
+      final cubit = await loadedCubit();
+      expect(cubit.state.advancedExpanded, isFalse);
+      cubit.toggleAdvanced();
+      expect(cubit.state.advancedExpanded, isTrue);
+    });
+  });
+
+  group('create validation', () {
+    Future<CreateEmulatorCubit> readyToCreate() async {
+      final cubit = await loadedCubit();
+      cubit.openDeviceCategory(DeviceCategory.phone);
+      cubit.selectDevice('pixel_6');
+      cubit.selectApiLevel(34);
+      cubit.selectTag('google_apis');
+      cubit.selectAbi('x86_64');
+      return cubit;
+    }
+
+    test('a complete selection can be created', () async {
+      final cubit = await readyToCreate();
+      cubit.setName('Pixel_6_API_34');
+      expect(cubit.state.nameError, isNull);
+      expect(cubit.state.createBlockedReason, isNull);
+    });
+
+    test('rejects an empty or badly-charactered name', () async {
+      final cubit = await readyToCreate();
+
+      cubit.setName('   ');
+      expect(cubit.state.nameError, 'Enter a name');
+
+      cubit.setName('Pixel 6!');
+      expect(cubit.state.nameError, contains('letters, numbers'));
+      expect(cubit.state.createBlockedReason, isNotNull);
+    });
+
+    test('rejects a name another AVD already holds', () async {
+      final cubit = await readyToCreate();
+      final taken = cubit.state.copyWith(existingAvdNames: {'Pixel_6_API_34'});
+      expect(
+        taken.copyWith(name: 'Pixel_6_API_34').nameError,
+        'An AVD with this name already exists',
+      );
+      expect(taken.copyWith(name: 'Something_Else').nameError, isNull);
+    });
+
+    test('blocks on the first problem, earlier steps first', () {
+      const nothing = CreateEmulatorState();
+      expect(nothing.createBlockedReason, 'Finish the earlier steps first');
+    });
+
+    test('disk needed is storage plus SD card, image excluded', () async {
+      final cubit = await readyToCreate();
+      cubit.updateConfig(
+        cubit.state.config.copyWith(internalStorageMb: 6144, sdCardMb: 512),
+      );
+      expect(cubit.state.diskNeededMb, 6656);
+      expect(cubit.state.diskTooSmall, isFalse, reason: 'free space unknown');
+
+      final cramped = cubit.state.copyWith(freeDiskMb: 1024);
+      expect(cramped.diskTooSmall, isTrue);
+      expect(cramped.createBlockedReason, 'Not enough free disk space');
     });
   });
 }
@@ -503,6 +674,9 @@ class _BlockingEmulatorRepository implements EmulatorRepository {
     devicesStarted = true;
     return devices.future;
   }
+
+  @override
+  Future<List<Avd>> listAvds() async => const [];
 
   @override
   noSuchMethod(Invocation invocation) => throw UnimplementedError();

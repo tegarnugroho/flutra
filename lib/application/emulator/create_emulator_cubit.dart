@@ -11,6 +11,7 @@ import '../../domain/entities/sdk_package.dart';
 import '../../domain/entities/system_image.dart';
 import '../../domain/repositories/emulator_repository.dart';
 import '../../domain/repositories/sdk_repository.dart';
+import '../../infrastructure/system/host_info_service.dart';
 
 part 'create_emulator_state.dart';
 
@@ -18,11 +19,12 @@ part 'create_emulator_state.dart';
 /// derives the valid choices for each step from the installed system images.
 @injectable
 class CreateEmulatorCubit extends Cubit<CreateEmulatorState> {
-  CreateEmulatorCubit(this._repository, this._sdk)
+  CreateEmulatorCubit(this._repository, this._sdk, this._host)
     : super(const CreateEmulatorState());
 
   final EmulatorRepository _repository;
   final SdkRepository _sdk;
+  final HostInfoService _host;
 
   /// sdkmanager reports "  Downloading ... 42%" style lines.
   static final RegExp _progressPattern = RegExp(r'(\d{1,3})\s*%');
@@ -43,17 +45,34 @@ class CreateEmulatorCubit extends Cubit<CreateEmulatorState> {
       final packagesFuture = _sdk.listPackages();
       final imagesFuture = _repository.listSystemImages();
       final devicesFuture = _repository.listDeviceDefinitions();
+      final avdsFuture = _repository.listAvds();
+      final hostFuture = _host.info();
 
       final options = _mergeCatalogue(
         await packagesFuture,
         await imagesFuture,
       );
       final devices = await devicesFuture;
+      final host = await hostFuture;
+      // Name uniqueness is a nicety — a listing failure must not stop the
+      // wizard, it just means the duplicate is caught later by avdmanager.
+      final taken = await avdsFuture
+          .then((avds) => avds.map((a) => a.name).toSet())
+          .onError((_, _) => <String>{});
       if (isClosed) return;
       emit(state.copyWith(
         loadStatus: LoadStatus.ready,
         options: options,
         devices: devices,
+        hostCores: host.cores,
+        hostRamMb: host.totalRamMb,
+        existingAvdNames: taken,
+        config: configForPreset(
+          EmulatorPreset.balanced,
+          null,
+          hostCores: host.cores,
+          hostRamMb: host.totalRamMb,
+        ),
       ));
     } on Failure catch (e) {
       if (isClosed) return;
@@ -203,8 +222,30 @@ class CreateEmulatorCubit extends Cubit<CreateEmulatorState> {
   void setName(String name) =>
       emit(state.copyWith(name: name, nameEdited: true));
 
+  /// Any hand edit drops the form to Custom, keeping the numbers that were
+  /// already there as the starting point.
   void updateConfig(EmulatorConfig config) =>
-      emit(state.copyWith(config: config));
+      emit(state.copyWith(config: config, preset: EmulatorPreset.custom));
+
+  /// Applies a baseline, sized against the chosen device and this host.
+  void selectPreset(EmulatorPreset preset) {
+    if (preset == EmulatorPreset.custom) {
+      emit(state.copyWith(preset: preset));
+      return;
+    }
+    emit(state.copyWith(
+      preset: preset,
+      config: configForPreset(
+        preset,
+        state.selectedDevice?.category,
+        hostCores: state.hostCores,
+        hostRamMb: state.hostRamMb,
+      ),
+    ));
+  }
+
+  void toggleAdvanced() =>
+      emit(state.copyWith(advancedExpanded: !state.advancedExpanded));
 
   String? _suggestName(String? deviceId, int? api) {
     if (deviceId == null || api == null) return null;

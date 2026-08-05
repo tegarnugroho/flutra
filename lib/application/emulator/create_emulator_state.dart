@@ -128,6 +128,71 @@ class ImageOption extends Equatable {
 /// stepper and the footer all stay in one place.
 enum DeviceStepPhase { categories, devices }
 
+/// The four shapes the configuration form can be in.
+///
+/// [custom] is not a baseline — it is what the control falls to the moment the
+/// user edits any field, so their numbers are never silently relabelled.
+enum EmulatorPreset { minimal, balanced, performance, custom }
+
+extension EmulatorPresetLabel on EmulatorPreset {
+  String get label => switch (this) {
+    EmulatorPreset.minimal => 'Minimal',
+    EmulatorPreset.balanced => 'Balanced',
+    EmulatorPreset.performance => 'Performance',
+    EmulatorPreset.custom => 'Custom',
+  };
+}
+
+/// Baseline configs per preset, trimmed to what the host and the device can
+/// actually carry.
+///
+/// Caps only ever shrink a baseline. When a host fact is unknown the cap is
+/// skipped rather than guessed, so an unmeasurable machine still gets the
+/// documented defaults.
+EmulatorConfig configForPreset(
+  EmulatorPreset preset,
+  DeviceCategory? category, {
+  int? hostCores,
+  int? hostRamMb,
+}) {
+  // Small-screen form factors never need a phone-sized allocation.
+  final lean =
+      category == DeviceCategory.wear || category == DeviceCategory.tv;
+
+  int cap(int value, int? ceiling) =>
+      ceiling == null ? value : (value < ceiling ? value : ceiling);
+
+  return switch (preset) {
+    EmulatorPreset.minimal => EmulatorConfig(
+      ramMb: lean ? 512 : 1024,
+      vmHeapMb: lean ? 128 : 256,
+      internalStorageMb: 4096,
+      sdCardMb: 0,
+      gpuMode: GpuMode.auto,
+      cpuCores: cap(2, hostCores),
+    ),
+    EmulatorPreset.balanced => EmulatorConfig(
+      ramMb: lean ? 1024 : 2048,
+      vmHeapMb: 256,
+      internalStorageMb: 6144,
+      sdCardMb: 512,
+      gpuMode: GpuMode.auto,
+      // Half the host, so a build can still run alongside the emulator.
+      cpuCores: cap(4, hostCores == null ? null : hostCores ~/ 2),
+    ),
+    EmulatorPreset.performance => EmulatorConfig(
+      ramMb: cap(lean ? 2048 : 4096, hostRamMb == null ? null : hostRamMb ~/ 4),
+      vmHeapMb: 512,
+      internalStorageMb: 8192,
+      sdCardMb: 1024,
+      gpuMode: GpuMode.host,
+      cpuCores: cap(6, hostCores == null ? null : hostCores - 2),
+    ),
+    // Custom has no baseline: whatever is on screen stays.
+    EmulatorPreset.custom => const EmulatorConfig(),
+  };
+}
+
 /// Hardware configuration collected on the final wizard step.
 class EmulatorConfig extends Equatable {
   const EmulatorConfig({
@@ -184,6 +249,12 @@ class CreateEmulatorState extends Equatable {
     this.options = const [],
     this.devices = const [],
     this.showOlderApis = false,
+    this.preset = EmulatorPreset.balanced,
+    this.advancedExpanded = false,
+    this.hostCores,
+    this.hostRamMb,
+    this.freeDiskMb,
+    this.existingAvdNames = const {},
     this.installPhase = InstallPhase.idle,
     this.installProgress,
     this.deviceId,
@@ -217,6 +288,58 @@ class CreateEmulatorState extends Equatable {
 
   /// Whether the API list is showing everything or just the recent levels.
   final bool showOlderApis;
+
+  /// Which sizing baseline the form is on. Flips to
+  /// [EmulatorPreset.custom] as soon as a field is edited by hand.
+  final EmulatorPreset preset;
+
+  /// Whether the Advanced block is open. Remembered for the session.
+  final bool advancedExpanded;
+
+  /// Host capacity. Null means unmeasurable — hide the hint, drop the cap.
+  final int? hostCores;
+  final int? hostRamMb;
+
+  /// Free space on the AVD home volume, in MB. Null when unknown.
+  final int? freeDiskMb;
+
+  /// Names already taken, so the form can reject a duplicate before
+  /// avdmanager does.
+  final Set<String> existingAvdNames;
+
+  /// Why the chosen name can't be used, or null when it is fine.
+  String? get nameError {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'Enter a name';
+    if (!RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(trimmed)) {
+      return 'Use only letters, numbers, dot, dash and underscore';
+    }
+    if (existingAvdNames.contains(trimmed)) {
+      return 'An AVD with this name already exists';
+    }
+    return null;
+  }
+
+  /// Disk the AVD itself will occupy.
+  ///
+  /// The system image is deliberately not added: `sdkmanager --list` publishes
+  /// no download size (see the TODO on [InstallBadge]), so an uninstalled image
+  /// contributes an unknown. The summary says which case applies instead of
+  /// inventing a number.
+  int get diskNeededMb => config.internalStorageMb + config.sdCardMb;
+
+  /// True when the free space is known and smaller than what is needed.
+  bool get diskTooSmall =>
+      freeDiskMb != null && freeDiskMb! < diskNeededMb;
+
+  /// Everything blocking Create, first problem first.
+  String? get createBlockedReason {
+    if (selectedOption == null) return 'Finish the earlier steps first';
+    final name = nameError;
+    if (name != null) return name;
+    if (diskTooSmall) return 'Not enough free disk space';
+    return null;
+  }
 
   /// Where the final Create step is in the install + create pipeline.
   final InstallPhase installPhase;
@@ -359,7 +482,7 @@ class CreateEmulatorState extends Equatable {
         WizardStep.apiLevel => apiLevel != null,
         WizardStep.image => tag != null,
         WizardStep.abi => abi != null,
-        WizardStep.configure => selectedImage != null && name.trim().isNotEmpty,
+        WizardStep.configure => createBlockedReason == null,
       };
 
   CreateEmulatorState copyWith({
@@ -371,6 +494,12 @@ class CreateEmulatorState extends Equatable {
     List<ImageOption>? options,
     List<DeviceDefinition>? devices,
     bool? showOlderApis,
+    EmulatorPreset? preset,
+    bool? advancedExpanded,
+    int? hostCores,
+    int? hostRamMb,
+    int? freeDiskMb,
+    Set<String>? existingAvdNames,
     InstallPhase? installPhase,
     double? installProgress,
     bool clearProgress = false,
@@ -397,6 +526,12 @@ class CreateEmulatorState extends Equatable {
       options: options ?? this.options,
       devices: devices ?? this.devices,
       showOlderApis: showOlderApis ?? this.showOlderApis,
+      preset: preset ?? this.preset,
+      advancedExpanded: advancedExpanded ?? this.advancedExpanded,
+      hostCores: hostCores ?? this.hostCores,
+      hostRamMb: hostRamMb ?? this.hostRamMb,
+      freeDiskMb: freeDiskMb ?? this.freeDiskMb,
+      existingAvdNames: existingAvdNames ?? this.existingAvdNames,
       installPhase: installPhase ?? this.installPhase,
       installProgress: clearProgress
           ? null
@@ -424,6 +559,12 @@ class CreateEmulatorState extends Equatable {
         options,
         devices,
         showOlderApis,
+        preset,
+        advancedExpanded,
+        hostCores,
+        hostRamMb,
+        freeDiskMb,
+        existingAvdNames,
         installPhase,
         installProgress,
         deviceId,

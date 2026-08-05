@@ -78,6 +78,8 @@ import 'package:android_sdk_manager/infrastructure/settings/settings_service.dar
     as _i517;
 import 'package:android_sdk_manager/infrastructure/settings/startup_service.dart'
     as _i104;
+import 'package:android_sdk_manager/infrastructure/system/host_info_service.dart'
+    as _i361;
 import 'package:android_sdk_manager/infrastructure/system/process_service.dart'
     as _i891;
 import 'package:android_sdk_manager/infrastructure/trash/trash_service.dart'
@@ -110,6 +112,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
+    );
+    gh.lazySingleton<_i361.HostInfoService>(
+      () => _i361.HostInfoService(gh<_i144.CommandRunner>()),
     );
     gh.lazySingleton<_i891.ProcessService>(
       () => _i891.ProcessService(gh<_i144.CommandRunner>()),
@@ -185,12 +190,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i6.EmulatorListCubit>(
       () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
     );
-    gh.factory<_i622.CreateEmulatorCubit>(
-      () => _i622.CreateEmulatorCubit(
-        gh<_i277.EmulatorRepository>(),
-        gh<_i374.SdkRepository>(),
-      ),
-    );
     gh.lazySingleton<_i595.EnvironmentRepository>(
       () => _i465.EnvironmentRepositoryImpl(
         gh<_i144.CommandRunner>(),
@@ -211,6 +210,13 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i839.FlutterUpdateCubit(
         gh<_i606.FlutterRepository>(),
         gh<_i147.FlutterUpdateService>(),
+      ),
+    );
+    gh.factory<_i622.CreateEmulatorCubit>(
+      () => _i622.CreateEmulatorCubit(
+        gh<_i277.EmulatorRepository>(),
+        gh<_i374.SdkRepository>(),
+        gh<_i361.HostInfoService>(),
       ),
     );
     gh.factory<_i884.DeviceManagerCubit>(

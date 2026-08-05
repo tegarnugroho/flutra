@@ -23,6 +23,7 @@ class CompactField extends StatelessWidget {
     this.width,
     this.autofocus = false,
     this.onSubmitted,
+    this.focusNode,
   });
 
   final String placeholder;
@@ -40,6 +41,10 @@ class CompactField extends StatelessWidget {
 
   final ValueChanged<String>? onSubmitted;
 
+  /// Supplied when the caller needs to drive focus, e.g. to commit an inline
+  /// edit on blur.
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -48,6 +53,7 @@ class CompactField extends StatelessWidget {
       height: kCompactFieldHeight,
       child: TextBox(
         controller: controller,
+        focusNode: focusNode,
         autofocus: autofocus,
         onSubmitted: onSubmitted,
         placeholder: placeholder,
