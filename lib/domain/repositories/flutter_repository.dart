@@ -1,6 +1,7 @@
 import '../../core/command/command_runner.dart';
 import '../entities/device.dart';
 import '../entities/flutter_sdk_info.dart';
+import '../entities/version_switch.dart';
 
 /// Runs Flutter tooling commands.
 abstract class FlutterRepository {
@@ -46,10 +47,24 @@ abstract class FlutterRepository {
   /// clearing the "not a standard remote" doctor warning.
   Future<void> fixUpstreamRemote();
 
-  /// Checks out release [version] (a git tag) and rebuilds the tool. Streaming.
-  /// See [upgrade] for [stashLocalChanges].
-  Future<RunningCommand> switchVersion(String version,
-      {bool stashLocalChanges = false});
+  /// Moves the SDK to release [version], reporting one [VersionSwitchEvent] per
+  /// stage until it succeeds or fails.
+  ///
+  /// [channel] is the channel the release is published on ("stable"/"beta"),
+  /// taken from the release index — see [switchChannelFor]. The tag is checked
+  /// out *onto* that branch, which is then pointed at `origin/<channel>`, so
+  /// Flutter keeps reporting an official channel instead of "[user-branch]".
+  ///
+  /// A dirty checkout is stashed automatically (see [kSwitchStashMessage]) and
+  /// never restored; the outcome says so. Every failure of a step arrives as a
+  /// [VersionSwitchFailed] event, after the SDK has been rolled back — only a
+  /// missing `git` reaches the caller as a stream error.
+  Stream<VersionSwitchEvent> switchVersion(String version,
+      {required String channel});
+
+  /// Whether the SDK already sits on [version] *and* on the [channel] branch,
+  /// which makes a switch a no-op.
+  Future<bool> isOnVersion(String version, String channel);
 
   /// Returns the commit subjects introduced in [version] relative to
   /// [previousVersion] (a de-facto changelog from the SDK git history). When

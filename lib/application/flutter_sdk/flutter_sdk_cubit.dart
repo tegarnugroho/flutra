@@ -6,6 +6,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../infrastructure/flutter/flutter_releases_service.dart';
 import '../../infrastructure/trash/trash_entry.dart';
@@ -192,10 +193,19 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
   Future<RunningCommand> resetToStable({bool stashLocalChanges = false}) =>
       _repository.resetToStable(stashLocalChanges: stashLocalChanges);
 
-  Future<RunningCommand> switchVersion(String version,
-          {bool stashLocalChanges = false}) =>
-      _repository.switchVersion(version,
-          stashLocalChanges: stashLocalChanges);
+  /// Moves the SDK to [version] on its [channel] branch, one event per stage.
+  Stream<VersionSwitchEvent> switchVersion(String version,
+          {required String channel}) =>
+      _repository.switchVersion(version, channel: channel);
+
+  /// Whether switching to [version] on [channel] would change nothing.
+  Future<bool> isOnVersion(String version, String channel) async {
+    try {
+      return await _repository.isOnVersion(version, channel);
+    } on Failure {
+      return false;
+    }
+  }
 
   Future<List<String>> changelog(String version, String? previousVersion) =>
       _repository.changelog(version, previousVersion);

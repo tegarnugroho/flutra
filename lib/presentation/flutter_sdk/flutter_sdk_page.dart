@@ -7,6 +7,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../domain/entities/version_switch.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../common/app_badge.dart';
 import '../common/app_loader.dart';
@@ -24,6 +25,7 @@ import '../common/skeleton/skeleton_layouts.dart';
 import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'version_switch_dialog.dart';
 
 /// Checks the SDK checkout before a git-backed command (upgrade, channel or
 /// version switch), which Flutter refuses to run while the tree is dirty.
@@ -156,9 +158,11 @@ class _FlutterSdkView extends StatelessWidget {
                 InfoBar(
                   title: const Text('Off the official channel'),
                   content: Text(
-                    'The SDK is on "${info.channel}" (a version checkout), so '
-                    'flutter reports an unknown channel. Reset to stable to '
-                    'return to an official channel and its latest build.',
+                    'The SDK is on "${info.channel}", which is not a release '
+                    'channel, so flutter reports an unknown channel. Switching '
+                    'a version here never causes this — it means the checkout '
+                    'was moved outside the app. Reset to stable to return to '
+                    'an official channel and its latest build.',
                   ),
                   severity: InfoBarSeverity.warning,
                   isLong: true,
@@ -807,7 +811,7 @@ class _VersionsSectionState extends State<_VersionsSection> {
                       ),
                       release: shown[i],
                       isCurrent: _isCurrent(state, shown[i]),
-                      onSwitch: () => _switch(context, shown[i].gitTag),
+                      onSwitch: () => _switch(context, shown[i]),
                       loadChangelog: () => context
                           .read<FlutterSdkCubit>()
                           .changelog(shown[i].gitTag, _previousOf(i, shown)),
@@ -824,17 +828,23 @@ class _VersionsSectionState extends State<_VersionsSection> {
 
   /// The current row is decided by commit, not version string — a re-released
   /// version shares its number with an older build.
+  ///
+  /// The git-tag fallback list knows no hashes, so those rows fall back to the
+  /// version `flutter --version` reports.
   static bool _isCurrent(FlutterSdkState state, FlutterRelease release) {
     final head = state.headHash;
-    if (head == null || head.isEmpty || release.hash.isEmpty) return false;
+    if (release.hash.isEmpty || head == null || head.isEmpty) {
+      final installed = state.info?.version;
+      return installed != null && installed == release.displayVersion;
+    }
     return release.hash == head;
   }
 
   static String _sourceCaption(FlutterSdkState state) =>
       switch (state.versionSource) {
         VersionSource.releaseIndex =>
-          'Official Flutter releases. Switching checks out that release tag in '
-              'the SDK git repo — commit or stash local SDK changes first.',
+          'Official Flutter releases. Switching checks the release tag out '
+              'onto its channel branch, so the SDK stays on stable or beta.',
         VersionSource.staleCache =>
           'Offline — showing the cached release list. Press Refresh to retry.',
         VersionSource.gitTags =>
@@ -845,26 +855,180 @@ class _VersionsSectionState extends State<_VersionsSection> {
   String? _previousOf(int index, List<FlutterRelease> all) =>
       index + 1 < all.length ? all[index + 1].gitTag : null;
 
-  Future<void> _switch(BuildContext context, String version) async {
+  /// Switches the SDK to [release], on the channel branch the release index
+  /// says it belongs to.
+  Future<void> _switch(BuildContext context, FlutterRelease release) async {
     final cubit = context.read<FlutterSdkCubit>();
+    final version = release.gitTag;
+    final channel = switchChannelFor(release);
+    if (channel == null) {
+      await _notify(
+        context,
+        title: 'Cannot switch to $version',
+        message:
+            'This release is published on the "${release.channel}" channel, '
+            'which has no branch to switch to. Use the channel picker instead.',
+        severity: InfoBarSeverity.warning,
+      );
+      return;
+    }
+
+    // Nothing to do when the SDK already sits on this tag *and* on the channel
+    // branch — a same-commit switch would only rebuild the tool cache.
+    if (await cubit.isOnVersion(version, channel)) {
+      if (!context.mounted) return;
+      await _notify(
+        context,
+        title: 'Already on Flutter $version',
+        message: 'The SDK is on this release, on the "$channel" channel.',
+        severity: InfoBarSeverity.info,
+      );
+      return;
+    }
+    if (!context.mounted) return;
+
     final ok = await showConfirmDialog(
       context,
       title: 'Switch to Flutter $version?',
       message:
-          'This checks out tag $version in the Flutter SDK git repo and '
-          'rebuilds the tool. It changes your global Flutter version.',
+          'This checks out tag $version onto the "$channel" branch of the '
+          'Flutter SDK and rebuilds the tool, so Flutter keeps reporting the '
+          '"$channel" channel. It changes your global Flutter version. Any '
+          'local SDK changes are stashed first.',
       confirmLabel: 'Switch',
       destructive: false,
     );
     if (!ok || !context.mounted) return;
-    final stash = await _resolveLocalChanges(context);
-    if (stash == null || !context.mounted) return;
-    final done = await showCommandProgressDialog(
+
+    final outcome = await showVersionSwitchDialog(
       context,
-      title: 'Switching to Flutter $version',
-      start: () => cubit.switchVersion(version, stashLocalChanges: stash),
+      version: version,
+      channel: channel,
+      start: () => cubit.switchVersion(version, channel: channel),
     );
-    if (done) cubit.load();
+    if (outcome == null) {
+      // Failed or closed early: the SDK may have moved, so re-read it.
+      cubit.load();
+      return;
+    }
+    cubit.load();
+    if (!context.mounted) return;
+
+    if (outcome.stashed) {
+      await _notify(
+        context,
+        title: 'Local SDK changes were stashed',
+        message:
+            'They are kept as "$kSwitchStashMessage". Run "git stash pop" in '
+            '${cubit.state.info?.sdkPath ?? 'the SDK folder'} to get them back.',
+        severity: InfoBarSeverity.info,
+      );
+    }
+    if (!outcome.upstreamSet && context.mounted) {
+      await _notify(
+        context,
+        title: 'No upstream set for "$channel"',
+        message:
+            'origin/$channel is missing from this checkout, so "flutter '
+            'upgrade" will not know where to go next.',
+        severity: InfoBarSeverity.warning,
+      );
+    }
+    if (outcome.remoteMismatch && context.mounted) {
+      await _showRemoteMismatch(context, outcome);
+    }
+  }
+
+  /// The SDK is cloned from a fork/mirror: the channel is right now, but
+  /// Flutter still warns about the upstream. Offer the two ways out rather than
+  /// rewriting someone's remote for them.
+  Future<void> _showRemoteMismatch(
+    BuildContext context,
+    VersionSwitchOutcome outcome,
+  ) async {
+    final cubit = context.read<FlutterSdkCubit>();
+    await displayInfoBar(
+      context,
+      duration: const Duration(minutes: 5),
+      builder: (context, close) {
+        return InfoBar(
+          title: const Text('Upstream is not the official repository'),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'The SDK is on Flutter ${outcome.version} '
+                '(${outcome.channel}), but its origin is '
+                '"${outcome.remoteUrl ?? 'unknown'}". Flutter Doctor keeps '
+                'warning about a non-standard remote until this is settled.',
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton(
+                    onPressed: () {
+                      close();
+                      cubit.fixRemote();
+                    },
+                    child: const Text('Set origin to official repo'),
+                  ),
+                  const SizedBox(width: 8),
+                  Button(
+                    onPressed: () {
+                      close();
+                      _explainMirror(context, outcome.remoteUrl);
+                    },
+                    child: const Text('Keep mirror'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          severity: InfoBarSeverity.warning,
+          isLong: true,
+          onClose: close,
+        );
+      },
+    );
+  }
+
+  /// What a mirror user has to do themselves: Flutter only accepts a
+  /// non-official remote when `FLUTTER_GIT_URL` names it.
+  // TODO: decide where FLUTTER_GIT_URL should live — this process only, the
+  // app's own settings, or the user environment via setx on Windows. Until then
+  // the app only tells the user, it does not set anything.
+  Future<void> _explainMirror(BuildContext context, String? remoteUrl) async {
+    final url = remoteUrl ?? '<your mirror URL>';
+    await showConfirmDialog(
+      context,
+      title: 'Keeping the mirror',
+      message:
+          'The remote is left as it is. Flutter expects FLUTTER_GIT_URL to '
+          'name the mirror, otherwise it warns on every command:\n\n'
+          'setx FLUTTER_GIT_URL "$url"\n\n'
+          'Open a new terminal afterwards for it to take effect.',
+      confirmLabel: 'Got it',
+      destructive: false,
+    );
+  }
+
+  static Future<void> _notify(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required InfoBarSeverity severity,
+  }) {
+    return displayInfoBar(
+      context,
+      builder: (context, close) => InfoBar(
+        title: Text(title),
+        content: Text(message),
+        severity: severity,
+        isLong: true,
+        onClose: close,
+      ),
+    );
   }
 }
 

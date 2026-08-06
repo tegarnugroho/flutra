@@ -10,9 +10,21 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../sdk/flutter_locator.dart';
 import '../trash/trash_service.dart';
+
+/// A step of the version switch failed. Internal to [FlutterRepositoryImpl];
+/// it is converted into a [VersionSwitchFailed] event once the SDK has been
+/// rolled back, so callers of the stream never see an exception.
+class _SwitchAbort implements Exception {
+  _SwitchAbort(this.message, {this.output, this.suggestion});
+
+  final String message;
+  final String? output;
+  final String? suggestion;
+}
 
 /// [FlutterRepository] backed by the `flutter` command-line tool.
 @LazySingleton(as: FlutterRepository)
@@ -109,10 +121,7 @@ class FlutterRepositoryImpl implements FlutterRepository {
     }
     final result = await _runner.run(
       'git',
-      [
-        '-C', root, 'remote', 'set-url', 'origin',
-        'https://github.com/flutter/flutter.git',
-      ],
+      ['-C', root, 'remote', 'set-url', 'origin', kFlutterRepoUrl],
       timeout: const Duration(seconds: 15),
     );
     if (!result.isSuccess) {
@@ -294,15 +303,10 @@ class FlutterRepositoryImpl implements FlutterRepository {
       // `flutter channel` command refuses to fix:
       //  1) point origin at the official repo,
       //  2) put HEAD on a real `stable` branch tracking origin/stable.
-      await _tryGit(root, [
-        'remote', 'set-url', 'origin',
-        'https://github.com/flutter/flutter.git',
-      ]);
-      final checkout = await _tryGit(
-          root, ['checkout', '-B', 'stable', 'origin/stable']);
-      if (checkout) {
-        _invalidateVersionStamp(root);
-      } else {
+      await _tryGit(root, ['remote', 'set-url', 'origin', kFlutterRepoUrl]);
+      final checkout =
+          await _checkoutChannelBranch(root, 'stable', 'origin/stable');
+      if (!checkout) {
         // Fall back to the flutter tool if origin/stable isn't available.
         await _runner.run(_flutter, ['channel', 'stable'],
             timeout: const Duration(minutes: 2));
@@ -324,6 +328,20 @@ class FlutterRepositoryImpl implements FlutterRepository {
     } catch (_) {}
   }
 
+  /// Puts HEAD on a real [channel] branch at [ref] and points that branch at
+  /// `origin/<channel>` — the shape Flutter needs to report a channel instead
+  /// of "[user-branch]". Best-effort; returns whether the checkout landed.
+  ///
+  /// Shared by the stable reset and (in strict, step-reporting form) by the
+  /// version switch below.
+  Future<bool> _checkoutChannelBranch(
+      String root, String channel, String ref) async {
+    if (!await _tryGit(root, ['checkout', '-B', channel, ref])) return false;
+    await _tryGit(root, ['branch', '--set-upstream-to=origin/$channel', channel]);
+    _invalidateVersionStamp(root);
+    return true;
+  }
+
   /// Runs a git command in [root], returning whether it succeeded (best-effort).
   Future<bool> _tryGit(String root, List<String> args) async {
     try {
@@ -335,75 +353,287 @@ class FlutterRepositoryImpl implements FlutterRepository {
     }
   }
 
-  /// Returns the channel branch whose tip commit equals [version]'s commit, so
-  /// switching lands on a branch (clean channel) rather than a detached tag.
-  Future<String?> _branchForVersion(String root, String version) async {
-    String? commitOf(CommandResult r) =>
-        r.isSuccess && r.stdout.trim().isNotEmpty ? r.stdout.trim() : null;
+  // ---- Version switching ----------------------------------------------------
 
-    final tag = await _runner.run('git', ['-C', root, 'rev-list', '-n', '1', version],
+  /// Guards the git sequence below against a second one starting mid-flight,
+  /// which would interleave checkouts in the same working tree.
+  // TODO: confirm whether an app-wide operation lock should exist — today
+  // nothing guards the upgrade/channel flows, and this is deliberately the only
+  // lock rather than a second scheme layered on an existing one.
+  bool _switchInProgress = false;
+
+  @override
+  Future<bool> isOnVersion(String version, String channel) async {
+    final info = await getSdkInfo();
+    final root = info.sdkPath;
+    if (root == null || !info.isGitRepo) return false;
+    final tag = await _git(root, ['rev-list', '-n', '1', 'refs/tags/$version'],
         timeout: const Duration(seconds: 15));
-    final tagCommit = commitOf(tag);
-    if (tagCommit == null) return null;
-
-    for (final ch in kFlutterChannels) {
-      final b = await _runner.run(
-          'git', ['-C', root, 'rev-parse', '--verify', '--quiet', ch],
-          timeout: const Duration(seconds: 10));
-      if (commitOf(b) == tagCommit) return ch;
-    }
-    return null;
+    final tagCommit = tag.isSuccess ? tag.stdout.trim() : '';
+    if (tagCommit.isEmpty) return false;
+    final head = await _git(root, ['rev-parse', 'HEAD'],
+        timeout: const Duration(seconds: 15));
+    final branch = await _git(root, ['rev-parse', '--abbrev-ref', 'HEAD'],
+        timeout: const Duration(seconds: 15));
+    return head.stdout.trim() == tagCommit && branch.stdout.trim() == channel;
   }
 
   @override
-  Future<RunningCommand> switchVersion(String version,
-      {bool stashLocalChanges = false}) async {
-    final info = await getSdkInfo();
+  Stream<VersionSwitchEvent> switchVersion(String version,
+      {required String channel}) async* {
+    if (_switchInProgress) {
+      yield const VersionSwitchFailed(
+        'Another version switch is still running.',
+        suggestion: 'Wait for it to finish, then switch again.',
+      );
+      return;
+    }
+    _switchInProgress = true;
+    try {
+      yield* _switchVersion(version, channel);
+    } finally {
+      _switchInProgress = false;
+    }
+  }
+
+  /// The switch itself. Aborts are thrown as [_SwitchAbort] from the helpers
+  /// and turned into a [VersionSwitchFailed] (after a rollback) at the bottom.
+  Stream<VersionSwitchEvent> _switchVersion(
+      String version, String channel) async* {
+    if (!isOfficialFlutterChannel(channel) || channel == 'master') {
+      yield VersionSwitchFailed(
+        'Flutter $version has no channel branch to switch to.',
+        suggestion: 'Pick a release from the stable or beta list.',
+      );
+      return;
+    }
+    final FlutterSdkInfo info;
+    try {
+      info = await getSdkInfo();
+    } on Failure catch (e) {
+      yield VersionSwitchFailed(e.message, suggestion: e.suggestion);
+      return;
+    }
     final root = info.sdkPath;
     if (root == null || !info.isGitRepo) {
-      throw const UnknownFailure(
+      yield const VersionSwitchFailed(
         'This Flutter SDK is not a git checkout, so versions cannot be '
-        'switched. Use channels or reinstall Flutter via git.',
+        'switched.',
+        suggestion: 'Reinstall Flutter via git, or use channels.',
       );
+      return;
     }
-    // Uncommitted SDK changes make the checkout below fail; park them first.
-    if (stashLocalChanges) await _stashLocalChanges(root);
-    // If the requested version's commit is the tip of a local channel branch,
-    // check out the BRANCH instead of the tag. Same version, but it stays on an
-    // official channel (no "[user-branch]"/"unknown source" doctor warnings).
-    final target = await _branchForVersion(root, version) ?? version;
 
-    final checkout = await _runner.run(
-      'git',
-      ['-C', root, 'checkout', target],
-      timeout: const Duration(minutes: 2),
-    );
-    if (!checkout.isSuccess) {
-      throw ProcessFailure(
-        'Failed to check out Flutter $version.',
-        exitCode: checkout.exitCode,
-        output: checkout.combinedOutput,
-        suggestion: 'Commit or stash local changes in the SDK first.',
+    // Where to return to if anything after the checkout goes wrong. A detached
+    // HEAD reports the branch as "HEAD", in which case only the commit is used.
+    final startBranch =
+        (await _git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
+    final startCommit =
+        (await _git(root, ['rev-parse', 'HEAD'])).stdout.trim();
+
+    var stashed = false;
+    var checkedOut = false;
+
+    try {
+      // 1. Fetch, so the tag and origin/<channel> are both present locally.
+      yield const VersionSwitchStepStarted(VersionSwitchStep.fetchingTags);
+      final shallow = (await _git(root, ['rev-parse', '--is-shallow-repository']))
+              .stdout
+              .trim() ==
+          'true';
+      if (shallow) {
+        yield const VersionSwitchLogged(
+          'This SDK is a shallow clone, so its full history has to be fetched '
+          'before a release tag can be checked out. This takes a few minutes.',
+        );
+        yield* _stream('git', ['-C', root, 'fetch', '--unshallow', '--tags'],
+            onFail: 'Failed to fetch the full history of the SDK checkout.');
+      } else {
+        yield* _stream('git', ['-C', root, 'fetch', 'origin', '--tags', '--prune'],
+            onFail: 'Failed to fetch tags from origin.');
+      }
+
+      // 2. The tag has to exist locally or the checkout below fails cryptically.
+      // No `^{commit}` peel here: commands run through cmd.exe on Windows,
+      // which swallows the caret and would turn this into a false negative.
+      final tag =
+          await _git(root, ['rev-parse', '--verify', '--quiet', 'refs/tags/$version']);
+      if (tag.stdout.trim().isEmpty) {
+        throw _SwitchAbort(
+          'Release tag $version not found — the SDK repo may be a partial '
+          'mirror.',
+          suggestion: 'Check the "origin" remote of $root, or reinstall the '
+              'SDK from the official repository.',
+        );
+      }
+
+      // 3. A fork/mirror stays a fork/mirror: rewriting the remote behind the
+      // user's back is not ours to do, so it is only reported.
+      final remote = await _git(root, ['remote', 'get-url', 'origin'],
+          timeout: const Duration(seconds: 15));
+      final remoteUrl = remote.isSuccess && remote.stdout.trim().isNotEmpty
+          ? remote.stdout.trim()
+          : null;
+      if (!isOfficialFlutterRemote(remoteUrl)) {
+        yield VersionSwitchLogged(
+          'origin is "${remoteUrl ?? 'unknown'}", not the official Flutter '
+          'repository. Leaving it as it is.',
+        );
+      }
+
+      // 4. git refuses to move HEAD over uncommitted work; park it.
+      final status = await _git(root, ['status', '--porcelain'],
+          timeout: const Duration(minutes: 1));
+      if (status.stdout.trim().isNotEmpty) {
+        yield const VersionSwitchLogged(
+          'Local SDK changes found — stashing them as "$kSwitchStashMessage".',
+        );
+        final stash = await _git(root, [
+          'stash', 'push', '--include-untracked', '-m', kSwitchStashMessage,
+        ]);
+        if (!stash.isSuccess) {
+          throw _SwitchAbort(
+            'Failed to stash the local changes in the SDK, so nothing was '
+            'switched.',
+            output: stash.combinedOutput,
+            suggestion: 'Commit or discard the changes in $root, then switch '
+                'again.',
+          );
+        }
+        stashed = true;
+      }
+
+      // 5. The tag onto its channel branch — this is what keeps the channel
+      // name (and therefore flutter doctor) correct.
+      yield const VersionSwitchStepStarted(VersionSwitchStep.checkingOut);
+      yield* _stream(
+        'git',
+        ['-C', root, 'checkout', '-B', channel, 'refs/tags/$version'],
+        onFail: 'Failed to check out Flutter $version on the "$channel" branch.',
+      );
+      checkedOut = true;
+      _invalidateVersionStamp(root);
+
+      // 6. Upstream, so `flutter upgrade` knows where to go next.
+      yield const VersionSwitchStepStarted(VersionSwitchStep.settingUpstream);
+      var upstreamSet = false;
+      final hasRemoteBranch = (await _git(root, [
+        'rev-parse', '--verify', '--quiet', 'refs/remotes/origin/$channel',
+      ]))
+          .stdout
+          .trim()
+          .isNotEmpty;
+      if (hasRemoteBranch) {
+        final upstream = await _git(
+            root, ['branch', '--set-upstream-to=origin/$channel', channel]);
+        if (!upstream.isSuccess) {
+          throw _SwitchAbort(
+            'Failed to point "$channel" at origin/$channel.',
+            output: upstream.combinedOutput,
+          );
+        }
+        upstreamSet = true;
+        yield VersionSwitchLogged(upstream.combinedOutput.trim());
+      } else {
+        yield VersionSwitchLogged(
+          'origin/$channel is not in this checkout, so no upstream was set. '
+          '"flutter upgrade" will not work until it is fetched.',
+          isError: true,
+        );
+      }
+
+      // 7. Any flutter command rebuilds the snapshot for the new version.
+      yield const VersionSwitchStepStarted(VersionSwitchStep.rebuildingCache);
+      yield* _stream(_flutterIn(root), ['--version'],
+          onFail: 'Flutter could not rebuild its tool cache for $version.');
+
+      yield const VersionSwitchStepStarted(VersionSwitchStep.done);
+      yield VersionSwitchSucceeded(VersionSwitchOutcome(
+        version: version,
+        channel: channel,
+        stashed: stashed,
+        remoteUrl: remoteUrl,
+        upstreamSet: upstreamSet,
+      ));
+    } on _SwitchAbort catch (abort) {
+      final restore = checkedOut
+          ? 'git -C "$root" checkout -B '
+              '${startBranch.isEmpty || startBranch == 'HEAD' ? channel : startBranch} '
+              '$startCommit'
+          : null;
+      var rolledBack = false;
+      if (checkedOut) {
+        yield VersionSwitchLogged(
+          'Rolling the SDK back to ${startCommit.isEmpty ? 'its previous '
+              'commit' : startCommit}…',
+          isError: true,
+        );
+        rolledBack = await _rollback(root, startBranch, startCommit);
+      }
+      yield VersionSwitchFailed(
+        abort.output == null || abort.output!.isEmpty
+            ? abort.message
+            : '${abort.message}\n${abort.output}',
+        suggestion: abort.suggestion ??
+            (checkedOut && !rolledBack && restore != null
+                ? 'The SDK is left on $version. Run "$restore" to put it back.'
+                : null),
+        rolledBack: rolledBack,
+        stashed: stashed,
       );
     }
-    // Force flutter to recompute channel/version from git, not the old stamp.
-    _invalidateVersionStamp(root);
-    // Ensure the upstream remote stays official so Flutter Doctor doesn't warn
-    // about a "non-standard remote" after the checkout. Best-effort.
-    if (!info.isStandardRemote) {
-      try {
-        await _runner.run(
-          'git',
-          [
-            '-C', root, 'remote', 'set-url', 'origin',
-            'https://github.com/flutter/flutter.git',
-          ],
-          timeout: const Duration(seconds: 15),
-        );
-      } catch (_) {}
+  }
+
+  /// Runs a git command in [root] and buffers its output.
+  Future<CommandResult> _git(
+    String root,
+    List<String> args, {
+    Duration timeout = const Duration(minutes: 2),
+  }) =>
+      _runner.run('git', ['-C', root, ...args], timeout: timeout);
+
+  /// Runs [executable], forwarding its output as log events. Throws
+  /// [_SwitchAbort] carrying [onFail] when it cannot start or exits non-zero.
+  ///
+  /// Deliberately untimed: an unshallow fetch of the Flutter repo runs for
+  /// minutes on a slow connection and killing it mid-way is worse than waiting.
+  Stream<VersionSwitchEvent> _stream(
+    String executable,
+    List<String> arguments, {
+    required String onFail,
+  }) async* {
+    final RunningCommand command;
+    try {
+      command = await _runner.start(executable, arguments);
+    } on Failure catch (e) {
+      throw _SwitchAbort(onFail, output: e.message, suggestion: e.suggestion);
     }
-    // Running any flutter command now regenerates the version snapshot.
-    return _runner.start(_flutter, ['--version']);
+    await for (final line in command.output) {
+      yield VersionSwitchLogged(line.text, isError: line.isError);
+    }
+    final result = await command.result;
+    if (!result.isSuccess) {
+      throw _SwitchAbort(onFail, output: result.combinedOutput);
+    }
+  }
+
+  /// Puts HEAD back where the switch found it. Best-effort: the caller reports
+  /// the manual command when this returns false.
+  Future<bool> _rollback(String root, String branch, String commit) async {
+    if (commit.isEmpty) return false;
+    final ok = branch.isEmpty || branch == 'HEAD'
+        ? await _tryGit(root, ['checkout', '--force', commit])
+        : await _tryGit(root, ['checkout', '-B', branch, commit]);
+    if (ok) _invalidateVersionStamp(root);
+    return ok;
+  }
+
+  /// The `flutter` of the SDK being switched, not whatever is on PATH — they
+  /// are the same install in practice, but the switch must rebuild *this* one.
+  String _flutterIn(String root) {
+    final exe =
+        p.join(root, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
+    return File(exe).existsSync() ? exe : _flutter;
   }
 
   @override
@@ -454,13 +684,7 @@ class FlutterRepositoryImpl implements FlutterRepository {
       );
     }
     // `-b` accepts a channel branch (stable/beta/master) or a version tag.
-    return _runner.start('git', [
-      'clone',
-      '-b',
-      ref,
-      'https://github.com/flutter/flutter.git',
-      dir,
-    ]);
+    return _runner.start('git', ['clone', '-b', ref, kFlutterRepoUrl, dir]);
   }
 
   @override

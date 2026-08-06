@@ -5,18 +5,47 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
 import '../../application/common/command_log_cubit.dart';
+import '../../core/command/command_result.dart';
 
 /// A terminal-style, auto-scrolling view of a streaming command's output.
-class CommandLogView extends StatefulWidget {
+class CommandLogView extends StatelessWidget {
   const CommandLogView({super.key, this.height = 320});
 
   final double height;
 
   @override
-  State<CommandLogView> createState() => _CommandLogViewState();
+  Widget build(BuildContext context) {
+    return BlocBuilder<CommandLogCubit, CommandLogState>(
+      builder: (context, state) => LogLinesView(
+        lines: state.lines,
+        height: height,
+        starting: state.lines.isEmpty && state.running,
+      ),
+    );
+  }
 }
 
-class _CommandLogViewState extends State<CommandLogView> {
+/// The log box itself, for callers that hold their own lines rather than a
+/// [CommandLogCubit] — the version switch runs several processes into one view.
+class LogLinesView extends StatefulWidget {
+  const LogLinesView({
+    super.key,
+    required this.lines,
+    this.height = 320,
+    this.starting = false,
+  });
+
+  final List<CommandOutputLine> lines;
+  final double height;
+
+  /// Shows the "Starting…" placeholder while there is nothing to print yet.
+  final bool starting;
+
+  @override
+  State<LogLinesView> createState() => _LogLinesViewState();
+}
+
+class _LogLinesViewState extends State<LogLinesView> {
   final ScrollController _scroll = ScrollController();
 
   @override
@@ -45,10 +74,10 @@ class _CommandLogViewState extends State<CommandLogView> {
         borderRadius: BorderRadius.circular(AppShape.radiusGroup),
         border: Border.all(color: palette.border, width: AppShape.hairline),
       ),
-      child: BlocBuilder<CommandLogCubit, CommandLogState>(
-        builder: (context, state) {
+      child: Builder(
+        builder: (context) {
           _autoScroll();
-          if (state.lines.isEmpty && state.running) {
+          if (widget.lines.isEmpty && widget.starting) {
             return Center(
               child: Text(
                 'Starting…',
@@ -58,9 +87,9 @@ class _CommandLogViewState extends State<CommandLogView> {
           }
           return ListView.builder(
             controller: _scroll,
-            itemCount: state.lines.length,
+            itemCount: widget.lines.length,
             itemBuilder: (context, i) {
-              final line = state.lines[i];
+              final line = widget.lines[i];
               return Text(
                 line.text,
                 style: AppTextStyles.of(context).monoLog.copyWith(
