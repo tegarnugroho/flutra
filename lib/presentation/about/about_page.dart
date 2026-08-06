@@ -94,23 +94,27 @@ class _AppIconTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
+    // The window is 400px wide and this is the one place the app introduces
+    // itself, so the mark carries the header rather than sitting in it.
+    const size = 96.0;
     return Container(
-      width: 64,
-      height: 64,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: palette.accentBgTint,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       alignment: Alignment.center,
       child: Image.asset(
         'assets/logo.png',
-        width: 64,
-        height: 64,
+        width: size,
+        height: size,
         // The source is 941px; decoding it small keeps the raster cache sane.
-        cacheWidth: 144,
+        // Three times the layout size stays sharp on a 200% display.
+        cacheWidth: 288,
         filterQuality: FilterQuality.medium,
         errorBuilder: (context, _, _) =>
-            Icon(FluentIcons.cell_phone, size: 30, color: palette.accent),
+            Icon(FluentIcons.cell_phone, size: 44, color: palette.accent),
       ),
     );
   }
