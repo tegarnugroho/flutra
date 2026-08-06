@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:window_manager/window_manager.dart';
@@ -32,9 +33,36 @@ const String kDevLogsWindow = 'devLogs';
 /// Business id marking the standalone About window.
 const String kAboutWindow = 'about';
 
+/// Times this window's boot, in debug builds only.
+///
+/// Every step below runs before the first frame, so "opening feels heavy" is
+/// measurable rather than a guess: the log line says which part of the boot
+/// the time actually went to.
+class _BootTrace {
+  final Stopwatch _clock = Stopwatch()..start();
+  final List<String> _steps = [];
+  String _window = 'main';
+
+  void mark(String step) {
+    if (kDebugMode) _steps.add('$step=${_clock.elapsedMilliseconds}ms');
+  }
+
+  void name(String window) => _window = window;
+
+  /// Called once the window is actually on screen.
+  void shown() {
+    if (!kDebugMode) return;
+    _steps.add('shown=${_clock.elapsedMilliseconds}ms');
+    Logger('boot').info('$_window: ${_steps.join(' ')}');
+  }
+}
+
+final _boot = _BootTrace();
+
 Future<void> main(List<String> args) async {
   _setupLogging();
   WidgetsFlutterBinding.ensureInitialized();
+  _boot.mark('binding');
   // On hot restart the Dart code reloads but native plugins do not, so the
   // window_manager channel may be briefly unavailable. Guard it so the app
   // still boots instead of throwing an unhandled MissingPluginException.
@@ -46,16 +74,21 @@ Future<void> main(List<String> args) async {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }
   configureDependencies();
+  _boot.mark('di');
 
   // Every window (main and sub-windows) runs this same entrypoint. The current
   // engine's arguments tell us which one we are.
   final arguments = await _currentWindowArguments();
   final decoded = _tryDecode(arguments);
   final businessId = decoded?['businessId'];
+  _boot
+    ..name(businessId as String? ?? 'main')
+    ..mark('args');
 
   // Every window draws its own caption. Done before any IO so the native bar
   // isn't visible at startup.
   await _hideNativeTitleBar();
+  _boot.mark('caption');
   if (businessId == null) {
     // Below this the two-pane pages (SDK manager) start to overflow.
     await _tryWindow(() => windowManager.setMinimumSize(const Size(960, 640)));
@@ -63,8 +96,13 @@ Future<void> main(List<String> args) async {
 
   // Capture the log/command flow for producing windows, but NOT the viewer
   // window itself (it only reads the shared log file).
+  //
+  // Not awaited: attaching resolves the app-support directory, which is a
+  // plugin round trip, and nothing about drawing the first frame depends on
+  // it. The cost of that is a few startup log lines that may land after the
+  // listener does — which is worth more to the window than to the log.
   if (businessId != kDevLogsWindow) {
-    await getIt<DevLogService>().attach();
+    unawaited(getIt<DevLogService>().attach());
   }
 
   if (businessId == kCreateEmulatorWindow) {
@@ -163,6 +201,7 @@ Future<void> _placeTaskWindow(
   Size defaultSize,
   Size minSize,
 ) async {
+  _boot.mark('place');
   await _tryWindow(() async {
     await windowManager.setMinimumSize(minSize);
     final frame = (args['frame'] as List?)?.cast<num>();
@@ -191,6 +230,7 @@ Future<void> _placeTaskWindow(
 void _revealWindow() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _tryWindow(() => windowManager.show());
+    _boot.shown();
   });
 }
 
