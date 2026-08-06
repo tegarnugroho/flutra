@@ -6,16 +6,20 @@ import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
 import '../../domain/repositories/emulator_repository.dart';
-import '../common/app_loader.dart';
 import '../common/live_log_view.dart';
 import '../common/log_toolbar.dart';
+import '../common/outlined_action_button.dart';
+import '../common/task_window_title_bar.dart';
 
 /// Emulator Console: launches an AVD and streams its stdout/stderr live.
 class EmulatorConsolePage extends StatefulWidget {
-  const EmulatorConsolePage({super.key, this.initialAvd});
+  const EmulatorConsolePage({super.key, this.initialAvd, this.onClose});
 
   /// Pre-selects this AVD (e.g. when opened from the Emulator Manager).
   final String? initialAvd;
+
+  /// Closes the window. Null when the page is not the root of one.
+  final VoidCallback? onClose;
 
   @override
   State<EmulatorConsolePage> createState() => _EmulatorConsolePageState();
@@ -70,24 +74,22 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
 
   @override
   Widget build(BuildContext context) {
+    final onClose = widget.onClose;
     return BlocProvider.value(
       value: _cubit,
       child: ScaffoldPage(
-        header: PageHeader(
-          title: const Text('Emulator Console'),
-          commandBar: CommandBar(
-            mainAxisAlignment: MainAxisAlignment.end,
-            primaryItems: [
-              CommandBarButton(
-                icon: _loading
-                    ? AppLoader(size: AppLoaderSize.small)
-                    : const Icon(FluentIcons.refresh),
-                label: const Text('AVDs'),
-                onPressed: _loading ? null : _loadAvds,
+        // The same caption band About and the log viewer use, rather than a
+        // page header: this is the root of an OS window, and the native
+        // caption is hidden — without this there was no way to close it but
+        // Alt+F4.
+        header: onClose == null
+            ? null
+            : TaskWindowTitleBar(
+                icon: FluentIcons.command_prompt,
+                title: 'Emulator Console',
+                trailing: _name == null ? null : TitleBarChip(label: _name!),
+                onClose: onClose,
               ),
-            ],
-          ),
-        ),
         content: _avds.isEmpty && !_loading
             ? _NoAvds(onRefresh: _loadAvds)
             : BlocBuilder<LiveLogCubit, LiveLogState>(
@@ -106,7 +108,12 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(
+                          kTaskWindowInset,
+                          10,
+                          kTaskWindowInset,
+                          8,
+                        ),
                         child: Wrap(
                           spacing: 12,
                           runSpacing: 8,
@@ -133,6 +140,13 @@ class _EmulatorConsolePageState extends State<EmulatorConsolePage> {
                                     ? null
                                     : (v) => setState(() => _name = v),
                               ),
+                            ),
+                            OutlinedActionButton(
+                              icon: FluentIcons.refresh,
+                              tooltip: 'Reload the AVD list',
+                              dense: true,
+                              busy: _loading,
+                              onPressed: _loading || running ? null : _loadAvds,
                             ),
                             Checkbox(
                               checked: _coldBoot,
