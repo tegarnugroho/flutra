@@ -197,6 +197,9 @@ class _AppShellState extends State<AppShell> {
 
   /// The app menu behind the hamburger, anchored under the button.
   void _showMenu() {
+    // Read when the menu opens, not when the shell was built: the toggle lives
+    // one page away and this menu is rebuilt on every press anyway.
+    final developerMode = getIt<SettingsCubit>().state.developerMode;
     _menuController.showFlyout(
       placementMode: FlyoutPlacementMode.bottomLeft,
       builder: (context) => MenuFlyout(
@@ -206,11 +209,15 @@ class _AppShellState extends State<AppShell> {
             text: const Text('Settings'),
             onPressed: () => _go(_settingsIndex),
           ),
-          MenuFlyoutItem(
-            leading: const Icon(WindowsIcons.developer_tools),
-            text: const Text('Developer logs'),
-            onPressed: openDevLogsWindow,
-          ),
+          // Behind the same switch as the Settings row that opens it. The
+          // viewer only reads a log nothing writes while developer mode is
+          // off, so an entry here was a door to an empty room.
+          if (developerMode)
+            MenuFlyoutItem(
+              leading: const Icon(WindowsIcons.developer_tools),
+              text: const Text('Developer logs'),
+              onPressed: openDevLogsWindow,
+            ),
           const MenuFlyoutSeparator(),
           MenuFlyoutItem(
             leading: const Icon(WindowsIcons.info),
