@@ -61,6 +61,7 @@ flutter:
     - assets/app_icon.ico
     # Flutter can't decode .ico, so the About window uses the png.
     - assets/app_icon.png
+    - assets/logo.png 
 
 # Windows MSIX packaging. Build with: dart run msix:create
 msix_config:

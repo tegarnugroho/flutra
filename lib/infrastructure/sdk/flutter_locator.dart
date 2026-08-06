@@ -46,8 +46,18 @@ class FlutterLocator {
     return null;
   }
 
-  Iterable<String?> _candidateRoots() sync* {
-    yield _override;
+  /// Where Flutter would be found with no override set.
+  ///
+  /// Settings shows this as the "Auto" value; see [SdkLocator.autoDetectedRoot].
+  String? get autoDetectedRoot {
+    for (final candidate in _candidateRoots(includeOverride: false)) {
+      if (candidate != null && looksLikeFlutterSdk(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  Iterable<String?> _candidateRoots({bool includeOverride = true}) sync* {
+    if (includeOverride) yield _override;
     yield Platform.environment['FLUTTER_ROOT'];
     // Windows environment lookups are case-insensitive in Platform.environment,
     // so 'PATH' covers 'Path' too.
@@ -91,7 +101,9 @@ class FlutterLocator {
   /// `bin/internal` and `packages/flutter` ship with the SDK and exist before
   /// it is ever run — unlike `bin/cache`, which only appears after the first
   /// invocation and would miss a freshly cloned SDK.
-  @visibleForTesting
+  ///
+  /// Public rather than test-only: the disk scan applies the same test to every
+  /// candidate it walks past.
   static bool looksLikeFlutterSdk(String root) =>
       Directory(p.join(root, 'bin', 'internal')).existsSync() &&
       Directory(p.join(root, 'packages', 'flutter')).existsSync();

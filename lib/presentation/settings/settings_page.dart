@@ -11,6 +11,7 @@ import '../../application/settings/settings_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/address.dart';
+import '../../infrastructure/sdk/sdk_scan_service.dart';
 import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
 import '../common/app_badge.dart';
@@ -117,6 +118,10 @@ class _SettingsViewState extends State<_SettingsView> {
                             editing: _editing == PathKind.androidSdk,
                             onBeginEdit: () => _beginEdit(PathKind.androidSdk),
                             onEndEdit: _endEdit,
+                            scanning: detected.isScanning,
+                            onScan: () => context
+                                .read<DetectedPathsCubit>()
+                                .scanFor(SdkScanKind.android),
                           ),
                           const SizedBox(height: 8),
                           PathSettingRow(
@@ -131,6 +136,10 @@ class _SettingsViewState extends State<_SettingsView> {
                             editing: _editing == PathKind.flutterSdk,
                             onBeginEdit: () => _beginEdit(PathKind.flutterSdk),
                             onEndEdit: _endEdit,
+                            scanning: detected.isScanning,
+                            onScan: () => context
+                                .read<DetectedPathsCubit>()
+                                .scanFor(SdkScanKind.flutter),
                           ),
                           const SizedBox(height: 8),
                           // Java has no override — it is read from JAVA_HOME or

@@ -22,13 +22,25 @@ class SdkLocator {
   /// The resolved SDK root directory, or null if none can be found.
   String? get sdkRoot {
     for (final candidate in _candidateRoots()) {
-      if (candidate != null && _looksLikeSdk(candidate)) return candidate;
+      if (candidate != null && looksLikeAndroidSdk(candidate)) return candidate;
     }
     return null;
   }
 
-  Iterable<String?> _candidateRoots() sync* {
-    yield _override;
+  /// Where the SDK would be found with no override set.
+  ///
+  /// Settings shows this as the "Auto" value: echoing the override back as the
+  /// detected location would tell the user nothing about what they'd fall back
+  /// to if they cleared it.
+  String? get autoDetectedRoot {
+    for (final candidate in _candidateRoots(includeOverride: false)) {
+      if (candidate != null && looksLikeAndroidSdk(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  Iterable<String?> _candidateRoots({bool includeOverride = true}) sync* {
+    if (includeOverride) yield _override;
     yield Platform.environment['ANDROID_HOME'];
     yield Platform.environment['ANDROID_SDK_ROOT'];
 
@@ -43,12 +55,47 @@ class SdkLocator {
     }
   }
 
-  bool _looksLikeSdk(String root) {
-    final dir = Directory(root);
-    if (!dir.existsSync()) return false;
-    // A usable SDK has at least one of these well-known sub-directories.
-    const markers = ['cmdline-tools', 'platform-tools', 'tools', 'emulator'];
-    return markers.any((m) => Directory(p.join(root, m)).existsSync());
+  /// Whether [root] is an Android SDK rather than a folder that happens to be
+  /// called "Sdk".
+  ///
+  /// Static and public because the disk scan applies the same test to thousands
+  /// of candidates — one definition of "this is an SDK", not two.
+  ///
+  /// Looks for a tool *file*, not just a folder name. A directory called
+  /// `tools` is not evidence of anything: chocolatey packages, VirtualBox
+  /// hypervisors and half a dozen unrelated installs ship one, and a scan that
+  /// trusted the name reported all of them as Android SDKs.
+  static bool looksLikeAndroidSdk(String root) {
+    if (!Directory(root).existsSync()) return false;
+
+    final exe = Platform.isWindows ? '.exe' : '';
+    final bat = Platform.isWindows ? '.bat' : '';
+    final tools = <String>[
+      p.join(root, 'platform-tools', 'adb$exe'),
+      p.join(root, 'emulator', 'emulator$exe'),
+      p.join(root, 'tools', 'bin', 'sdkmanager$bat'),
+    ];
+    if (tools.any((f) => File(f).existsSync())) return true;
+
+    // cmdline-tools holds one folder per installed version ("latest", "13.0",
+    // …), so the sdkmanager inside it needs a lookup rather than a fixed path.
+    final cmdline = Directory(p.join(root, 'cmdline-tools'));
+    if (cmdline.existsSync()) {
+      try {
+        for (final version in cmdline.listSync().whereType<Directory>()) {
+          if (File(p.join(version.path, 'bin', 'sdkmanager$bat')).existsSync()) {
+            return true;
+          }
+        }
+      } catch (_) {
+        // Unreadable: fall through to the layout check below.
+      }
+    }
+
+    // An SDK that has had its command-line tools removed still has the pair of
+    // folders every install populates. Both, never just one.
+    return Directory(p.join(root, 'platforms')).existsSync() &&
+        Directory(p.join(root, 'build-tools')).existsSync();
   }
 
   // ---- Tool path resolution ------------------------------------------------

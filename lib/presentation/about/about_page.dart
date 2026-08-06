@@ -41,9 +41,7 @@ class _AboutView extends StatelessWidget {
     final text = AppTextStyles.fromPalette(palette);
 
     return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): onClose,
-      },
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onClose},
       child: FocusScope(
         autofocus: true,
         child: Column(
@@ -105,9 +103,9 @@ class _AppIconTile extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: Image.asset(
-        'assets/app_icon.png',
-        width: 36,
-        height: 36,
+        'assets/logo.png',
+        width: 64,
+        height: 64,
         // The source is 941px; decoding it small keeps the raster cache sane.
         cacheWidth: 144,
         filterQuality: FilterQuality.medium,
@@ -135,10 +133,7 @@ class _VersionLine extends StatelessWidget {
         const SizedBox(width: 6),
         // Copies the whole diagnostic block, not the number — a version alone
         // answers almost none of the questions a bug report asks.
-        CopyIconButton(
-          value: AppInfo.diagnosticBlock(),
-          label: 'Build info',
-        ),
+        CopyIconButton(value: AppInfo.diagnosticBlock(), label: 'Build info'),
       ],
     );
   }
@@ -179,10 +174,8 @@ class _EnvironmentCard extends StatelessWidget {
         children: [
           FutureBuilder<String>(
             future: _flutterVersion(),
-            builder: (context, snapshot) => _EnvRow(
-              label: 'Flutter',
-              value: snapshot.data ?? '…',
-            ),
+            builder: (context, snapshot) =>
+                _EnvRow(label: 'Flutter', value: snapshot.data ?? '…'),
           ),
           const SizedBox(height: 7),
           _EnvRow(label: 'Dart', value: AppInfo.dartVersion),
@@ -302,7 +295,8 @@ class _UpdateButton extends StatelessWidget {
             label: 'Update available',
             tooltip:
                 'Open Updates in the main window to install '
-                '${state.update?.latest?.version ?? ''}'.trim(),
+                        '${state.update?.latest?.version ?? ''}'
+                    .trim(),
             onPressed: () => cubit.check(forceRefresh: true),
           );
         }

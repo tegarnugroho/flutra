@@ -11,6 +11,7 @@ import '../../common/copy_icon_button.dart';
 import '../../common/outlined_action_button.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import 'path_candidate_dialog.dart';
 
 /// What a path row is probing for, which decides how it validates and whether
 /// it can offer a folder picker.
@@ -35,6 +36,8 @@ class PathSettingRow extends StatefulWidget {
     required this.onBeginEdit,
     required this.onEndEdit,
     this.loading = false,
+    this.onScan,
+    this.scanning = false,
   });
 
   final String label;
@@ -59,6 +62,13 @@ class PathSettingRow extends StatefulWidget {
   final VoidCallback onEndEdit;
 
   final bool loading;
+
+  /// Searches the disk for installs of this kind. Null for rows that have
+  /// nothing to scan for, such as the API URL.
+  final Future<List<String>> Function()? onScan;
+
+  /// True while any scan is walking the disk.
+  final bool scanning;
 
   @override
   State<PathSettingRow> createState() => _PathSettingRowState();
@@ -149,6 +159,26 @@ class _PathSettingRowState extends State<PathSettingRow> {
     widget.onEndEdit();
   }
 
+  /// Searches the disk, then offers whatever turned up.
+  ///
+  /// A single hit that is already in force is still worth reporting — silence
+  /// would read as a scan that failed.
+  Future<void> _scan() async {
+    final scan = widget.onScan;
+    if (scan == null) return;
+    final found = await scan();
+    if (!mounted) return;
+
+    final picked = await showPathCandidateDialog(
+      context,
+      label: widget.label,
+      candidates: found,
+      current: _effective,
+    );
+    if (picked == null || !mounted) return;
+    widget.onApply(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -175,8 +205,20 @@ class _PathSettingRowState extends State<PathSettingRow> {
                 Text('— editing', style: text.caption),
               ],
               const Spacer(),
-              if (!widget.editing)
+              if (!widget.editing) ...[
+                if (widget.onScan != null) ...[
+                  if (widget.scanning)
+                    Text('Scanning…', style: text.caption)
+                  else
+                    _TextAction(
+                      label: 'Scan',
+                      muted: true,
+                      onTap: _scan,
+                    ),
+                  const SizedBox(width: 12),
+                ],
                 _TextAction(label: 'Change', onTap: widget.onBeginEdit),
+              ],
             ],
           ),
           if (!widget.editing) ...[
