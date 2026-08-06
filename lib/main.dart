@@ -59,6 +59,18 @@ class _BootTrace {
 
 final _boot = _BootTrace();
 
+/// The windows created hidden, which reveal themselves once their first frame
+/// is ready. Nothing can flash on these before [_revealWindow] runs.
+const Set<String> _hiddenAtLaunch = {
+  kCreateEmulatorWindow,
+  kDevLogsWindow,
+  kAboutWindow,
+};
+
+/// Set by [_placeTaskWindow] and awaited by [_revealWindow], so a hidden window
+/// still never appears wearing the native caption.
+Future<void> _captionHidden = Future<void>.value();
+
 Future<void> main(List<String> args) async {
   _setupLogging();
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,10 +97,15 @@ Future<void> main(List<String> args) async {
     ..name(businessId as String? ?? 'main')
     ..mark('args');
 
-  // Every window draws its own caption. Done before any IO so the native bar
-  // isn't visible at startup.
-  await _hideNativeTitleBar();
-  _boot.mark('caption');
+  // Every window draws its own caption. Hiding the native one costs ~110ms of
+  // SetWindowPos, so the windows that launch hidden defer it and overlap it
+  // with building their first frame instead — see _placeTaskWindow. The ones
+  // that are visible from the start still pay it up front, or the native bar
+  // would flash.
+  if (!_hiddenAtLaunch.contains(businessId)) {
+    await _hideNativeTitleBar();
+    _boot.mark('caption');
+  }
   if (businessId == null) {
     // Below this the two-pane pages (SDK manager) start to overflow.
     await _tryWindow(() => windowManager.setMinimumSize(const Size(960, 640)));
@@ -219,6 +236,11 @@ Future<void> _placeTaskWindow(
       ),
     );
   });
+  // Started, not awaited: the window stays hidden until _revealWindow awaits
+  // this, so the ~110ms it costs runs alongside the widget build instead of
+  // before it. Kicked off after the bounds above, never alongside them — two
+  // window calls in flight at once is not worth the milliseconds.
+  _captionHidden = _hideNativeTitleBar();
 }
 
 /// Reveals a window created hidden, once its first frame has been rasterised.
@@ -228,8 +250,11 @@ Future<void> _placeTaskWindow(
 /// final place. Ordering, not a timer: the post-frame callback fires when the
 /// frame is actually on the surface.
 void _revealWindow() {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _tryWindow(() => windowManager.show());
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // The caption swap must have landed before anything is visible.
+    await _captionHidden;
+    _boot.mark('caption');
+    await _tryWindow(() => windowManager.show());
     _boot.shown();
   });
 }
