@@ -18,6 +18,7 @@ import '../common/grouped_list.dart';
 import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../window/window_placement.dart';
 import '../common/skeleton/skeleton_layouts.dart';
 import '../window/task_windows.dart';
 import 'widgets/avd_row.dart';
@@ -61,8 +62,12 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
           'businessId': kEmulatorConsoleWindow,
           'dark': dark,
           'avd': avd.name,
+          // Centred over this window, applied before the console's first paint
+          // — the same path About and the log viewer take. Without it the
+          // console opened wherever the OS felt like, top-left of the screen.
+          'frame': await centeredOverMainWindow(kConsoleWindowSize),
         }),
-        hiddenAtLaunch: false,
+        hiddenAtLaunch: true,
       ),
     );
   }

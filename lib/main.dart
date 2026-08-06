@@ -64,6 +64,7 @@ final _boot = _BootTrace();
 /// is ready. Nothing can flash on these before [_revealWindow] runs.
 const Set<String> _hiddenAtLaunch = {
   kCreateEmulatorWindow,
+  kEmulatorConsoleWindow,
   kDevLogsWindow,
   kAboutWindow,
 };
@@ -188,6 +189,7 @@ Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
 }
 
 Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
+  await _placeTaskWindow(args, kConsoleWindowSize, kConsoleWindowMinSize);
   final controller = await WindowController.fromCurrentEngine();
   runApp(
     EmulatorConsoleWindowApp(
@@ -196,6 +198,7 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
       avdName: args['avd'] as String? ?? '',
     ),
   );
+  _revealWindow();
 }
 
 /// Removes the native caption so [CustomTitleBar] can draw it instead.

@@ -9,6 +9,10 @@ const Size kWizardWindowMinSize = Size(640, 560);
 /// About is a fixed card: no resize, so default and floor are the same.
 const Size kAboutWindowSize = Size(400, 500);
 
+/// The Emulator Console: an AVD picker over a log pane.
+const Size kConsoleWindowSize = Size(720, 560);
+const Size kConsoleWindowMinSize = Size(560, 420);
+
 /// The Developer Logs viewer wants width for long mono lines.
 const Size kDevLogsWindowSize = Size(900, 640);
 const Size kDevLogsWindowMinSize = Size(640, 480);
