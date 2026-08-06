@@ -161,4 +161,73 @@ void main() {
     await broken.loadOverview();
     expect(broken.state.stats, isNotNull);
   });
+
+  test('an unscanned disk says so before the slow tools finish', () async {
+    // The panel used to sit on "No scan yet" for the couple of seconds
+    // sdkmanager takes, then produce figures out of nowhere. Whether a scan is
+    // coming is known from the cache read alone, so it must be published
+    // before anything slow is awaited.
+    final slowSdk = _SlowSdk();
+    final unscanned = _ScanningStorage();
+    final cubit = DashboardCubit(
+      env,
+      _Emulators(),
+      _Devices(),
+      slowSdk,
+      unscanned,
+    );
+    addTearDown(cubit.close);
+
+    final states = <bool>[];
+    final sub = cubit.stream.listen((s) => states.add(s.scanning));
+    final overview = cubit.loadOverview();
+
+    // Let the cache read and the first emit settle, with sdkmanager still out.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      cubit.state.scanning,
+      isTrue,
+      reason: 'the panel has to look busy while the scan is pending',
+    );
+    expect(cubit.state.stats, isNull, reason: 'the slow tool has not returned');
+
+    slowSdk.gate.complete(const []);
+    unscanned.gate.complete(
+      StorageReport(slices: const [], findings: const [], scannedAt: DateTime(2026)),
+    );
+    await overview;
+    await sub.cancel();
+
+    expect(cubit.state.scanning, isFalse);
+    expect(cubit.state.storage, isNotNull);
+    expect(states.first, isTrue, reason: 'busy from the very first emit');
+  });
+}
+
+/// sdkmanager, held open — it is the slowest call in the overview.
+class _SlowSdk implements SdkRepository {
+  final gate = Completer<List<SdkPackage>>();
+
+  @override
+  Future<List<SdkPackage>> listPackages() => gate.future;
+
+  @override
+  noSuchMethod(Invocation i) => throw UnimplementedError();
+}
+
+/// A machine that has never been scanned, with the walk held open.
+class _ScanningStorage implements StorageAnalysisService {
+  final gate = Completer<StorageReport>();
+
+  @override
+  Future<StorageReport?> cached() async => null;
+
+  @override
+  bool isStale(StorageReport report) => true;
+
+  @override
+  Future<StorageReport> analyze() => gate.future;
+
+  @override
+  noSuchMethod(Invocation i) => throw UnimplementedError();
 }

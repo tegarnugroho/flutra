@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../../domain/entities/storage_report.dart';
 import '../../common/app_loader.dart';
 import '../../common/grouped_list.dart';
+import '../../common/skeleton/skeleton_primitives.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 
@@ -87,11 +88,14 @@ class _StoragePanelState extends State<StoragePanel> {
             ],
           ),
           const SizedBox(height: 12),
-          if (report == null)
+          if (report == null && widget.scanning)
+            // The bar and legend that are being measured, in their own shapes.
+            // A sentence alone read as an idle panel that then produced
+            // numbers out of nowhere.
+            const StorageFiguresSkeleton()
+          else if (report == null)
             Text(
-              widget.scanning
-                  ? 'Walking the SDK, Flutter and AVD folders…'
-                  : 'No scan yet — run one to see where the disk goes.',
+              'No scan yet — run one to see where the disk goes.',
               style: text.caption,
             )
           else ...[
@@ -122,6 +126,59 @@ class _StoragePanelState extends State<StoragePanel> {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Stands in for the bar and legend while the disk walk is still running.
+///
+/// Shaped like the real thing so nothing jumps when the figures land, and
+/// shimmering so the panel reads as working rather than empty. Public because
+/// the dashboard skeleton stands in for this very panel and must not draw a
+/// second, drifting copy of it.
+class StorageFiguresSkeleton extends StatelessWidget {
+  const StorageFiguresSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SkeletonShimmer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SkeletonBox(height: 10, radius: 5),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var column = 0; column < 2; column++) ...[
+                if (column > 0) const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (var row = 0; row < 2; row++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              const SkeletonBox(width: 9, height: 9, radius: 2),
+                              const SizedBox(width: 8),
+                              SkeletonLine(
+                                width: 84 + (column * 18) + (row * 12),
+                                height: 11,
+                              ),
+                              const Spacer(),
+                              const SkeletonLine(width: 48, height: 11),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

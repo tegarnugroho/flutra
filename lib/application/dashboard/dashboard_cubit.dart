@@ -57,18 +57,34 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// the user waiting for a disk walk.
   Future<void> loadOverview() async {
     if (isClosed) return;
+
+    // The cached report is one file read, so it settles long before any tool
+    // does. Publishing it — and the fact that a scan is coming — before the
+    // slow calls is what stops the panel from sitting on "No scan yet" for a
+    // couple of seconds and then producing figures out of nowhere.
+    final cached = await _storage.cached();
+    if (isClosed) return;
+    final willScan = cached == null || _storage.isStale(cached);
+    // Only say "busy" when there is nothing to look at. A stale report keeps
+    // its numbers on screen and refreshes underneath, as before.
+    final showBusy = cached == null;
+    emit(state.copyWith(storage: cached, scanning: showBusy));
+
+    // The scan is an isolate, not a process, so it costs none of the spawn
+    // stall the tools below do and can run alongside them instead of queueing
+    // behind the slowest one.
+    final scan = willScan ? analyzeStorage(silent: !showBusy) : null;
+
     // Two waves rather than one: see [load] for why concurrent spawns cost
     // frames. adb and avdmanager are the cheap pair and feed three of the four
     // stat cards; sdkmanager --list is the slow one and follows on its own.
     final avdsFuture = _emulators.listAvds();
     final devicesFuture = _devices.listDevices();
-    final cachedFuture = _storage.cached();
 
     // A tool that fails contributes a zero rather than sinking the whole
     // overview — the toolchain list above already reports what is broken.
     final avds = await avdsFuture.catchError((_) => const <Avd>[]);
     final devices = await devicesFuture.catchError((_) => const <Device>[]);
-    final cached = await cachedFuture;
     if (isClosed) return;
 
     final packages = await _sdk.listPackages().catchError(
@@ -83,12 +99,9 @@ class DashboardCubit extends Cubit<DashboardState> {
         updateCount: packages.where((p) => p.hasUpdate).length,
         deviceCount: devices.where((d) => d.state.isOnline).length,
       ),
-      storage: cached,
     ));
 
-    if (cached == null || _storage.isStale(cached)) {
-      await analyzeStorage(silent: cached != null);
-    }
+    await scan;
   }
 
   /// Walks the disk. [silent] keeps the existing report on screen instead of

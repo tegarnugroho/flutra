@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../dashboard/widgets/stat_cards.dart';
+import '../../dashboard/widgets/storage_panel.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../grouped_list.dart';
@@ -146,43 +147,9 @@ class DashboardSkeleton extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              // The stacked bar.
-              const SkeletonBox(height: 10, radius: 5),
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var column = 0; column < 2; column++) ...[
-                    if (column > 0) const SizedBox(width: 24),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          for (var row = 0; row < 2; row++)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  const SkeletonBox(
-                                    width: 9,
-                                    height: 9,
-                                    radius: 2,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SkeletonLine(
-                                    width: 84 + (column * 18) + (row * 12),
-                                    height: 11,
-                                  ),
-                                  const Spacer(),
-                                  const SkeletonLine(width: 48, height: 11),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              // The same placeholder the panel itself shows while scanning, so
+              // the hand-over from skeleton to panel changes nothing on screen.
+              const StorageFiguresSkeleton(),
             ],
           ),
         ),
