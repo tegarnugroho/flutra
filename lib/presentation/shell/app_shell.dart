@@ -408,6 +408,19 @@ class _AppShellState extends State<AppShell> {
       contentShape: RoundedRectangleBorder(
         side: BorderSide(color: palette.border, width: AppShape.hairline),
       ),
+      // Fade, not fluent's default entrance slide.
+      //
+      // That default is `EntrancePageTransition(vertical: true, startFrom:
+      // 0.25)`: the incoming page starts a quarter of the window below where
+      // it belongs and rises into place. On a page that opens on a skeleton
+      // there is nothing to read during the slide, so the only thing the
+      // motion communicates is that the layout is wrong — the title and the
+      // placeholders sit low and drift up. A fade changes nothing about where
+      // anything is.
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: child,
+      ),
       pane: NavigationPane(
         selected: _index,
         onChanged: _go,
