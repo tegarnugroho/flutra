@@ -94,6 +94,14 @@ class AppColors {
   /// Trace-level log lines — present but never competing with INFO.
   static const logTrace = Color(0xFF6E8FC7);
 
+  /// JSON syntax tones for the developer log. The second place the app's
+  /// near-monochrome rule gives (after [chartDark]): a `--machine` blob is only
+  /// readable when key, value and literal are told apart by hue.
+  static const jsonKey = Color(0xFF7FB0F2);
+  static const jsonString = Color(0xFF79C486);
+  static const jsonNumber = Color(0xFFE0A458);
+  static const jsonLiteral = Color(0xFFB98BDE);
+
   /// Fill behind a destructive control — the error hue at low strength, so the
   /// button reads as dangerous without shouting.
   static const dangerSurface = Color(0xFF2A1719);
@@ -161,6 +169,10 @@ class AppColors {
   static const logTraceLight = Color(0xFF3E63A8);
   static const accentLight = Color(0xFF2F5FD1);
   static const accentBgTintLight = Color(0xFFEDF2FD);
+  static const jsonKeyLight = Color(0xFF1F4FB8);
+  static const jsonStringLight = Color(0xFF17713B);
+  static const jsonNumberLight = Color(0xFF8A5200);
+  static const jsonLiteralLight = Color(0xFF6B3FA0);
 
   /// Pressed state of a caption button — black at ~10% over [sidebarBgLight].
   static const captionPressedLight = Color(0xFFDBDBDD);
@@ -237,6 +249,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.statusError,
     required this.dangerSurface,
     required this.logTrace,
+    required this.jsonKey,
+    required this.jsonString,
+    required this.jsonNumber,
+    required this.jsonLiteral,
     required this.accent,
     required this.accentBgTint,
     required this.captionPressed,
@@ -266,6 +282,13 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   /// FINE/DEBUG log lines.
   final Color logTrace;
+
+  /// JSON syntax tones for the developer log. Punctuation and indentation stay
+  /// [textMuted], so structure recedes and values carry the colour.
+  final Color jsonKey;
+  final Color jsonString;
+  final Color jsonNumber;
+  final Color jsonLiteral;
 
   final Color accent;
   final Color accentBgTint;
@@ -301,6 +324,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusError: AppColors.statusError,
     dangerSurface: AppColors.dangerSurface,
     logTrace: AppColors.logTrace,
+    jsonKey: AppColors.jsonKey,
+    jsonString: AppColors.jsonString,
+    jsonNumber: AppColors.jsonNumber,
+    jsonLiteral: AppColors.jsonLiteral,
     accent: AppColors.accent,
     accentBgTint: AppColors.accentBgTint,
     captionPressed: AppColors.captionPressed,
@@ -323,6 +350,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusError: AppColors.statusErrorLight,
     dangerSurface: AppColors.dangerSurfaceLight,
     logTrace: AppColors.logTraceLight,
+    jsonKey: AppColors.jsonKeyLight,
+    jsonString: AppColors.jsonStringLight,
+    jsonNumber: AppColors.jsonNumberLight,
+    jsonLiteral: AppColors.jsonLiteralLight,
     accent: AppColors.accentLight,
     accentBgTint: AppColors.accentBgTintLight,
     captionPressed: AppColors.captionPressedLight,
@@ -351,6 +382,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? statusError,
     Color? dangerSurface,
     Color? logTrace,
+    Color? jsonKey,
+    Color? jsonString,
+    Color? jsonNumber,
+    Color? jsonLiteral,
     Color? accent,
     Color? accentBgTint,
     Color? captionPressed,
@@ -372,6 +407,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusError: statusError ?? this.statusError,
       dangerSurface: dangerSurface ?? this.dangerSurface,
       logTrace: logTrace ?? this.logTrace,
+      jsonKey: jsonKey ?? this.jsonKey,
+      jsonString: jsonString ?? this.jsonString,
+      jsonNumber: jsonNumber ?? this.jsonNumber,
+      jsonLiteral: jsonLiteral ?? this.jsonLiteral,
       accent: accent ?? this.accent,
       accentBgTint: accentBgTint ?? this.accentBgTint,
       captionPressed: captionPressed ?? this.captionPressed,
@@ -401,6 +440,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusError: c(statusError, other.statusError),
       dangerSurface: c(dangerSurface, other.dangerSurface),
       logTrace: c(logTrace, other.logTrace),
+      jsonKey: c(jsonKey, other.jsonKey),
+      jsonString: c(jsonString, other.jsonString),
+      jsonNumber: c(jsonNumber, other.jsonNumber),
+      jsonLiteral: c(jsonLiteral, other.jsonLiteral),
       accent: c(accent, other.accent),
       accentBgTint: c(accentBgTint, other.accentBgTint),
       captionPressed: c(captionPressed, other.captionPressed),

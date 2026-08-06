@@ -100,6 +100,19 @@ void main() {
         }
       }
     });
+
+    test('JSON syntax tones stay readable on the log surface', () {
+      for (final palette in const [AppPalette.light, AppPalette.dark]) {
+        for (final tone in [
+          palette.jsonKey,
+          palette.jsonString,
+          palette.jsonNumber,
+          palette.jsonLiteral,
+        ]) {
+          expect(_contrast(tone, palette.logBg), greaterThan(4.5));
+        }
+      }
+    });
   });
 
   group('theme wiring', () {

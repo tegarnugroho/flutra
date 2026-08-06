@@ -13,6 +13,7 @@ import '../common/outlined_action_button.dart';
 import '../common/task_window_title_bar.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'log_body_format.dart';
 
 /// Developer request-log viewer.
 ///
@@ -29,9 +30,9 @@ class DevLogsPage extends StatefulWidget {
 }
 
 class _DevLogsPageState extends State<DevLogsPage> {
-  /// Rows past this many lines collapse; the JSON blobs from `--machine`
-  /// output would otherwise bury everything around them.
-  static const int _collapseAfterLines = 3;
+  /// Rows past this many lines collapse; the re-indented JSON blobs from
+  /// `--machine` output would otherwise bury everything around them.
+  static const int _collapseAfterLines = 8;
 
   final DevLogService _service = getIt<DevLogService>();
   final ScrollController _scroll = ScrollController();
@@ -400,25 +401,39 @@ class _LogRowState extends State<_LogRow> {
   bool _hovered = false;
   TapGestureRecognizer? _toggleTap;
 
+  /// Parsed once per record rather than per build — the scan walks the whole
+  /// message, and hovering a row rebuilds it.
+  late LogBody _body = LogBodyFormat.parse(widget.record.message);
+
+  @override
+  void didUpdateWidget(covariant _LogRow old) {
+    super.didUpdateWidget(old);
+    if (widget.record.message != old.record.message) {
+      _body = LogBodyFormat.parse(widget.record.message);
+    }
+  }
+
   @override
   void dispose() {
     _toggleTap?.dispose();
     super.dispose();
   }
 
-  /// Wrapping width isn't known here, so the record's own newlines are the
+  /// Wrapping width isn't known here, so the body's own line count is the
   /// signal for "this is a blob, not a line".
-  bool get _isLong =>
-      '\n'.allMatches(widget.record.message).length + 1 >
-      widget.collapseAfterLines;
+  bool get _isLong => _body.lineCount > widget.collapseAfterLines;
 
-  String get _shown {
-    if (widget.expanded || !_isLong) return widget.record.message;
-    return widget.record.message
-        .split('\n')
-        .take(widget.collapseAfterLines)
-        .join('\n');
-  }
+  LogBody get _shown =>
+      widget.expanded ? _body : _body.take(widget.collapseAfterLines);
+
+  Color _spanColor(AppPalette palette, LogSpanKind kind) => switch (kind) {
+    LogSpanKind.plain => palette.textSecondary,
+    LogSpanKind.punctuation => palette.textMuted,
+    LogSpanKind.key => palette.jsonKey,
+    LogSpanKind.string => palette.jsonString,
+    LogSpanKind.number => palette.jsonNumber,
+    LogSpanKind.literal => palette.jsonLiteral,
+  };
 
   Color _levelColor(AppPalette palette) {
     final level = widget.record.level;
@@ -467,7 +482,13 @@ class _LogRowState extends State<_LogRow> {
                       text: '${widget.record.logger}: ',
                       style: text.monoLog.copyWith(color: palette.textMuted),
                     ),
-                    TextSpan(text: _shown),
+                    for (final span in _shown.spans)
+                      TextSpan(
+                        text: span.text,
+                        style: text.monoLog.copyWith(
+                          color: _spanColor(palette, span.kind),
+                        ),
+                      ),
                     if (_isLong)
                       TextSpan(
                         text: widget.expanded ? '  collapse' : '  … expand',
