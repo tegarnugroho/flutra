@@ -40,7 +40,14 @@ class StatusPill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label, style: style),
+      // A pill never wraps: in a tight row it gives up its tail rather than
+      // growing a second line and pushing the row's height around.
+      child: Text(
+        label,
+        style: style,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
 
     if (onTap == null) return pill;

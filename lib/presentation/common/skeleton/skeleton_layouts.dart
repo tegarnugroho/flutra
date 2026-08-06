@@ -241,27 +241,58 @@ class SdkManagerSkeleton extends StatelessWidget {
                 Container(width: AppShape.hairline, color: palette.border),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    child: _SkeletonGroup(
-                      rows: [
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    child: Column(
+                      children: [
                         for (var i = 0; i < 8; i++)
-                          _SkeletonRow(
-                            children: [
-                              const SkeletonBox(
-                                width: 16,
-                                height: 16,
-                                radius: 3,
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: TileBox.gap),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
                               ),
-                              const SizedBox(width: 10),
-                              SkeletonLine(
-                                width: 160 + (i % 4) * 34,
-                                height: 12,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: palette.border,
+                                  width: AppShape.hairline,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  TileBox.radius,
+                                ),
                               ),
-                              const Spacer(),
-                              const SkeletonLine(width: 54, height: 11),
-                              const SizedBox(width: 12),
-                              const SkeletonBox(width: 64, height: 18),
-                            ],
+                              child: Row(
+                                children: [
+                                  const SkeletonBox(
+                                    width: 16,
+                                    height: 16,
+                                    radius: 3,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const SkeletonBox(width: 28, height: 28),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SkeletonLine(
+                                        width: 160 + (i % 4) * 34,
+                                        height: 13,
+                                      ),
+                                      const SizedBox(height: 5),
+                                      SkeletonLine(
+                                        width: 128 + (i % 3) * 26,
+                                        height: 11,
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  const SkeletonLine(width: 54, height: 11),
+                                  const SizedBox(width: 12),
+                                  const SkeletonBox(width: 64, height: 22),
+                                ],
+                              ),
+                            ),
                           ),
                       ],
                     ),

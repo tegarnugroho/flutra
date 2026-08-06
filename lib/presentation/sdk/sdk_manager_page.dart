@@ -13,6 +13,7 @@ import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
+import '../common/tile_box.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'widgets/package_progress.dart';
@@ -42,6 +43,7 @@ class _SdkManagerView extends StatelessWidget {
         final cubit = context.read<SdkManagerCubit>();
         return PageScaffold(
           title: 'SDK manager',
+          titleMeta: state.packages.isEmpty ? null : _countLabel(state),
           actions: [
             _QuickSetupButton(state: state, cubit: cubit),
             OutlinedActionButton(
@@ -68,6 +70,17 @@ class _SdkManagerView extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// `184 packages · 42 installed · 3 updates`, dropping the segments that
+  /// would read as zero.
+  static String _countLabel(SdkManagerState state) {
+    final total = state.packages.length;
+    return [
+      '$total package${total == 1 ? '' : 's'}',
+      if (state.installedCount > 0) '${state.installedCount} installed',
+      if (state.updateCount > 0) '${state.updateCount} updates',
+    ].join(' · ');
   }
 
   Widget _body(
@@ -345,7 +358,7 @@ class _CategorySidebar extends StatelessWidget {
           for (final c in state.availableCategories)
             _CategoryItem(
               label: c.label,
-              icon: _iconFor(c),
+              icon: packageCategoryIcon(c),
               count: counts[c] ?? 0,
               selected: state.category == c,
               onTap: () => cubit.setCategory(c),
@@ -355,18 +368,6 @@ class _CategorySidebar extends StatelessWidget {
     );
   }
 
-  static IconData _iconFor(PackageCategory c) => switch (c) {
-    PackageCategory.platformTools => FluentIcons.plug_connected,
-    PackageCategory.buildTools => FluentIcons.build_queue,
-    PackageCategory.platforms => FluentIcons.cell_phone,
-    PackageCategory.systemImages => FluentIcons.hard_drive,
-    PackageCategory.emulator => FluentIcons.devices3,
-    PackageCategory.cmdlineTools => FluentIcons.command_prompt,
-    PackageCategory.sources => FluentIcons.code,
-    PackageCategory.ndk => FluentIcons.developer_tools,
-    PackageCategory.extras => FluentIcons.packages,
-    PackageCategory.other => FluentIcons.product,
-  };
 }
 
 /// A category filter, styled like a navigation pane item.
@@ -457,12 +458,7 @@ class _PackageList extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Row(
             children: [
-              SectionLabel(
-                'Packages',
-                meta:
-                    '${packages.length} shown, '
-                    '${state.installedCount} installed',
-              ),
+              SectionLabel('Packages', meta: '${packages.length} shown'),
               const Spacer(),
               OutlinedActionButton(
                 icon: FluentIcons.check_mark,
@@ -480,25 +476,27 @@ class _PackageList extends StatelessWidget {
                   title: 'No packages match',
                   message: 'Adjust the search or filters above.',
                 )
-              : SingleChildScrollView(
+              : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: GroupedList(
-                    children: [
-                      for (final pkg in packages)
-                        SdkPackageTile(
-                          package: pkg,
-                          checked: state.selected.contains(pkg.path),
-                          selected: state.selectedPath == pkg.path,
-                          queued: state.isQueued(pkg.path),
-                          active: state.isActive(pkg.path),
-                          progress: state.progress,
-                          onCheck: (_) => cubit.toggleCheck(pkg.path),
-                          onSelect: () => cubit.select(pkg.path),
-                          onInstall: () => cubit.enqueueInstall(pkg.path),
-                          onUninstall: () => _uninstall(context, pkg),
-                        ),
-                    ],
-                  ),
+                  itemCount: packages.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: TileBox.gap),
+                  itemBuilder: (context, i) {
+                    final pkg = packages[i];
+                    return SdkPackageTile(
+                      key: ValueKey(pkg.path),
+                      package: pkg,
+                      checked: state.selected.contains(pkg.path),
+                      selected: state.selectedPath == pkg.path,
+                      queued: state.isQueued(pkg.path),
+                      active: state.isActive(pkg.path),
+                      progress: state.progress,
+                      onCheck: (_) => cubit.toggleCheck(pkg.path),
+                      onSelect: () => cubit.select(pkg.path),
+                      onInstall: () => cubit.enqueueInstall(pkg.path),
+                      onUninstall: () => _uninstall(context, pkg),
+                    );
+                  },
                 ),
         ),
       ],
