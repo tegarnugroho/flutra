@@ -12,6 +12,7 @@ import 'package:window_manager/window_manager.dart';
 import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
 import 'infrastructure/logging/dev_log_service.dart';
+import 'infrastructure/settings/legacy_data_migration.dart';
 import 'infrastructure/settings/settings_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
@@ -147,8 +148,13 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  // Main window: load persisted settings and apply theme / SDK override, then
-  // purge any soft-deleted folders older than 24h.
+  // Main window: carry over anything the pre-rename build left behind, then
+  // load persisted settings and apply theme / SDK override, and purge any
+  // soft-deleted folders older than 24h.
+  //
+  // The migration runs before the first read, or settings would be written
+  // fresh over the top of what it was about to copy.
+  await getIt<LegacyDataMigration>().run();
   await getIt<SettingsCubit>().init();
   await _restoreWindowBounds();
   unawaited(getIt<TrashService>().purgeExpired());

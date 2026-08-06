@@ -1,4 +1,4 @@
-# Flutter SDK Manager
+# Flutra
 
 A graphical frontend for the Android SDK command-line tools, for Windows
 desktop. It wraps `sdkmanager`, `avdmanager`, `adb` and `emulator` in a UI, so
@@ -104,9 +104,9 @@ Outputs:
 
 | Artifact | Path |
 | --- | --- |
-| exe | `build\windows\x64\runner\Release\android_sdk_manager.exe` |
-| MSIX | `build\windows\x64\runner\Release\FlutterSdkManager.msix` |
-| installer | `build\installer\FlutterSdkManager-Setup-<version>.exe` |
+| exe | `build\windows\x64\runner\Release\flutra.exe` |
+| MSIX | `build\windows\x64\runner\Release\Flutra.msix` |
+| installer | `build\installer\Flutra-Setup-<version>.exe` |
 
 `-Mode profile` or `-Mode debug` build the other two modes; `-SkipPubGet` skips
 `flutter pub get` on a repeat build.

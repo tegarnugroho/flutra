@@ -9,107 +9,73 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:flutra/application/address/address_cubit.dart'
-    as _i510;
-import 'package:flutra/application/dashboard/dashboard_cubit.dart'
-    as _i75;
-import 'package:flutra/application/device/device_manager_cubit.dart'
-    as _i884;
-import 'package:flutra/application/doctor/doctor_fix_cubit.dart'
-    as _i517;
-import 'package:flutra/application/doctor/flutter_doctor_cubit.dart'
-    as _i915;
+import 'package:flutra/application/address/address_cubit.dart' as _i773;
+import 'package:flutra/application/dashboard/dashboard_cubit.dart' as _i352;
+import 'package:flutra/application/device/device_manager_cubit.dart' as _i4;
+import 'package:flutra/application/doctor/doctor_fix_cubit.dart' as _i698;
+import 'package:flutra/application/doctor/flutter_doctor_cubit.dart' as _i247;
 import 'package:flutra/application/emulator/create_emulator_cubit.dart'
-    as _i622;
-import 'package:flutra/application/emulator/emulator_events.dart'
-    as _i1064;
-import 'package:flutra/application/emulator/emulator_list_cubit.dart'
-    as _i6;
-import 'package:flutra/application/flutter_sdk/flutter_sdk_cubit.dart'
-    as _i502;
+    as _i996;
+import 'package:flutra/application/emulator/emulator_events.dart' as _i278;
+import 'package:flutra/application/emulator/emulator_list_cubit.dart' as _i497;
+import 'package:flutra/application/flutter_sdk/flutter_sdk_cubit.dart' as _i357;
 import 'package:flutra/application/flutter_sdk/flutter_update_cubit.dart'
-    as _i839;
-import 'package:flutra/application/log/logcat_devices_cubit.dart'
-    as _i643;
-import 'package:flutra/application/sdk/reclaim_cubit.dart' as _i26;
-import 'package:flutra/application/sdk/sdk_manager_cubit.dart'
-    as _i740;
-import 'package:flutra/application/settings/detected_paths_cubit.dart'
-    as _i775;
-import 'package:flutra/application/settings/settings_cubit.dart'
-    as _i698;
-import 'package:flutra/application/settings/theme_cubit.dart'
-    as _i245;
-import 'package:flutra/application/shell/shell_navigator.dart'
-    as _i684;
-import 'package:flutra/core/command/command_runner.dart' as _i144;
-import 'package:flutra/core/command/sdk_operation_lock.dart'
-    as _i328;
-import 'package:flutra/core/command/session_environment.dart'
-    as _i771;
-import 'package:flutra/core/platform/platform_service.dart'
-    as _i23;
-import 'package:flutra/core/platform/system_actions.dart' as _i46;
-import 'package:flutra/domain/repositories/address_repository.dart'
-    as _i1013;
-import 'package:flutra/domain/repositories/device_repository.dart'
-    as _i720;
-import 'package:flutra/domain/repositories/emulator_repository.dart'
-    as _i277;
+    as _i781;
+import 'package:flutra/application/log/logcat_devices_cubit.dart' as _i194;
+import 'package:flutra/application/sdk/reclaim_cubit.dart' as _i963;
+import 'package:flutra/application/sdk/sdk_manager_cubit.dart' as _i276;
+import 'package:flutra/application/settings/detected_paths_cubit.dart' as _i594;
+import 'package:flutra/application/settings/settings_cubit.dart' as _i520;
+import 'package:flutra/application/settings/theme_cubit.dart' as _i386;
+import 'package:flutra/application/shell/shell_navigator.dart' as _i338;
+import 'package:flutra/core/command/command_runner.dart' as _i989;
+import 'package:flutra/core/command/sdk_operation_lock.dart' as _i29;
+import 'package:flutra/core/command/session_environment.dart' as _i282;
+import 'package:flutra/core/platform/platform_service.dart' as _i427;
+import 'package:flutra/core/platform/system_actions.dart' as _i964;
+import 'package:flutra/domain/repositories/address_repository.dart' as _i570;
+import 'package:flutra/domain/repositories/device_repository.dart' as _i804;
+import 'package:flutra/domain/repositories/emulator_repository.dart' as _i932;
 import 'package:flutra/domain/repositories/environment_repository.dart'
-    as _i595;
-import 'package:flutra/domain/repositories/flutter_repository.dart'
-    as _i606;
-import 'package:flutra/domain/repositories/sdk_repository.dart'
-    as _i374;
-import 'package:flutra/infrastructure/doctor/doctor_fix_service.dart'
-    as _i57;
-import 'package:flutra/infrastructure/doctor/doctor_runner.dart'
-    as _i706;
+    as _i359;
+import 'package:flutra/domain/repositories/flutter_repository.dart' as _i151;
+import 'package:flutra/domain/repositories/sdk_repository.dart' as _i541;
+import 'package:flutra/infrastructure/doctor/doctor_fix_service.dart' as _i327;
+import 'package:flutra/infrastructure/doctor/doctor_runner.dart' as _i1018;
 import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
-    as _i961;
+    as _i846;
 import 'package:flutra/infrastructure/flutter/flutter_update_service.dart'
-    as _i147;
-import 'package:flutra/infrastructure/logging/dev_log_service.dart'
-    as _i848;
-import 'package:flutra/infrastructure/repositories/address_repository_impl.dart'
-    as _i886;
-import 'package:flutra/infrastructure/repositories/device_repository_impl.dart'
-    as _i775;
-import 'package:flutra/infrastructure/repositories/emulator_repository_impl.dart'
-    as _i60;
-import 'package:flutra/infrastructure/repositories/environment_repository_impl.dart'
-    as _i465;
-import 'package:flutra/infrastructure/repositories/flutter_repository_impl.dart'
     as _i483;
+import 'package:flutra/infrastructure/logging/dev_log_service.dart' as _i730;
+import 'package:flutra/infrastructure/repositories/address_repository_impl.dart'
+    as _i352;
+import 'package:flutra/infrastructure/repositories/device_repository_impl.dart'
+    as _i580;
+import 'package:flutra/infrastructure/repositories/emulator_repository_impl.dart'
+    as _i715;
+import 'package:flutra/infrastructure/repositories/environment_repository_impl.dart'
+    as _i241;
+import 'package:flutra/infrastructure/repositories/flutter_repository_impl.dart'
+    as _i17;
 import 'package:flutra/infrastructure/repositories/sdk_repository_impl.dart'
-    as _i77;
-import 'package:flutra/infrastructure/sdk/flutter_locator.dart'
-    as _i1034;
-import 'package:flutra/infrastructure/sdk/path_probe_service.dart'
-    as _i220;
-import 'package:flutra/infrastructure/sdk/reclaim_executor.dart'
-    as _i164;
-import 'package:flutra/infrastructure/sdk/reclaim_scanner.dart'
-    as _i821;
-import 'package:flutra/infrastructure/sdk/sdk_locator.dart'
-    as _i839;
-import 'package:flutra/infrastructure/sdk/sdk_scan_service.dart'
-    as _i404;
-import 'package:flutra/infrastructure/settings/settings_service.dart'
-    as _i517;
-import 'package:flutra/infrastructure/settings/startup_service.dart'
-    as _i104;
+    as _i871;
+import 'package:flutra/infrastructure/sdk/flutter_locator.dart' as _i166;
+import 'package:flutra/infrastructure/sdk/path_probe_service.dart' as _i936;
+import 'package:flutra/infrastructure/sdk/reclaim_executor.dart' as _i990;
+import 'package:flutra/infrastructure/sdk/reclaim_scanner.dart' as _i609;
+import 'package:flutra/infrastructure/sdk/sdk_locator.dart' as _i706;
+import 'package:flutra/infrastructure/sdk/sdk_scan_service.dart' as _i503;
+import 'package:flutra/infrastructure/settings/legacy_data_migration.dart'
+    as _i575;
+import 'package:flutra/infrastructure/settings/settings_service.dart' as _i562;
+import 'package:flutra/infrastructure/settings/startup_service.dart' as _i323;
 import 'package:flutra/infrastructure/storage/storage_analysis_service.dart'
-    as _i927;
+    as _i880;
 import 'package:flutra/infrastructure/system/external_link_service.dart'
-    as _i1017;
-import 'package:flutra/infrastructure/system/host_info_service.dart'
-    as _i361;
-import 'package:flutra/infrastructure/system/process_service.dart'
-    as _i891;
-import 'package:flutra/infrastructure/trash/trash_service.dart'
-    as _i95;
+    as _i420;
+import 'package:flutra/infrastructure/system/host_info_service.dart' as _i698;
+import 'package:flutra/infrastructure/system/process_service.dart' as _i1039;
+import 'package:flutra/infrastructure/trash/trash_service.dart' as _i509;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -122,236 +88,239 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final platformModule = _$PlatformModule();
     final systemActionsModule = _$SystemActionsModule();
-    gh.singleton<_i1064.EmulatorEvents>(
-      () => _i1064.EmulatorEvents(),
+    gh.singleton<_i278.EmulatorEvents>(
+      () => _i278.EmulatorEvents(),
       dispose: (i) => i.dispose(),
     );
-    gh.singleton<_i245.ThemeCubit>(() => _i245.ThemeCubit());
-    gh.singleton<_i684.ShellNavigator>(
-      () => _i684.ShellNavigator(),
+    gh.singleton<_i386.ThemeCubit>(() => _i386.ThemeCubit());
+    gh.singleton<_i338.ShellNavigator>(
+      () => _i338.ShellNavigator(),
       dispose: (i) => i.dispose(),
     );
-    gh.lazySingleton<_i328.SdkOperationLock>(() => _i328.SdkOperationLock());
-    gh.lazySingleton<_i771.SessionEnvironment>(
-      () => _i771.SessionEnvironment(),
+    gh.lazySingleton<_i29.SdkOperationLock>(() => _i29.SdkOperationLock());
+    gh.lazySingleton<_i282.SessionEnvironment>(
+      () => _i282.SessionEnvironment(),
     );
-    gh.lazySingleton<_i23.PlatformService>(() => platformModule.platform);
-    gh.lazySingleton<_i961.FlutterReleasesService>(
-      () => _i961.FlutterReleasesService(),
+    gh.lazySingleton<_i427.PlatformService>(() => platformModule.platform);
+    gh.lazySingleton<_i846.FlutterReleasesService>(
+      () => _i846.FlutterReleasesService(),
     );
-    gh.lazySingleton<_i848.DevLogService>(() => _i848.DevLogService());
-    gh.lazySingleton<_i404.SdkScanService>(() => _i404.SdkScanService());
-    gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());
-    gh.lazySingleton<_i144.CommandRunner>(
-      () => _i144.CommandRunner(gh<_i771.SessionEnvironment>()),
+    gh.lazySingleton<_i730.DevLogService>(() => _i730.DevLogService());
+    gh.lazySingleton<_i503.SdkScanService>(() => _i503.SdkScanService());
+    gh.lazySingleton<_i562.SettingsService>(() => _i562.SettingsService());
+    gh.lazySingleton<_i570.AddressRepository>(
+      () => _i352.AddressRepositoryImpl(gh<_i562.SettingsService>()),
     );
-    gh.lazySingleton<_i1034.FlutterLocator>(
-      () => _i1034.FlutterLocator(gh<_i23.PlatformService>()),
+    gh.lazySingleton<_i989.CommandRunner>(
+      () => _i989.CommandRunner(gh<_i282.SessionEnvironment>()),
     );
-    gh.lazySingleton<_i839.SdkLocator>(
-      () => _i839.SdkLocator(gh<_i23.PlatformService>()),
-    );
-    gh.lazySingleton<_i1013.AddressRepository>(
-      () => _i886.AddressRepositoryImpl(gh<_i517.SettingsService>()),
-    );
-    gh.lazySingleton<_i720.DeviceRepository>(
-      () => _i775.DeviceRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-      ),
-    );
-    gh.lazySingleton<_i277.EmulatorRepository>(
-      () => _i60.EmulatorRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i23.PlatformService>(),
-      ),
-    );
-    gh.lazySingleton<_i927.StorageAnalysisService>(
-      () => _i927.StorageAnalysisService(
-        gh<_i839.SdkLocator>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i23.PlatformService>(),
-      ),
-    );
-    gh.lazySingleton<_i46.SystemActions>(
+    gh.lazySingleton<_i964.SystemActions>(
       () => systemActionsModule.actions(
-        gh<_i144.CommandRunner>(),
-        gh<_i23.PlatformService>(),
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.factory<_i510.AddressCubit>(
-      () => _i510.AddressCubit(gh<_i1013.AddressRepository>()),
-    );
-    gh.factory<_i643.LogcatDevicesCubit>(
-      () => _i643.LogcatDevicesCubit(gh<_i720.DeviceRepository>()),
-    );
-    gh.factory<_i6.EmulatorListCubit>(
-      () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
-    );
-    gh.lazySingleton<_i706.DoctorRunner>(
-      () => _i706.DoctorRunner(
-        gh<_i144.CommandRunner>(),
-        gh<_i23.PlatformService>(),
+    gh.lazySingleton<_i1018.DoctorRunner>(
+      () => _i1018.DoctorRunner(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.lazySingleton<_i220.PathProbeService>(
-      () => _i220.PathProbeService(
-        gh<_i144.CommandRunner>(),
-        gh<_i23.PlatformService>(),
+    gh.lazySingleton<_i936.PathProbeService>(
+      () => _i936.PathProbeService(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.lazySingleton<_i1017.ExternalLinkService>(
-      () => _i1017.ExternalLinkService(
-        gh<_i144.CommandRunner>(),
-        gh<_i23.PlatformService>(),
+    gh.lazySingleton<_i420.ExternalLinkService>(
+      () => _i420.ExternalLinkService(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.factory<_i775.DetectedPathsCubit>(
-      () => _i775.DetectedPathsCubit(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i404.SdkScanService>(),
+    gh.lazySingleton<_i166.FlutterLocator>(
+      () => _i166.FlutterLocator(gh<_i427.PlatformService>()),
+    );
+    gh.lazySingleton<_i706.SdkLocator>(
+      () => _i706.SdkLocator(gh<_i427.PlatformService>()),
+    );
+    gh.lazySingleton<_i575.LegacyDataMigration>(
+      () => _i575.LegacyDataMigration(gh<_i427.PlatformService>()),
+    );
+    gh.lazySingleton<_i932.EmulatorRepository>(
+      () => _i715.EmulatorRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.factory<_i915.FlutterDoctorCubit>(
-      () => _i915.FlutterDoctorCubit(
-        gh<_i706.DoctorRunner>(),
-        gh<_i517.SettingsService>(),
+    gh.factory<_i773.AddressCubit>(
+      () => _i773.AddressCubit(gh<_i570.AddressRepository>()),
+    );
+    gh.factory<_i497.EmulatorListCubit>(
+      () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
+    );
+    gh.factory<_i247.FlutterDoctorCubit>(
+      () => _i247.FlutterDoctorCubit(
+        gh<_i1018.DoctorRunner>(),
+        gh<_i562.SettingsService>(),
       ),
     );
-    gh.lazySingleton<_i374.SdkRepository>(
-      () => _i77.SdkRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i328.SdkOperationLock>(),
+    gh.lazySingleton<_i804.DeviceRepository>(
+      () => _i580.DeviceRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
       ),
     );
-    gh.lazySingleton<_i104.StartupService>(
-      () => _i104.StartupService(gh<_i144.CommandRunner>()),
-    );
-    gh.lazySingleton<_i361.HostInfoService>(
-      () => _i361.HostInfoService(gh<_i144.CommandRunner>()),
-    );
-    gh.lazySingleton<_i891.ProcessService>(
-      () => _i891.ProcessService(gh<_i144.CommandRunner>()),
-    );
-    gh.lazySingleton<_i95.TrashService>(
-      () => _i95.TrashService(gh<_i144.CommandRunner>()),
-    );
-    gh.factory<_i622.CreateEmulatorCubit>(
-      () => _i622.CreateEmulatorCubit(
-        gh<_i277.EmulatorRepository>(),
-        gh<_i374.SdkRepository>(),
-        gh<_i361.HostInfoService>(),
+    gh.lazySingleton<_i541.SdkRepository>(
+      () => _i871.SdkRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i29.SdkOperationLock>(),
       ),
     );
-    gh.singleton<_i698.SettingsCubit>(
-      () => _i698.SettingsCubit(
-        gh<_i517.SettingsService>(),
-        gh<_i104.StartupService>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i245.ThemeCubit>(),
+    gh.lazySingleton<_i880.StorageAnalysisService>(
+      () => _i880.StorageAnalysisService(
+        gh<_i706.SdkLocator>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.lazySingleton<_i164.ReclaimExecutor>(
-      () => _i164.ReclaimExecutor(
-        gh<_i374.SdkRepository>(),
-        gh<_i95.TrashService>(),
-        gh<_i46.SystemActions>(),
+    gh.lazySingleton<_i323.StartupService>(
+      () => _i323.StartupService(gh<_i989.CommandRunner>()),
+    );
+    gh.lazySingleton<_i698.HostInfoService>(
+      () => _i698.HostInfoService(gh<_i989.CommandRunner>()),
+    );
+    gh.lazySingleton<_i1039.ProcessService>(
+      () => _i1039.ProcessService(gh<_i989.CommandRunner>()),
+    );
+    gh.lazySingleton<_i509.TrashService>(
+      () => _i509.TrashService(gh<_i989.CommandRunner>()),
+    );
+    gh.lazySingleton<_i609.ReclaimScanner>(
+      () => _i609.ReclaimScanner(
+        gh<_i541.SdkRepository>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i427.PlatformService>(),
       ),
     );
-    gh.factory<_i740.SdkManagerCubit>(
-      () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
-    );
-    gh.lazySingleton<_i606.FlutterRepository>(
-      () => _i483.FlutterRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i95.TrashService>(),
-        gh<_i23.PlatformService>(),
-        gh<_i46.SystemActions>(),
-        gh<_i1017.ExternalLinkService>(),
+    gh.factory<_i594.DetectedPathsCubit>(
+      () => _i594.DetectedPathsCubit(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i503.SdkScanService>(),
       ),
     );
-    gh.lazySingleton<_i57.DoctorFixService>(
-      () => _i57.DoctorFixService(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i404.SdkScanService>(),
-        gh<_i771.SessionEnvironment>(),
-        gh<_i374.SdkRepository>(),
-        gh<_i606.FlutterRepository>(),
-        gh<_i23.PlatformService>(),
-        gh<_i46.SystemActions>(),
+    gh.lazySingleton<_i151.FlutterRepository>(
+      () => _i17.FlutterRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i509.TrashService>(),
+        gh<_i427.PlatformService>(),
+        gh<_i964.SystemActions>(),
+        gh<_i420.ExternalLinkService>(),
       ),
     );
-    gh.lazySingleton<_i821.ReclaimScanner>(
-      () => _i821.ReclaimScanner(
-        gh<_i374.SdkRepository>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i23.PlatformService>(),
+    gh.lazySingleton<_i990.ReclaimExecutor>(
+      () => _i990.ReclaimExecutor(
+        gh<_i541.SdkRepository>(),
+        gh<_i509.TrashService>(),
+        gh<_i964.SystemActions>(),
       ),
     );
-    gh.factory<_i26.ReclaimCubit>(
-      () => _i26.ReclaimCubit(
-        gh<_i821.ReclaimScanner>(),
-        gh<_i164.ReclaimExecutor>(),
-        gh<_i328.SdkOperationLock>(),
+    gh.lazySingleton<_i483.FlutterUpdateService>(
+      () => _i483.FlutterUpdateService(
+        gh<_i846.FlutterReleasesService>(),
+        gh<_i151.FlutterRepository>(),
       ),
     );
-    gh.factory<_i884.DeviceManagerCubit>(
-      () => _i884.DeviceManagerCubit(
-        gh<_i720.DeviceRepository>(),
-        gh<_i606.FlutterRepository>(),
+    gh.factory<_i194.LogcatDevicesCubit>(
+      () => _i194.LogcatDevicesCubit(gh<_i804.DeviceRepository>()),
+    );
+    gh.factory<_i781.FlutterUpdateCubit>(
+      () => _i781.FlutterUpdateCubit(
+        gh<_i151.FlutterRepository>(),
+        gh<_i483.FlutterUpdateService>(),
       ),
     );
-    gh.factory<_i502.FlutterSdkCubit>(
-      () => _i502.FlutterSdkCubit(
-        gh<_i606.FlutterRepository>(),
-        gh<_i95.TrashService>(),
-        gh<_i961.FlutterReleasesService>(),
+    gh.factory<_i276.SdkManagerCubit>(
+      () => _i276.SdkManagerCubit(gh<_i541.SdkRepository>()),
+    );
+    gh.factory<_i357.FlutterSdkCubit>(
+      () => _i357.FlutterSdkCubit(
+        gh<_i151.FlutterRepository>(),
+        gh<_i509.TrashService>(),
+        gh<_i846.FlutterReleasesService>(),
       ),
     );
-    gh.lazySingleton<_i147.FlutterUpdateService>(
-      () => _i147.FlutterUpdateService(
-        gh<_i961.FlutterReleasesService>(),
-        gh<_i606.FlutterRepository>(),
+    gh.factory<_i996.CreateEmulatorCubit>(
+      () => _i996.CreateEmulatorCubit(
+        gh<_i932.EmulatorRepository>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i698.HostInfoService>(),
       ),
     );
-    gh.factory<_i517.DoctorFixCubit>(
-      () => _i517.DoctorFixCubit(gh<_i57.DoctorFixService>()),
-    );
-    gh.factory<_i839.FlutterUpdateCubit>(
-      () => _i839.FlutterUpdateCubit(
-        gh<_i606.FlutterRepository>(),
-        gh<_i147.FlutterUpdateService>(),
+    gh.singleton<_i520.SettingsCubit>(
+      () => _i520.SettingsCubit(
+        gh<_i562.SettingsService>(),
+        gh<_i323.StartupService>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i386.ThemeCubit>(),
       ),
     );
-    gh.lazySingleton<_i595.EnvironmentRepository>(
-      () => _i465.EnvironmentRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i147.FlutterUpdateService>(),
-        gh<_i23.PlatformService>(),
+    gh.factory<_i963.ReclaimCubit>(
+      () => _i963.ReclaimCubit(
+        gh<_i609.ReclaimScanner>(),
+        gh<_i990.ReclaimExecutor>(),
+        gh<_i29.SdkOperationLock>(),
       ),
     );
-    gh.factory<_i75.DashboardCubit>(
-      () => _i75.DashboardCubit(
-        gh<_i595.EnvironmentRepository>(),
-        gh<_i277.EmulatorRepository>(),
-        gh<_i720.DeviceRepository>(),
-        gh<_i374.SdkRepository>(),
-        gh<_i927.StorageAnalysisService>(),
+    gh.lazySingleton<_i359.EnvironmentRepository>(
+      () => _i241.EnvironmentRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i483.FlutterUpdateService>(),
+        gh<_i427.PlatformService>(),
       ),
+    );
+    gh.factory<_i4.DeviceManagerCubit>(
+      () => _i4.DeviceManagerCubit(
+        gh<_i804.DeviceRepository>(),
+        gh<_i151.FlutterRepository>(),
+      ),
+    );
+    gh.factory<_i352.DashboardCubit>(
+      () => _i352.DashboardCubit(
+        gh<_i359.EnvironmentRepository>(),
+        gh<_i932.EmulatorRepository>(),
+        gh<_i804.DeviceRepository>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i880.StorageAnalysisService>(),
+      ),
+    );
+    gh.lazySingleton<_i327.DoctorFixService>(
+      () => _i327.DoctorFixService(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i503.SdkScanService>(),
+        gh<_i282.SessionEnvironment>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i427.PlatformService>(),
+        gh<_i964.SystemActions>(),
+      ),
+    );
+    gh.factory<_i698.DoctorFixCubit>(
+      () => _i698.DoctorFixCubit(gh<_i327.DoctorFixService>()),
     );
     return this;
   }
 }
 
-class _$PlatformModule extends _i23.PlatformModule {}
+class _$PlatformModule extends _i427.PlatformModule {}
 
-class _$SystemActionsModule extends _i46.SystemActionsModule {}
+class _$SystemActionsModule extends _i964.SystemActionsModule {}

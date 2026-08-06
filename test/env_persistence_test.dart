@@ -1,7 +1,7 @@
 import 'package:flutra/core/platform/env_persistence.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _script = '/home/dev/.config/flutter_sdk_manager/env.sh';
+const _script = '/home/dev/.config/flutra/env.sh';
 
 void main() {
   group('upsertManagedBlock', () {
