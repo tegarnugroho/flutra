@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
 import '../../core/command/session_environment.dart';
+import '../../core/platform/platform_service.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../domain/repositories/sdk_repository.dart';
 import '../sdk/flutter_locator.dart';
@@ -118,6 +119,7 @@ class DoctorFixService {
     this._session,
     this._sdk,
     this._flutter,
+    this._platform,
   );
 
   final CommandRunner _runner;
@@ -127,14 +129,15 @@ class DoctorFixService {
   final SessionEnvironment _session;
   final SdkRepository _sdk;
   final FlutterRepository _flutter;
+  final PlatformService _platform;
 
   late final Map<String, DoctorFixExecutor> _executors = {
     for (final executor in <DoctorFixExecutor>[
       AcceptAndroidLicencesFix(_runner),
       InstallCmdlineToolsFix(_sdk, _sdkLocator),
       SelectAndroidSdkFix(_runner, _scanner),
-      SelectJdkFix(_runner),
-      SelectBrowserFix(_runner, _session),
+      SelectJdkFix(_runner, _platform),
+      SelectBrowserFix(_runner, _session, _platform),
       RepairVisualStudioFix(_runner),
       AddFlutterToPathFix(_flutter),
     ])
@@ -420,18 +423,10 @@ class SelectAndroidSdkFix implements DoctorFixExecutor {
 
 /// Points Flutter at a JDK 17+ install.
 class SelectJdkFix implements DoctorFixExecutor {
-  SelectJdkFix(this._runner);
+  SelectJdkFix(this._runner, this._platform);
 
   final CommandRunner _runner;
-
-  /// Where the common distributions put themselves.
-  static const List<String> searchRoots = [
-    r'C:\Program Files\Microsoft',
-    r'C:\Program Files\Eclipse Adoptium',
-    r'C:\Program Files\Java',
-    r'C:\Program Files\Amazon Corretto',
-    r'C:\Program Files\Zulu',
-  ];
+  final PlatformService _platform;
 
   /// Android's Gradle plugin needs 17 or newer; older JDKs fail the build with
   /// an error that looks nothing like a JDK problem.
@@ -450,13 +445,22 @@ class SelectJdkFix implements DoctorFixExecutor {
     if (javaHome != null && javaHome.trim().isNotEmpty) {
       candidates.add(javaHome.trim());
     }
-    for (final root in searchRoots) {
+    for (final root in _platform.jdkSearchPaths) {
       final dir = Directory(root);
       if (!dir.existsSync()) continue;
       try {
         for (final child in dir.listSync().whereType<Directory>()) {
-          if (File(p.join(child.path, 'bin', 'java.exe')).existsSync()) {
-            candidates.add(child.path);
+          // macOS keeps JDKs as .jdk bundles: the directory holding bin/java is
+          // <bundle>/Contents/Home, not the bundle itself.
+          for (final home in [
+            child.path,
+            if (_platform.isMacos) macosJdkHome(child.path),
+          ]) {
+            if (File(p.join(home, 'bin', _platform.executableName('java')))
+                .existsSync()) {
+              candidates.add(home);
+              break;
+            }
           }
         }
       } catch (_) {
@@ -480,7 +484,7 @@ class SelectJdkFix implements DoctorFixExecutor {
 
   /// The major version [jdkPath] reports, or null when it will not run.
   Future<int?> _majorVersion(String jdkPath) async {
-    final exe = p.join(jdkPath, 'bin', 'java.exe');
+    final exe = p.join(jdkPath, 'bin', _platform.executableName('java'));
     if (!File(exe).existsSync()) return null;
     try {
       final result =
@@ -539,28 +543,14 @@ class SelectJdkFix implements DoctorFixExecutor {
 
 /// Records a Chromium browser for web builds.
 class SelectBrowserFix implements DoctorFixExecutor {
-  SelectBrowserFix(this._runner, this._session);
+  SelectBrowserFix(this._runner, this._session, this._platform);
 
   final CommandRunner _runner;
   final SessionEnvironment _session;
+  final PlatformService _platform;
 
   static const String variable = 'CHROME_EXECUTABLE';
 
-  /// Where the Chromium browsers install themselves, most likely first.
-  static List<String> candidatePaths({Map<String, String>? environment}) {
-    final env = environment ?? Platform.environment;
-    final localAppData = env['LOCALAPPDATA'];
-    return [
-      r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-      r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-      if (localAppData != null)
-        p.join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      r'C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe',
-      r'C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe',
-      r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-      r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-    ];
-  }
 
   @override
   String get issueId => 'chrome_missing';
@@ -570,7 +560,7 @@ class SelectBrowserFix implements DoctorFixExecutor {
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => [
-        for (final path in candidatePaths())
+        for (final path in _platform.browserCandidates)
           if (File(path).existsSync())
             FixChoice(
               value: path,

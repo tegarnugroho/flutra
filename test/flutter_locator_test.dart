@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:android_sdk_manager/core/platform/platform_service.dart';
 import 'package:android_sdk_manager/infrastructure/sdk/flutter_locator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -99,7 +100,7 @@ void main() {
   group('root', () {
     test('prefers the settings override', () {
       final overridden = _fakeSdk(temp, 'overridden');
-      final locator = FlutterLocator()..overrideFlutterRoot = overridden.path;
+      final locator = FlutterLocator(hostPlatform)..overrideFlutterRoot = overridden.path;
 
       expect(locator.root, overridden.path);
     });
@@ -107,7 +108,7 @@ void main() {
     test('ignores an override that is not an SDK', () {
       // A stale or mistyped setting must not hide a working install; it falls
       // through to FLUTTER_ROOT and PATH like no override at all.
-      final locator = FlutterLocator()..overrideFlutterRoot = temp.path;
+      final locator = FlutterLocator(hostPlatform)..overrideFlutterRoot = temp.path;
 
       expect(locator.root, isNot(temp.path));
     });
@@ -116,7 +117,7 @@ void main() {
       // The regression this guards: `executable` returns the bare command name
       // when no override is set, so deriving the root from it yielded null and
       // the Dashboard reported the Flutter SDK as "not measured".
-      final locator = FlutterLocator();
+      final locator = FlutterLocator(hostPlatform);
       final root = locator.root;
 
       // Only assert when the machine running the test actually has Flutter on

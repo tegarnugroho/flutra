@@ -4,10 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/platform/platform_service.dart';
+
 /// Resolves the `flutter` executable, honouring a user-configured SDK path and
 /// falling back to whatever is on the system PATH.
 @lazySingleton
 class FlutterLocator {
+  FlutterLocator(this._platform);
+
+  final PlatformService _platform;
+
   String? _override;
 
   /// Sets a user-configured Flutter SDK root (null/empty = use PATH).
@@ -21,11 +27,10 @@ class FlutterLocator {
   String get executable {
     final root = _override;
     if (root != null) {
-      final exe = p.join(
-          root, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
+      final exe = p.join(root, 'bin', _platform.flutterExecutable);
       if (File(exe).existsSync()) return exe;
     }
-    return Platform.isWindows ? 'flutter.bat' : 'flutter';
+    return _platform.flutterExecutable;
   }
 
   /// The Flutter SDK root, or null if none can be found.
@@ -72,8 +77,11 @@ class FlutterLocator {
   /// directory — scoop and chocolatey put one there — whose parent is not an
   /// SDK. The caller checks each in turn instead of giving up on the first.
   @visibleForTesting
-  static Iterable<String> rootsFromPathEntries(Iterable<String> entries) sync* {
-    final name = Platform.isWindows ? 'flutter.bat' : 'flutter';
+  static Iterable<String> rootsFromPathEntries(
+    Iterable<String> entries, {
+    PlatformService? platform,
+  }) sync* {
+    final name = (platform ?? hostPlatform).flutterExecutable;
     for (final entry in entries) {
       // PATH entries can be quoted, and a trailing separator leaves an empty one.
       final dir = entry.trim().replaceAll('"', '');

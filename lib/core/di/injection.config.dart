@@ -47,6 +47,8 @@ import 'package:android_sdk_manager/core/command/sdk_operation_lock.dart'
     as _i328;
 import 'package:android_sdk_manager/core/command/session_environment.dart'
     as _i771;
+import 'package:android_sdk_manager/core/platform/platform_service.dart'
+    as _i23;
 import 'package:android_sdk_manager/domain/repositories/address_repository.dart'
     as _i1013;
 import 'package:android_sdk_manager/domain/repositories/device_repository.dart'
@@ -117,6 +119,7 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
+    final platformModule = _$PlatformModule();
     gh.singleton<_i1064.EmulatorEvents>(
       () => _i1064.EmulatorEvents(),
       dispose: (i) => i.dispose(),
@@ -130,22 +133,21 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i771.SessionEnvironment>(
       () => _i771.SessionEnvironment(),
     );
+    gh.lazySingleton<_i23.PlatformService>(() => platformModule.platform);
     gh.lazySingleton<_i961.FlutterReleasesService>(
       () => _i961.FlutterReleasesService(),
     );
     gh.lazySingleton<_i848.DevLogService>(() => _i848.DevLogService());
-    gh.lazySingleton<_i1034.FlutterLocator>(() => _i1034.FlutterLocator());
-    gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
     gh.lazySingleton<_i404.SdkScanService>(() => _i404.SdkScanService());
     gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());
     gh.lazySingleton<_i144.CommandRunner>(
       () => _i144.CommandRunner(gh<_i771.SessionEnvironment>()),
     );
-    gh.lazySingleton<_i277.EmulatorRepository>(
-      () => _i60.EmulatorRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-      ),
+    gh.lazySingleton<_i1034.FlutterLocator>(
+      () => _i1034.FlutterLocator(gh<_i23.PlatformService>()),
+    );
+    gh.lazySingleton<_i839.SdkLocator>(
+      () => _i839.SdkLocator(gh<_i23.PlatformService>()),
     );
     gh.lazySingleton<_i1013.AddressRepository>(
       () => _i886.AddressRepositoryImpl(gh<_i517.SettingsService>()),
@@ -156,10 +158,18 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i839.SdkLocator>(),
       ),
     );
+    gh.lazySingleton<_i277.EmulatorRepository>(
+      () => _i60.EmulatorRepositoryImpl(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+        gh<_i23.PlatformService>(),
+      ),
+    );
     gh.lazySingleton<_i927.StorageAnalysisService>(
       () => _i927.StorageAnalysisService(
         gh<_i839.SdkLocator>(),
         gh<_i1034.FlutterLocator>(),
+        gh<_i23.PlatformService>(),
       ),
     );
     gh.factory<_i510.AddressCubit>(
@@ -170,6 +180,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i6.EmulatorListCubit>(
       () => _i6.EmulatorListCubit(gh<_i277.EmulatorRepository>()),
+    );
+    gh.lazySingleton<_i220.PathProbeService>(
+      () => _i220.PathProbeService(
+        gh<_i144.CommandRunner>(),
+        gh<_i23.PlatformService>(),
+      ),
     );
     gh.factory<_i775.DetectedPathsCubit>(
       () => _i775.DetectedPathsCubit(
@@ -188,9 +204,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i706.DoctorRunner>(
       () => _i706.DoctorRunner(gh<_i144.CommandRunner>()),
-    );
-    gh.lazySingleton<_i220.PathProbeService>(
-      () => _i220.PathProbeService(gh<_i144.CommandRunner>()),
     );
     gh.lazySingleton<_i104.StartupService>(
       () => _i104.StartupService(gh<_i144.CommandRunner>()),
@@ -227,17 +240,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i361.HostInfoService>(),
       ),
     );
-    gh.lazySingleton<_i57.DoctorFixService>(
-      () => _i57.DoctorFixService(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-        gh<_i1034.FlutterLocator>(),
-        gh<_i404.SdkScanService>(),
-        gh<_i771.SessionEnvironment>(),
-        gh<_i374.SdkRepository>(),
-        gh<_i606.FlutterRepository>(),
-      ),
-    );
     gh.singleton<_i698.SettingsCubit>(
       () => _i698.SettingsCubit(
         gh<_i517.SettingsService>(),
@@ -251,12 +253,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i884.DeviceManagerCubit(
         gh<_i720.DeviceRepository>(),
         gh<_i606.FlutterRepository>(),
-      ),
-    );
-    gh.lazySingleton<_i821.ReclaimScanner>(
-      () => _i821.ReclaimScanner(
-        gh<_i374.SdkRepository>(),
-        gh<_i839.SdkLocator>(),
       ),
     );
     gh.factory<_i740.SdkManagerCubit>(
@@ -275,8 +271,24 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i606.FlutterRepository>(),
       ),
     );
-    gh.factory<_i517.DoctorFixCubit>(
-      () => _i517.DoctorFixCubit(gh<_i57.DoctorFixService>()),
+    gh.lazySingleton<_i57.DoctorFixService>(
+      () => _i57.DoctorFixService(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+        gh<_i1034.FlutterLocator>(),
+        gh<_i404.SdkScanService>(),
+        gh<_i771.SessionEnvironment>(),
+        gh<_i374.SdkRepository>(),
+        gh<_i606.FlutterRepository>(),
+        gh<_i23.PlatformService>(),
+      ),
+    );
+    gh.lazySingleton<_i821.ReclaimScanner>(
+      () => _i821.ReclaimScanner(
+        gh<_i374.SdkRepository>(),
+        gh<_i839.SdkLocator>(),
+        gh<_i23.PlatformService>(),
+      ),
     );
     gh.lazySingleton<_i595.EnvironmentRepository>(
       () => _i465.EnvironmentRepositoryImpl(
@@ -313,6 +325,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i927.StorageAnalysisService>(),
       ),
     );
+    gh.factory<_i517.DoctorFixCubit>(
+      () => _i517.DoctorFixCubit(gh<_i57.DoctorFixService>()),
+    );
     return this;
   }
 }
+
+class _$PlatformModule extends _i23.PlatformModule {}

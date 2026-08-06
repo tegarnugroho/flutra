@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/platform/platform_service.dart';
 import '../../domain/entities/reclaimable_item.dart';
 import '../../domain/entities/sdk_package.dart';
 import '../../domain/repositories/sdk_repository.dart';
@@ -18,10 +19,11 @@ import 'sdk_locator.dart';
 /// of removing it, which is what the warnings and the AVD check are for.
 @lazySingleton
 class ReclaimScanner {
-  ReclaimScanner(this._sdk, this._locator);
+  ReclaimScanner(this._sdk, this._locator, this._platform);
 
   final SdkRepository _sdk;
   final SdkLocator _locator;
+  final PlatformService _platform;
 
   /// Lists candidates without their sizes — measuring 8 GB of system images
   /// takes long enough that the list has to appear first. See [measure].
@@ -77,15 +79,8 @@ class ReclaimScanner {
     return parseAvdImageUsage(configs);
   }
 
-  /// Mirrors the emulator repository's resolution order.
-  // TODO(paths): third copy of this now — lift it into a shared locator.
-  String? _avdHome() {
-    final env = Platform.environment;
-    final explicit = env['ANDROID_AVD_HOME'];
-    if (explicit != null && explicit.trim().isNotEmpty) return explicit;
-    final home = env['ANDROID_SDK_HOME'] ?? env['USERPROFILE'] ?? env['HOME'];
-    return home == null ? null : p.join(home, '.android', 'avd');
-  }
+  /// The AVD folder, resolved by the platform layer.
+  String? _avdHome() => _platform.avdHome;
 
   // ---- Pure core -----------------------------------------------------------
 

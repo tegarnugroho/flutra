@@ -1,11 +1,21 @@
+import 'package:android_sdk_manager/core/platform/platform_service.dart';
 import 'package:android_sdk_manager/domain/entities/doctor_issue.dart';
 import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
 import 'package:android_sdk_manager/infrastructure/doctor/doctor_fix_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-List<DoctorIssue> match(String category, List<String> lines,
-        {DoctorStatus status = DoctorStatus.warning}) =>
-    issuesFor(category: category, status: status, detailLines: lines);
+List<DoctorIssue> match(
+  String category,
+  List<String> lines, {
+  DoctorStatus status = DoctorStatus.warning,
+  String operatingSystem = 'windows',
+}) =>
+    issuesFor(
+      category: category,
+      status: status,
+      detailLines: lines,
+      operatingSystem: operatingSystem,
+    );
 
 void main() {
   group('issuesFor', () {
@@ -24,6 +34,7 @@ void main() {
           category: 'Android toolchain',
           status: null,
           detailLines: const ['X Android license status unknown.'],
+          operatingSystem: 'windows',
         ),
         isEmpty,
       );
@@ -110,22 +121,27 @@ void main() {
     });
   });
 
-  group('SelectBrowserFix.candidatePaths', () {
-    test('covers Chrome, Brave and Edge, including the per-user install', () {
-      final paths = SelectBrowserFix.candidatePaths(
+  group('browser candidates', () {
+    // Moved to the platform layer: the list is per-OS now, so it is tested
+    // against each implementation rather than against the fix.
+    test('Windows covers Chrome, Brave and Edge, per-user install included', () {
+      final paths = WindowsPlatformService(
         environment: {'LOCALAPPDATA': r'C:\Users\dev\AppData\Local'},
-      );
+      ).browserCandidates;
+
       expect(paths.any((p) => p.contains('Google')), isTrue);
       expect(paths.any((p) => p.contains('Brave')), isTrue);
       expect(paths.any((p) => p.contains('Edge')), isTrue);
       expect(
         paths,
-        contains(r'C:\Users\dev\AppData\Local\Google\Chrome\Application\chrome.exe'),
+        contains(
+            r'C:\Users\dev\AppData\Local\Google\Chrome\Application\chrome.exe'),
       );
     });
 
-    test('drops the per-user path when LOCALAPPDATA is unset', () {
-      final paths = SelectBrowserFix.candidatePaths(environment: const {});
+    test('Windows drops the per-user path when LOCALAPPDATA is unset', () {
+      final paths =
+          WindowsPlatformService(environment: const {}).browserCandidates;
       expect(paths.any((p) => p.contains('AppData')), isFalse);
     });
   });

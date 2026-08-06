@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../domain/entities/storage_report.dart';
+import '../../core/platform/platform_service.dart';
 import '../sdk/flutter_locator.dart';
 import '../sdk/sdk_locator.dart';
 
@@ -33,10 +34,11 @@ class _ScanRequest {
 /// cached to disk with a timestamp so opening the Dashboard is instant.
 @lazySingleton
 class StorageAnalysisService {
-  StorageAnalysisService(this._sdk, this._flutter);
+  StorageAnalysisService(this._sdk, this._flutter, this._platform);
 
   final SdkLocator _sdk;
   final FlutterLocator _flutter;
+  final PlatformService _platform;
 
   static final Logger _log = Logger('StorageAnalysisService');
 
@@ -89,17 +91,9 @@ class StorageAnalysisService {
     return report;
   }
 
-  /// Mirrors the emulator repository's resolution order.
-  // TODO(paths): this duplicates `EmulatorRepositoryImpl._avdHome`. Lift that
-  // into a shared locator when something else needs it a third time.
-  String? _avdHome() {
-    final env = Platform.environment;
-    final explicit = env['ANDROID_AVD_HOME'];
-    if (explicit != null && explicit.trim().isNotEmpty) return explicit;
-    final home = env['ANDROID_SDK_HOME'] ?? env['USERPROFILE'] ?? env['HOME'];
-    if (home == null) return null;
-    return p.join(home, '.android', 'avd');
-  }
+  /// The AVD folder, resolved by the platform layer — the shared answer the
+  /// TODO here used to ask for.
+  String? _avdHome() => _platform.avdHome;
 
   Future<File> _cacheFile() async {
     final dir = await getApplicationSupportDirectory();

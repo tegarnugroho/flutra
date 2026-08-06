@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/platform/platform_service.dart';
+
 /// Discovers the Android SDK root and resolves the paths of the individual
 /// command-line tools inside it.
 ///
@@ -12,7 +14,9 @@ import 'package:path/path.dart' as p;
 ///  3. Well-known default locations (including an Android Studio install).
 @lazySingleton
 class SdkLocator {
-  SdkLocator();
+  SdkLocator(this._platform);
+
+  final PlatformService _platform;
 
   String? _override;
 
@@ -43,16 +47,9 @@ class SdkLocator {
     if (includeOverride) yield _override;
     yield Platform.environment['ANDROID_HOME'];
     yield Platform.environment['ANDROID_SDK_ROOT'];
-
-    final localAppData = Platform.environment['LOCALAPPDATA'];
-    if (localAppData != null) {
-      yield p.join(localAppData, 'Android', 'Sdk');
-    }
-    final userProfile = Platform.environment['USERPROFILE'];
-    if (userProfile != null) {
-      yield p.join(userProfile, 'AppData', 'Local', 'Android', 'Sdk');
-      yield p.join(userProfile, 'Android', 'Sdk');
-    }
+    // Where this platform's installers put it, when the environment says
+    // nothing.
+    yield* _platform.defaultAndroidSdkPaths;
   }
 
   /// Whether [root] is an Android SDK rather than a folder that happens to be
@@ -65,15 +62,14 @@ class SdkLocator {
   /// `tools` is not evidence of anything: chocolatey packages, VirtualBox
   /// hypervisors and half a dozen unrelated installs ship one, and a scan that
   /// trusted the name reported all of them as Android SDKs.
-  static bool looksLikeAndroidSdk(String root) {
+  static bool looksLikeAndroidSdk(String root, {PlatformService? platform}) {
     if (!Directory(root).existsSync()) return false;
+    final os = platform ?? hostPlatform;
 
-    final exe = Platform.isWindows ? '.exe' : '';
-    final bat = Platform.isWindows ? '.bat' : '';
     final tools = <String>[
-      p.join(root, 'platform-tools', 'adb$exe'),
-      p.join(root, 'emulator', 'emulator$exe'),
-      p.join(root, 'tools', 'bin', 'sdkmanager$bat'),
+      p.join(root, 'platform-tools', os.executableName('adb')),
+      p.join(root, 'emulator', os.executableName('emulator')),
+      p.join(root, 'tools', 'bin', os.scriptName('sdkmanager')),
     ];
     if (tools.any((f) => File(f).existsSync())) return true;
 
@@ -83,7 +79,8 @@ class SdkLocator {
     if (cmdline.existsSync()) {
       try {
         for (final version in cmdline.listSync().whereType<Directory>()) {
-          if (File(p.join(version.path, 'bin', 'sdkmanager$bat')).existsSync()) {
+          if (File(p.join(version.path, 'bin', os.scriptName('sdkmanager')))
+              .existsSync()) {
             return true;
           }
         }
@@ -100,8 +97,8 @@ class SdkLocator {
 
   // ---- Tool path resolution ------------------------------------------------
 
-  String _exe(String name) => Platform.isWindows ? '$name.exe' : name;
-  String _bat(String name) => Platform.isWindows ? '$name.bat' : name;
+  String _exe(String name) => _platform.executableName(name);
+  String _bat(String name) => _platform.scriptName(name);
 
   /// Path to `sdkmanager`, searching both new and legacy layouts.
   String? get sdkManager => _firstExisting([

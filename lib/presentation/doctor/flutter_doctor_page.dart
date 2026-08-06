@@ -6,6 +6,7 @@ import '../../application/doctor/doctor_fix_cubit.dart';
 import '../../application/doctor/flutter_doctor_cubit.dart';
 import '../../application/shell/shell_navigator.dart';
 import '../../core/di/injection.dart';
+import '../../core/platform/platform_service.dart';
 import '../../domain/entities/doctor_issue.dart';
 import '../../domain/entities/doctor_report.dart';
 import '../../infrastructure/system/external_link_service.dart';
@@ -185,6 +186,7 @@ class _RunViewState extends State<_RunView> {
               category: check.name,
               status: check.status,
               detailLines: check.details,
+              operatingSystem: getIt<PlatformService>().operatingSystem,
             ),
       };
 

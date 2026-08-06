@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
+import '../../core/platform/platform_service.dart';
 
 /// What a probe made of a folder the user typed or picked.
 class PathProbe {
@@ -29,9 +30,10 @@ class PathProbe {
 /// external call.
 @lazySingleton
 class PathProbeService {
-  PathProbeService(this._runner);
+  PathProbeService(this._runner, this._platform);
 
   final CommandRunner _runner;
+  final PlatformService _platform;
 
   /// An Android SDK root holds the tool folders sdkmanager creates.
   Future<PathProbe> probeAndroidSdk(String path) async {
@@ -62,11 +64,7 @@ class PathProbeService {
     if (root.isEmpty || !Directory(root).existsSync()) {
       return const PathProbe(valid: false, message: 'Folder does not exist');
     }
-    final exe = p.join(
-      root,
-      'bin',
-      Platform.isWindows ? 'flutter.bat' : 'flutter',
-    );
+    final exe = p.join(root, 'bin', _platform.flutterExecutable);
     if (!File(exe).existsSync()) {
       return const PathProbe(
         valid: false,

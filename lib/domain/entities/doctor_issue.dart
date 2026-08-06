@@ -29,6 +29,7 @@ class DoctorIssue extends Equatable {
     required this.description,
     required this.actionLabel,
     this.url,
+    this.platforms = const {},
   });
 
   /// Stable identifier, also the key an executor registers under.
@@ -56,11 +57,29 @@ class DoctorIssue extends Equatable {
   /// Where a [FixKind.redirect] issue points, when it points outside the app.
   final String? url;
 
+  /// The operating systems this problem can occur on — `windows`, `linux`,
+  /// `macos`. Empty means every platform.
+  ///
+  /// Visual Studio is not a thing to be missing on Linux, and a doctor run
+  /// there never mentions it; listing the issue anyway would only produce a
+  /// button that cannot help.
+  final Set<String> platforms;
+
+  /// Whether this issue applies on [operatingSystem].
+  bool appliesTo(String operatingSystem) =>
+      platforms.isEmpty || platforms.contains(operatingSystem);
+
   @override
-  List<Object?> get props => [id, categoryMatch, linePattern.pattern, kind];
+  List<Object?> get props =>
+      [id, categoryMatch, linePattern.pattern, kind, platforms];
 }
 
-/// The docs every unmatched failure falls back to.
+/// The install guide for [operatingSystem], which every unmatched failure
+/// falls back to.
+String installDocsFor(String operatingSystem) =>
+    'https://docs.flutter.dev/get-started/install/$operatingSystem';
+
+/// The Windows guide, kept for callers that predate the per-platform one.
 const String kWindowsInstallDocs =
     'https://docs.flutter.dev/get-started/install/windows';
 
@@ -141,6 +160,7 @@ final List<DoctorIssue> kDoctorIssues = [
       caseSensitive: false,
     ),
     kind: FixKind.guided,
+    platforms: {'windows'},
     title: 'Add the C++ workload to Visual Studio',
     description:
         'Opens the Visual Studio Installer, elevated, and adds the "Desktop '
@@ -152,6 +172,7 @@ final List<DoctorIssue> kDoctorIssues = [
     categoryMatch: 'Visual Studio',
     linePattern: RegExp(r'Visual Studio not installed', caseSensitive: false),
     kind: FixKind.redirect,
+    platforms: {'windows'},
     title: 'Visual Studio is not installed',
     description:
         'Windows desktop builds need Visual Studio with the "Desktop '
@@ -167,6 +188,74 @@ final List<DoctorIssue> kDoctorIssues = [
     title: 'No devices are available',
     description: 'Start an emulator, or plug in a device with USB debugging on.',
     actionLabel: 'Launch emulator',
+  ),
+  DoctorIssue(
+    id: 'linux_deps_missing',
+    categoryMatch: 'Linux toolchain',
+    linePattern: RegExp(
+      r'(clang\+{0,2} is required'
+      r'|CMake is required'
+      r'|ninja is required'
+      r'|GTK 3\.0 development libraries are required'
+      r'|pkg-config is required)',
+      caseSensitive: false,
+    ),
+    kind: FixKind.guided,
+    platforms: {'linux'},
+    title: 'Install the Linux build dependencies',
+    description:
+        'Flutter needs clang, CMake, ninja, pkg-config and the GTK 3 headers '
+        'to build a Linux desktop app. The install runs through pkexec, so the '
+        'system asks for your password — this app never sees it.',
+    actionLabel: 'Fix',
+  ),
+  DoctorIssue(
+    id: 'xcode_missing',
+    categoryMatch: 'Xcode',
+    linePattern: RegExp(
+      r'(Xcode installation is incomplete|Unable to locate Xcode'
+      r'|Xcode not installed)',
+      caseSensitive: false,
+    ),
+    kind: FixKind.redirect,
+    platforms: {'macos'},
+    title: 'Xcode is missing or incomplete',
+    description:
+        'macOS builds need the full Xcode, not only the command-line tools. '
+        'Install it from the App Store, then run "xcode-select --install" for '
+        'the command-line tools.',
+    actionLabel: 'Open the App Store page',
+    url: 'https://apps.apple.com/app/xcode/id497799835',
+  ),
+  DoctorIssue(
+    id: 'xcode_license',
+    categoryMatch: 'Xcode',
+    linePattern: RegExp(
+      r'Xcode end user license agreement not signed',
+      caseSensitive: false,
+    ),
+    kind: FixKind.guided,
+    platforms: {'macos'},
+    title: 'Accept the Xcode licence',
+    description:
+        'Runs "xcodebuild -license accept" as an administrator. macOS shows '
+        'its own authentication dialog; this app never sees your password.',
+    actionLabel: 'Fix',
+  ),
+  DoctorIssue(
+    id: 'cocoapods_missing',
+    categoryMatch: 'Xcode',
+    linePattern: RegExp(
+      r'(CocoaPods not installed|CocoaPods installed but not working)',
+      caseSensitive: false,
+    ),
+    kind: FixKind.auto,
+    platforms: {'macos'},
+    title: 'Install CocoaPods',
+    description:
+        'Installs CocoaPods with Homebrew when it is present, and falls back '
+        'to "gem install" as an administrator otherwise.',
+    actionLabel: 'Fix',
   ),
   DoctorIssue(
     id: 'flutter_not_on_path',
@@ -190,11 +279,23 @@ final DoctorIssue kUnknownIssue = DoctorIssue(
   kind: FixKind.redirect,
   title: 'This one needs a look by hand',
   description:
-      'The app has no automatic fix for this check. The Windows install guide '
-      'covers every requirement Flutter checks for.',
+      'The app has no automatic fix for this check. The install guide covers '
+      'every requirement Flutter checks for.',
   actionLabel: 'View docs',
   url: kWindowsInstallDocs,
 );
+
+/// The fallback issue, pointing at [operatingSystem]'s own install guide.
+DoctorIssue unknownIssueFor(String operatingSystem) => DoctorIssue(
+      id: kUnknownIssue.id,
+      categoryMatch: kUnknownIssue.categoryMatch,
+      linePattern: kUnknownIssue.linePattern,
+      kind: kUnknownIssue.kind,
+      title: kUnknownIssue.title,
+      description: kUnknownIssue.description,
+      actionLabel: kUnknownIssue.actionLabel,
+      url: installDocsFor(operatingSystem),
+    );
 
 /// The issues a check has, in registry order.
 ///
@@ -205,15 +306,17 @@ List<DoctorIssue> issuesFor({
   required String category,
   required DoctorStatus? status,
   required List<String> detailLines,
+  required String operatingSystem,
 }) {
   if (status == null || status == DoctorStatus.ok) return const [];
 
   final matched = [
     for (final issue in kDoctorIssues)
-      if (issue.categoryMatch == category &&
+      if (issue.appliesTo(operatingSystem) &&
+          issue.categoryMatch == category &&
           detailLines.any(issue.linePattern.hasMatch))
         issue,
   ];
   // A failure the registry has nothing for still deserves a way forward.
-  return matched.isEmpty ? [kUnknownIssue] : matched;
+  return matched.isEmpty ? [unknownIssueFor(operatingSystem)] : matched;
 }

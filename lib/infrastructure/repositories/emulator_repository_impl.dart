@@ -12,16 +12,18 @@ import '../../domain/entities/avd_create_request.dart';
 import '../../domain/entities/device_definition.dart';
 import '../../domain/entities/system_image.dart';
 import '../../domain/repositories/emulator_repository.dart';
+import '../../core/platform/platform_service.dart';
 import '../sdk/sdk_locator.dart';
 
 /// [EmulatorRepository] backed by the real `avdmanager`, `emulator` and `adb`
 /// command-line tools plus direct manipulation of the AVD directory.
 @LazySingleton(as: EmulatorRepository)
 class EmulatorRepositoryImpl implements EmulatorRepository {
-  EmulatorRepositoryImpl(this._runner, this._locator);
+  EmulatorRepositoryImpl(this._runner, this._locator, this._platform);
 
   final CommandRunner _runner;
   final SdkLocator _locator;
+  final PlatformService _platform;
 
   static final Logger _log = Logger('EmulatorRepository');
   static const _timeout = Duration(seconds: 60);
@@ -53,13 +55,11 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
   String? get _adb => _locator.adb;
 
   /// Directory that holds `<name>.avd` folders and `<name>.ini` files.
-  String get _avdHome {
-    final env = Platform.environment;
-    final explicit = env['ANDROID_AVD_HOME'];
-    if (explicit != null && explicit.isNotEmpty) return explicit;
-    final sdkHome = env['ANDROID_SDK_HOME'] ?? env['USERPROFILE'] ?? env['HOME'];
-    return p.join(sdkHome ?? '.', '.android', 'avd');
-  }
+  ///
+  /// Resolved by the platform layer, which is the one place that knows the
+  /// precedence the emulator itself uses — `ANDROID_USER_HOME` included, which
+  /// this used to miss.
+  String get _avdHome => _platform.avdHome ?? '.';
 
   // ---- Listing -------------------------------------------------------------
 
