@@ -1,6 +1,7 @@
 import 'package:flutra/application/flutter_sdk/flutter_sdk_cubit.dart';
 import 'package:flutra/domain/entities/flutter_release.dart';
 import 'package:flutra/domain/entities/flutter_sdk_info.dart';
+import 'package:flutra/domain/entities/release_note.dart';
 import 'package:flutra/presentation/flutter_sdk/widgets/sdk_identity_panel.dart';
 import 'package:flutra/presentation/flutter_sdk/widgets/version_tile.dart';
 import 'package:flutra/presentation/theme/app_theme.dart';
@@ -46,6 +47,7 @@ Widget _tile({
   bool expanded = false,
   String? dartBadge,
   List<String> changelog = const [],
+  bool notesLoading = false,
   VoidCallback? onSwitch,
   ValueChanged<int>? onOpenPullRequest,
   VoidCallback? onOpenGitHub,
@@ -55,9 +57,10 @@ Widget _tile({
   expanded: expanded,
   highlighted: false,
   dartBadge: dartBadge,
+  notes: notesLoading ? null : changelog.map(ReleaseNote.parse).toList(),
+  notesLoading: notesLoading,
   onToggle: () {},
   onSwitch: onSwitch ?? () {},
-  loadChangelog: () async => changelog,
   onOpenGitHub: onOpenGitHub ?? () {},
   onOpenPullRequest: onOpenPullRequest ?? (_) {},
 );
@@ -280,6 +283,41 @@ void main() {
       // The count only exists once the notes have loaded — the release index
       // does not publish it.
       expect(find.textContaining('2 commits'), findsOneWidget);
+    });
+
+    testWidgets('notes are painted on the first frame, never fetched here',
+        (tester) async {
+      await tester.pumpWidget(
+        _host(
+          _tile(
+            release: _release('3.43.0'),
+            expanded: true,
+            changelog: const ['[CP-stable][Android] Fix resume (#1)'],
+          ),
+        ),
+      );
+
+      // Deliberately no settle: the list disposes a tile as soon as it scrolls
+      // out of view, so a tile that loaded its own notes would re-run the git
+      // log — and show a skeleton — every time it scrolled back in.
+      expect(find.text('android'), findsOneWidget);
+    });
+
+    testWidgets('a read in flight shows skeleton lines, not an empty state',
+        (tester) async {
+      await tester.pumpWidget(
+        _host(
+          _tile(
+            release: _release('3.43.0'),
+            expanded: true,
+            notesLoading: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Release notes unavailable'), findsNothing);
+      expect(find.text('Release notes'), findsOneWidget);
     });
 
     testWidgets('empty notes say so and still link out', (tester) async {

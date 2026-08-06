@@ -9,6 +9,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../domain/entities/release_note.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../infrastructure/trash/trash_entry.dart';
 import '../common/app_loader.dart';
@@ -108,6 +109,15 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
 
   bool _showOlder = false;
 
+  /// Release notes already read, keyed by release identity, and the reads in
+  /// flight.
+  ///
+  /// Held here rather than in the tile: the list disposes a tile the moment it
+  /// scrolls out of view, so a cache inside one would be thrown away and the
+  /// git log would run again every time the open tile came back on screen.
+  final Map<String, List<ReleaseNote>> _notes = {};
+  final Set<String> _loadingNotes = {};
+
   @override
   void initState() {
     super.initState();
@@ -137,9 +147,35 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
   static String _idOf(FlutterRelease release) =>
       '${release.channel}/${release.version}/${release.hash}';
 
-  void _toggle(FlutterRelease release) {
+  void _toggle(FlutterRelease release, int index, List<FlutterRelease> shown) {
     final id = _idOf(release);
-    setState(() => _expandedId = _expandedId == id ? null : id);
+    final opening = _expandedId != id;
+    setState(() => _expandedId = opening ? id : null);
+    if (opening) _loadNotes(id, index, shown);
+  }
+
+  /// Reads the commits [index] brought in, once per release.
+  Future<void> _loadNotes(
+    String id,
+    int index,
+    List<FlutterRelease> shown,
+  ) async {
+    if (_notes.containsKey(id) || _loadingNotes.contains(id)) return;
+    setState(() => _loadingNotes.add(id));
+    try {
+      final lines = await context.read<FlutterSdkCubit>().changelog(
+        shown[index].gitTag,
+        _previousOf(index, shown),
+      );
+      if (!mounted) return;
+      setState(() => _notes[id] = lines.map(ReleaseNote.parse).toList());
+    } catch (_) {
+      // An empty list is the "unavailable" state the notes block renders; a
+      // failed read is cached too, so it is not retried on every rebuild.
+      if (mounted) setState(() => _notes[id] = const []);
+    } finally {
+      if (mounted) setState(() => _loadingNotes.remove(id));
+    }
   }
 
   /// Opens the newest release on the channel and brings it into view.
@@ -154,6 +190,7 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
       // is still hiding it.
       if (index >= _initialVersionCount) _showOlder = true;
     });
+    _loadNotes(id, index, shown);
     _highlightTimer?.cancel();
     _highlightTimer = Timer(_highlightDuration, () {
       if (mounted) setState(() => _highlightId = null);
@@ -414,11 +451,10 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
           expanded: _expandedId == id,
           highlighted: _highlightId == id,
           dartBadge: _dartBadge(shown, i),
-          onToggle: () => _toggle(release),
+          notes: _notes[id],
+          notesLoading: _loadingNotes.contains(id),
+          onToggle: () => _toggle(release, i, shown),
           onSwitch: () => _switch(context, release),
-          loadChangelog: () => context
-              .read<FlutterSdkCubit>()
-              .changelog(release.gitTag, _previousOf(i, shown)),
           onOpenGitHub: () =>
               context.read<FlutterSdkCubit>().openReleasePage(release.gitTag),
           onOpenPullRequest: (number) =>

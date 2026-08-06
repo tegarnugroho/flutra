@@ -21,9 +21,10 @@ class VersionTile extends StatefulWidget {
     required this.expanded,
     required this.highlighted,
     required this.dartBadge,
+    required this.notes,
+    required this.notesLoading,
     required this.onToggle,
     required this.onSwitch,
-    required this.loadChangelog,
     required this.onOpenGitHub,
     required this.onOpenPullRequest,
   });
@@ -42,9 +43,16 @@ class VersionTile extends StatefulWidget {
   /// the release above it in the list — the boundary worth calling out.
   final String? dartBadge;
 
+  /// The release's commits, or null while they are being read.
+  ///
+  /// Owned by the page rather than by this tile: the list disposes a tile as
+  /// soon as it scrolls out of view, and a cache living here would take the
+  /// git log with it — scrolling away and back would run it again.
+  final List<ReleaseNote>? notes;
+  final bool notesLoading;
+
   final VoidCallback onToggle;
   final VoidCallback onSwitch;
-  final Future<List<String>> Function() loadChangelog;
   final VoidCallback onOpenGitHub;
   final ValueChanged<int> onOpenPullRequest;
 
@@ -54,36 +62,6 @@ class VersionTile extends StatefulWidget {
 
 class _VersionTileState extends State<VersionTile> {
   bool _hovered = false;
-  bool _loading = false;
-
-  /// Null until the tile has been opened once; the notes are kept afterwards so
-  /// re-opening is instant.
-  List<ReleaseNote>? _notes;
-
-  @override
-  void didUpdateWidget(covariant VersionTile old) {
-    super.didUpdateWidget(old);
-    if (widget.expanded && !old.expanded) _loadNotes();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.expanded) _loadNotes();
-  }
-
-  Future<void> _loadNotes() async {
-    if (_notes != null || _loading) return;
-    setState(() => _loading = true);
-    try {
-      final lines = await widget.loadChangelog();
-      if (mounted) setState(() => _notes = lines.map(ReleaseNote.parse).toList());
-    } catch (_) {
-      if (mounted) setState(() => _notes = const []);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,8 +112,9 @@ class _VersionTileState extends State<VersionTile> {
                       14,
                     ),
                     child: ReleaseNotesBlock(
-                      notes: _notes,
-                      loading: _loading,
+                      key: ValueKey(widget.release.hash),
+                      notes: widget.notes,
+                      loading: widget.notesLoading,
                       onOpenChangelog: widget.onOpenGitHub,
                       onOpenPullRequest: widget.onOpenPullRequest,
                     ),
@@ -248,6 +227,7 @@ class _VersionTileState extends State<VersionTile> {
   /// `Dart 3.12.0 · Aug 6, 2026 · 214 commits · 2 weeks ago`.
   String _meta() {
     final release = widget.release;
+    final notes = widget.notes;
     final parts = <String>[
       if (release.displayDartVersion != null)
         'Dart ${release.displayDartVersion}',
@@ -255,7 +235,7 @@ class _VersionTileState extends State<VersionTile> {
       // TODO: commit count requires releases metadata — the index publishes
       // none, so this only appears once the tile has been opened and the git
       // log behind the release notes has run.
-      if (_notes != null && _notes!.isNotEmpty) '${_notes!.length} commits',
+      if (notes != null && notes.isNotEmpty) '${notes.length} commits',
       if (widget.isCurrent && release.releaseDate != null)
         relativeAge(release.releaseDate!, DateTime.now()),
     ];
