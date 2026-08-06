@@ -4,7 +4,7 @@ import '../../../domain/entities/release_note.dart';
 import '../../common/skeleton/skeleton_primitives.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
-import 'status_pill.dart';
+import 'tag_pill.dart';
 
 /// The commits a release brought in, inside an expanded version tile.
 ///

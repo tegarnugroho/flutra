@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../grouped_list.dart';
 import '../page_scaffold.dart';
+import '../tile_box.dart';
 import 'skeleton_primitives.dart';
 
 /// The frame every screen skeleton shares: page-body padding, one shimmer
@@ -285,28 +286,44 @@ class EmulatorListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return _SkeletonPage(
       children: [
-        const _SectionLabelSkeleton(width: 108),
-        const SizedBox(height: 8),
-        _SkeletonGroup(
-          rows: [
-            for (final width in const [148.0, 190.0, 122.0])
-              _SkeletonRow(
+        for (final width in const [148.0, 190.0, 122.0])
+          Padding(
+            padding: const EdgeInsets.only(bottom: TileBox.gap),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: palette.border,
+                  width: AppShape.hairline,
+                ),
+                borderRadius: BorderRadius.circular(TileBox.radius),
+              ),
+              child: Row(
                 children: [
-                  const SkeletonCircle(size: 6),
-                  const SizedBox(width: 10),
-                  const SkeletonCircle(size: 16),
-                  const SizedBox(width: 10),
-                  SkeletonLine(width: width, height: 12),
+                  const SkeletonBox(width: 32, height: 32),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonLine(width: width, height: 13),
+                      const SizedBox(height: 5),
+                      SkeletonLine(width: width + 110, height: 11),
+                    ],
+                  ),
                   const Spacer(),
-                  const SkeletonBox(width: 70, height: 20),
-                  const SizedBox(width: 8),
-                  const SkeletonBox(width: 28, height: 20),
+                  const SkeletonBox(width: 64, height: 22),
+                  const SizedBox(width: 6),
+                  const SkeletonBox(width: 30, height: 22),
                 ],
               ),
-          ],
-        ),
+            ),
+          ),
       ],
     );
   }
@@ -456,7 +473,7 @@ class FlutterSdkSkeleton extends StatelessWidget {
                   color: palette.border,
                   width: AppShape.hairline,
                 ),
-                borderRadius: BorderRadius.circular(AppShape.radiusGroup + 2),
+                borderRadius: BorderRadius.circular(TileBox.radius),
               ),
               child: Row(
                 children: [

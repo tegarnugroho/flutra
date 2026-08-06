@@ -22,6 +22,7 @@ class OutlinedActionButton extends StatefulWidget {
     this.hoverIcon,
     this.danger = false,
     this.warning = false,
+    this.dangerOnHover = false,
   });
 
   final IconData icon;
@@ -50,6 +51,11 @@ class OutlinedActionButton extends StatefulWidget {
   /// that fix something that is currently wrong. [danger] wins if both are set.
   final bool warning;
 
+  /// [danger] styling, but only under the pointer. For an action that is
+  /// recoverable yet worth a warning on approach — stopping a device — where a
+  /// list full of red buttons at rest would be noise.
+  final bool dangerOnHover;
+
   @override
   State<OutlinedActionButton> createState() => _OutlinedActionButtonState();
 }
@@ -69,7 +75,7 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
     // outline. Danger wins over warning: the louder signal is the safer one.
     final accent = !enabled
         ? null
-        : widget.danger
+        : widget.danger || (widget.dangerOnHover && _hovered)
         ? palette.statusError
         : widget.warning
         ? palette.statusWarn
@@ -80,9 +86,9 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
     final border = accent ?? palette.borderStrong;
     final fill = accent == null
         ? Colors.transparent
-        : widget.danger
-        ? palette.dangerSurface
-        : palette.warnSurface;
+        : widget.warning
+        ? palette.warnSurface
+        : palette.dangerSurface;
 
     Widget button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,

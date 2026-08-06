@@ -3,10 +3,11 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../../domain/entities/flutter_release.dart';
 import '../../../domain/entities/release_note.dart';
 import '../../common/outlined_action_button.dart';
+import '../../common/status_pill.dart';
+import '../../common/tile_box.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import 'release_notes_block.dart';
-import 'status_pill.dart';
 
 /// One release, as a tile that opens into its release notes.
 ///
@@ -61,68 +62,45 @@ class VersionTile extends StatefulWidget {
 }
 
 class _VersionTileState extends State<VersionTile> {
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final open = widget.expanded;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            color: _hovered && !open
-                ? palette.surfaceRaised.withValues(alpha: 0.5)
-                : Colors.transparent,
-            border: Border.all(
-              color: widget.highlighted
-                  ? palette.accent
-                  : open || _hovered
-                  ? palette.borderStrong
-                  : palette.border,
-              width: AppShape.hairline,
-            ),
-            borderRadius: BorderRadius.circular(AppShape.radiusGroup + 2),
-          ),
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(context, palette),
-                if (open) ...[
-                  Container(
-                    height: AppShape.hairline,
-                    color: palette.border,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      _dotSlot + _dotGap + 12,
-                      12,
-                      12,
-                      14,
-                    ),
-                    child: ReleaseNotesBlock(
-                      key: ValueKey(widget.release.hash),
-                      notes: widget.notes,
-                      loading: widget.notesLoading,
-                      onOpenChangelog: widget.onOpenGitHub,
-                      onOpenPullRequest: widget.onOpenPullRequest,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+    return TileBox(
+      onTap: widget.onToggle,
+      emphasised: open,
+      outlined: widget.highlighted,
+      // An open tile's fill would run behind the release notes, which are not
+      // part of the row the pointer is on.
+      hoverTint: !open,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(context, palette),
+            if (open) ...[
+              Container(height: AppShape.hairline, color: palette.border),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  _dotSlot + _dotGap + 12,
+                  12,
+                  12,
+                  14,
+                ),
+                child: ReleaseNotesBlock(
+                  key: ValueKey(widget.release.hash),
+                  notes: widget.notes,
+                  loading: widget.notesLoading,
+                  onOpenChangelog: widget.onOpenGitHub,
+                  onOpenPullRequest: widget.onOpenPullRequest,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

@@ -12,10 +12,16 @@ class PageScaffold extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.titleMeta,
     this.actions = const [],
   });
 
   final String title;
+
+  /// A muted count beside the title, e.g. `4 devices · 1 running`. For a page
+  /// whose subject is a list, where the size of it is worth knowing before
+  /// reading it.
+  final String? titleMeta;
 
   /// Right-aligned header actions, usually [OutlinedActionButton]s.
   final List<Widget> actions;
@@ -38,6 +44,17 @@ class PageScaffold extends StatelessWidget {
             child: Row(
               children: [
                 Text(title, style: AppTextStyles.of(context).pageTitle),
+                if (titleMeta != null) ...[
+                  const SizedBox(width: 10),
+                  Padding(
+                    // Sits on the title's baseline rather than its centre.
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      titleMeta!,
+                      style: AppTextStyles.of(context).caption,
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 for (var i = 0; i < actions.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),

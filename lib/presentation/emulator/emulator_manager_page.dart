@@ -9,19 +9,20 @@ import '../../application/emulator/emulator_events.dart';
 import '../../application/emulator/emulator_list_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
+import '../../core/platform/system_actions.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
 import '../../main.dart' show kEmulatorConsoleWindow;
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
-import '../common/grouped_list.dart';
 import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
+import '../common/tile_box.dart';
 import '../window/window_placement.dart';
 import '../common/skeleton/skeleton_layouts.dart';
 import '../window/task_windows.dart';
-import 'widgets/avd_row.dart';
+import 'widgets/avd_tile.dart';
 
 /// Emulator Manager: lists AVDs and exposes launch / lifecycle actions.
 ///
@@ -38,7 +39,6 @@ class EmulatorManagerPage extends StatefulWidget {
 class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
   late final EmulatorListCubit _cubit;
   StreamSubscription<void>? _eventsSub;
-
 
   @override
   void initState() {
@@ -116,17 +116,24 @@ class _EmulatorManagerView extends StatelessWidget {
         final cubit = context.read<EmulatorListCubit>();
         return PageScaffold(
           title: 'Virtual devices',
+          titleMeta: state.avds.isEmpty ? null : state.countLabel,
           actions: [
-            OutlinedActionButton(
-              icon: FluentIcons.add,
-              label: 'Create device',
-              onPressed: onCreate,
-            ),
             OutlinedActionButton(
               icon: FluentIcons.refresh,
               label: 'Refresh',
               busy: state.isLoading,
               onPressed: cubit.load,
+            ),
+            FilledButton(
+              onPressed: onCreate,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(FluentIcons.add, size: 12),
+                  SizedBox(width: 7),
+                  Text('Create device'),
+                ],
+              ),
             ),
           ],
           child: _body(context, state, cubit),
@@ -165,41 +172,37 @@ class _EmulatorManagerView extends StatelessWidget {
     if (state.avds.isEmpty) {
       return EmptyState(
         icon: FluentIcons.cell_phone,
-        title: 'No emulators yet',
-        message: 'Create your first Android Virtual Device to get started.',
+        title: 'No virtual devices',
+        message: 'Create an emulator to run and test your apps.',
         actionLabel: 'Create device',
         actionIcon: FluentIcons.add,
         onAction: onCreate,
       );
     }
-    return SingleChildScrollView(
+    return ListView.separated(
       padding: kPageBodyPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionLabel('Virtual devices', meta: '${state.avds.length}'),
-          const SizedBox(height: 8),
-          GroupedList(
-            children: [
-              for (final avd in state.avds)
-                AvdRow(
-                  avd: avd,
-                  busy: state.isBusy(avd.name),
-                  onLaunch: () => cubit.launch(avd),
-                  onColdBoot: () => cubit.launch(
-                    avd,
-                    options: const LaunchOptions(coldBoot: true),
-                  ),
-                  onStop: () => cubit.stop(avd),
-                  onWipe: () => _confirmWipe(context, cubit, avd),
-                  onDelete: () => _confirmDelete(context, cubit, avd),
-                  onDuplicate: () => _promptDuplicate(context, cubit, avd),
-                  onConsole: () => onConsole(avd),
-                ),
-            ],
-          ),
-        ],
-      ),
+      itemCount: state.avds.length,
+      separatorBuilder: (_, _) => const SizedBox(height: TileBox.gap),
+      itemBuilder: (context, i) {
+        final avd = state.avds[i];
+        final path = avd.path;
+        return AvdTile(
+          key: ValueKey(avd.name),
+          avd: avd,
+          task: state.taskFor(avd.name),
+          onStart: () => cubit.launch(avd),
+          onColdBoot: () =>
+              cubit.launch(avd, options: const LaunchOptions(coldBoot: true)),
+          onStop: () => cubit.stop(avd),
+          onWipe: () => _confirmWipe(context, cubit, avd),
+          onDelete: () => _confirmDelete(context, cubit, avd),
+          onDuplicate: () => _promptDuplicate(context, cubit, avd),
+          onConsole: () => onConsole(avd),
+          onShowInFolder: path == null
+              ? null
+              : () => getIt<SystemActions>().revealInFileManager(path),
+        );
+      },
     );
   }
 
@@ -210,10 +213,11 @@ class _EmulatorManagerView extends StatelessWidget {
   ) async {
     final ok = await showConfirmDialog(
       context,
-      title: 'Wipe "${avd.name}"?',
+      title: 'Wipe data',
       message:
-          'This clears all user data and snapshots. The emulator will '
-          'boot fresh next time. This cannot be undone.',
+          'All user data, installed apps and snapshots on "${avd.name}" will '
+          'be erased. The emulator boots fresh next time. This cannot be '
+          'undone.',
       confirmLabel: 'Wipe data',
     );
     if (ok) cubit.wipe(avd);
@@ -226,9 +230,11 @@ class _EmulatorManagerView extends StatelessWidget {
   ) async {
     final ok = await showConfirmDialog(
       context,
-      title: 'Delete "${avd.name}"?',
-      message: 'The AVD and all its data will be permanently removed.',
-      confirmLabel: 'Delete',
+      title: 'Delete device',
+      message:
+          'This removes the AVD "${avd.name}" and all of its data from disk. '
+          'This cannot be undone.',
+      confirmLabel: 'Delete device',
     );
     if (ok) cubit.delete(avd);
   }

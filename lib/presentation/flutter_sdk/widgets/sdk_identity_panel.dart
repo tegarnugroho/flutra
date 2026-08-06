@@ -8,7 +8,7 @@ import '../../common/outlined_action_button.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import 'flutter_glyph.dart';
-import 'status_pill.dart';
+import '../../common/status_pill.dart';
 
 /// The panel that answers "which Flutter am I on, and can my shell find it".
 ///
