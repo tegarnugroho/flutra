@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:window_manager/window_manager.dart';
@@ -53,8 +54,13 @@ class _TaskWindowHostState extends State<TaskWindowHost> {
   late String _route = widget.initialRoute;
   late Map<String, dynamic> _args = widget.initialArgs;
 
-  /// Bumped on every navigation so the fade replays for the new content.
-  int _generation = 0;
+  /// False until the window is actually on screen.
+  ///
+  /// The content is laid out either way — only its opacity waits. Fading a
+  /// window nobody can see yet is how the second open came out half
+  /// transparent: the fade ran while it was hidden and was already spent, or
+  /// half spent, by the time it appeared.
+  bool _revealed = false;
 
   @override
   void initState() {
@@ -97,30 +103,69 @@ class _TaskWindowHostState extends State<TaskWindowHost> {
     final route = args['businessId'] as String?;
     if (route == null || route == kStandbyWindow) return;
 
-    // Size and position are applied while the window is still hidden, so the
-    // first frame of the new content is already in its final place.
-    await applyWindowChrome(route, args);
+    // Content first, hidden and transparent, so the resize below has something
+    // of the right shape to lay out against.
     if (!mounted) return;
     setState(() {
       _route = route;
       _args = args;
-      _generation++;
+      _revealed = false;
     });
-    _revealAfterFrame();
+
+    // Size and position are applied while the window is still hidden, so the
+    // first visible frame is already in its final place.
+    await applyWindowChrome(route, args);
+    if (!mounted) return;
+
+    // A warm window is already laid out at whatever size it booted with, so
+    // this resize happens *live* — and it takes a frame or two to reach the
+    // surface. Showing before it lands puts the old, differently-sized surface
+    // on screen: the second open rendered cropped and half-transparent.
+    //
+    // A window created for the job never hits this, because it is sized before
+    // its first frame exists.
+    await _settleLayout();
+    if (!mounted) return;
+    await _reveal();
   }
 
-  /// Shows the window once the frame after this one has rendered.
+  /// Waits for the view size to stop changing, so a resize is fully through
+  /// layout and paint before anything is shown.
   ///
-  /// Ordering, not a timer: the callback fires when the content is actually on
-  /// the surface, so there is no blank window and no guessed delay.
+  /// Waits on frames, not on a clock: it ends as soon as two consecutive frames
+  /// agree. The cap is a ceiling for the case where they never do, not a delay
+  /// anyone pays in the normal path.
+  Future<void> _settleLayout() async {
+    const maxFrames = 12;
+    Size? previous;
+    var stable = 0;
+    for (var frame = 0; frame < maxFrames; frame++) {
+      await SchedulerBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final size = View.maybeOf(context)?.physicalSize;
+      if (size == previous) {
+        if (++stable >= 2) return;
+      } else {
+        stable = 0;
+        previous = size;
+      }
+    }
+  }
+
+  /// Shows the window once its content has rendered, then fades that content
+  /// in — in that order, so the fade is never spent on a hidden window.
+  Future<void> _reveal() async {
+    await SchedulerBinding.instance.endOfFrame;
+    try {
+      await windowManager.show();
+    } on MissingPluginException {
+      await widget.controller.show();
+    } catch (_) {}
+    if (mounted) setState(() => _revealed = true);
+  }
+
   void _revealAfterFrame() {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await windowManager.show();
-      } on MissingPluginException {
-        await widget.controller.show();
-      } catch (_) {}
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
   }
 
   @override
@@ -132,8 +177,12 @@ class _TaskWindowHostState extends State<TaskWindowHost> {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      builder: (context, child) => _FadeIn(
-        key: ValueKey(_generation),
+      // Opacity only, and only once the window is up. Laid out throughout, so
+      // the first visible frame is the finished one.
+      builder: (context, child) => AnimatedOpacity(
+        opacity: _revealed ? 1 : 0,
+        duration: kWindowFadeIn,
+        curve: Curves.easeOut,
         child: child ?? const SizedBox.shrink(),
       ),
       home: _content(dark),
@@ -162,34 +211,4 @@ class _TaskWindowHostState extends State<TaskWindowHost> {
         return const ScaffoldPage(content: SizedBox.expand());
     }
   }
-}
-
-/// Fades its child in once, on mount.
-class _FadeIn extends StatefulWidget {
-  const _FadeIn({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  State<_FadeIn> createState() => _FadeInState();
-}
-
-class _FadeInState extends State<_FadeIn>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: kWindowFadeIn,
-  )..forward();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-        child: widget.child,
-      );
 }

@@ -8,6 +8,20 @@ import 'package:logging/logging.dart';
 
 import 'task_window_routes.dart';
 
+/// Whether a window is kept warm at all.
+///
+/// Off. The pool works by reusing one engine for whatever window is asked for
+/// next, and reusing an engine means resizing and re-theming a window that is
+/// already laid out — which is where the second open came out cropped and
+/// half-transparent. The two causes found are fixed (see [TaskWindowHost]), but
+/// none of it can be exercised in a test: multi-window needs a real desktop
+/// session.
+///
+/// So it ships off. Every open takes the direct path, which is what the app did
+/// before and is known to work. Flip this to true to try the warm path, and
+/// watch the `WindowOpen` trace to see which route an open took.
+const bool kWarmWindowPoolEnabled = false;
+
 /// How long after the main window settles the first warm window is created.
 ///
 /// Not at startup: a second engine booting while the app is still laying out
@@ -39,13 +53,14 @@ class WarmWindowPool {
 
   /// Schedules the first warm-up, once the app has something on screen.
   void scheduleWarmUp({Duration delay = kWarmUpDelay}) {
+    if (!kWarmWindowPoolEnabled) return;
     _scheduled?.cancel();
     _scheduled = Timer(delay, () => unawaited(warmUp()));
   }
 
   /// Creates the standby window, unless one is already up or on its way.
   Future<void> warmUp() {
-    if (_warm != null) return Future.value();
+    if (!kWarmWindowPoolEnabled || _warm != null) return Future.value();
     return _warmingUp ??= _create().whenComplete(() => _warmingUp = null);
   }
 
@@ -77,6 +92,7 @@ class WarmWindowPool {
   /// The controller comes back because callers track their windows by id: the
   /// About window re-shows the one already open instead of making a second.
   Future<WindowController?> acquire(Map<String, dynamic> args) async {
+    if (!kWarmWindowPoolEnabled) return null;
     final controller = _warm;
     if (controller == null) {
       unawaited(warmUp());
