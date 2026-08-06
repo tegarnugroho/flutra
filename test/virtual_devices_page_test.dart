@@ -5,14 +5,14 @@ import 'package:flutra/presentation/theme/app_theme.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _host(Widget child) => FluentApp(
+Widget _host(Widget child, {double width = 900}) => FluentApp(
   debugShowCheckedModeBanner: false,
   theme: AppTheme.light(),
   darkTheme: AppTheme.dark(),
   themeMode: ThemeMode.dark,
   home: ScaffoldPage(
     padding: EdgeInsets.zero,
-    content: SizedBox(width: 900, child: child),
+    content: SizedBox(width: width, child: child),
   ),
 );
 
@@ -134,6 +134,29 @@ void main() {
       await tester.pumpWidget(host(reducedMotion: false));
       await tester.pump();
       expect(tester.binding.hasScheduledFrame, isTrue);
+    });
+
+    testWidgets('a narrow window ellipsizes the meta line, never overflows it',
+        (tester) async {
+      for (final width in const [720.0, 560.0, 420.0, 360.0]) {
+        await tester.pumpWidget(
+          _host(
+            _tile(
+              const Avd(
+                name: 'Pixel_Tablet_API_34_extended_profile',
+                deviceName: 'Pixel Tablet (landscape, extended)',
+                deviceId: 'pixel_tablet',
+                androidVersion: '14.0',
+                apiLevel: 34,
+                tag: 'google_apis_playstore',
+                abi: 'arm64-v8a',
+              ),
+            ),
+            width: width,
+          ),
+        );
+        expect(tester.takeException(), isNull, reason: 'at ${width}px');
+      }
     });
 
     testWidgets('the icon square follows the device family', (tester) async {

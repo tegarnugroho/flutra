@@ -2,20 +2,34 @@ part of 'device_manager_cubit.dart';
 
 enum DeviceManagerStatus { initial, loading, ready, failure }
 
+/// The action a device is in the middle of, which is what its button says
+/// while it runs.
+enum DeviceTask {
+  capturing,
+  rebooting,
+  disconnecting;
+
+  String get label => switch (this) {
+    DeviceTask.capturing => 'Capturing…',
+    DeviceTask.rebooting => 'Rebooting…',
+    DeviceTask.disconnecting => 'Disconnecting…',
+  };
+}
+
 /// Immutable state for the Device Manager.
 class DeviceManagerState extends Equatable {
   const DeviceManagerState({
     this.status = DeviceManagerStatus.initial,
     this.devices = const [],
-    this.busySerials = const {},
+    this.tasks = const {},
     this.errorMessage,
   });
 
   final DeviceManagerStatus status;
   final List<Device> devices;
 
-  /// Serials with an in-flight action, for per-row spinners.
-  final Set<String> busySerials;
+  /// The in-flight action per serial, for spinners and labels.
+  final Map<String, DeviceTask> tasks;
 
   final String? errorMessage;
 
@@ -31,24 +45,35 @@ class DeviceManagerState extends Equatable {
       devices.isEmpty &&
       (status == DeviceManagerStatus.initial ||
           status == DeviceManagerStatus.loading);
-  bool isBusy(String serial) => busySerials.contains(serial);
+  bool isBusy(String serial) => tasks.containsKey(serial);
+
+  DeviceTask? taskFor(String serial) => tasks[serial];
+
   int get onlineCount => devices.where((d) => d.state.isOnline).length;
+
+  /// `3 devices · 1 offline`. Online is the normal state, so it is the ones
+  /// that are *not* usable that the count calls out.
+  String get countLabel {
+    final total = '${devices.length} device${devices.length == 1 ? '' : 's'}';
+    final offline = devices.length - onlineCount;
+    return offline == 0 ? total : '$total · $offline offline';
+  }
 
   DeviceManagerState copyWith({
     DeviceManagerStatus? status,
     List<Device>? devices,
-    Set<String>? busySerials,
+    Map<String, DeviceTask>? tasks,
     String? errorMessage,
     bool clearError = false,
   }) {
     return DeviceManagerState(
       status: status ?? this.status,
       devices: devices ?? this.devices,
-      busySerials: busySerials ?? this.busySerials,
+      tasks: tasks ?? this.tasks,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
   @override
-  List<Object?> get props => [status, devices, busySerials, errorMessage];
+  List<Object?> get props => [status, devices, tasks, errorMessage];
 }

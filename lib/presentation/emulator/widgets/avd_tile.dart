@@ -342,42 +342,46 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextStyles.of(context);
+    final mono = text.monoMeta.copyWith(fontSize: 11);
     final profile = avd.deviceName ?? avd.deviceId;
     final platform = _platform(avd);
     final image = avd.displayImageType;
 
     return Row(
       children: [
+        // Every segment is flexible so a narrow window ellipsizes them rather
+        // than overflowing the tile; the short ones never claim the room.
         if (profile != null) ...[
-          Flexible(
-            child: Text(
-              profile,
-              style: text.caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Flexible(child: _text(profile, text.caption)),
           if (platform != null || image != null || avd.abi != null)
             _Separator(style: text.caption),
         ],
         if (platform != null) ...[
-          Text(platform, style: text.monoMeta.copyWith(fontSize: 11)),
+          Flexible(child: _text(platform, mono)),
           if (image != null || avd.abi != null) _Separator(style: text.caption),
         ],
         if (image != null) ...[
           // The raw tag is what sdkmanager package paths use, so it stays one
           // hover away from the label that replaced it.
-          Tooltip(
-            message: 'System image tag: ${avd.tag}',
-            child: Text(image, style: text.monoMeta.copyWith(fontSize: 11)),
+          Flexible(
+            child: Tooltip(
+              message: 'System image tag: ${avd.tag}',
+              child: _text(image, mono),
+            ),
           ),
           if (avd.abi != null) _Separator(style: text.caption),
         ],
-        if (avd.abi != null)
-          Text(avd.abi!, style: text.monoMeta.copyWith(fontSize: 11)),
+        if (avd.abi != null) Flexible(child: _text(avd.abi!, mono)),
       ],
     );
   }
+
+  static Widget _text(String value, TextStyle style) => Text(
+    value,
+    style: style,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
 
   /// `Android 14 (API 34)`, or whichever half of it the AVD reported.
   static String? _platform(Avd avd) {

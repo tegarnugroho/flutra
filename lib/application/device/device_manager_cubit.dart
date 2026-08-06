@@ -61,11 +61,17 @@ class DeviceManagerCubit extends Cubit<DeviceManagerState> {
     return list;
   }
 
-  Future<void> reboot(Device device, RebootTarget target) =>
-      _run(device.serial, () => _repository.reboot(device.serial, target));
+  Future<void> reboot(Device device, RebootTarget target) => _run(
+    device.serial,
+    DeviceTask.rebooting,
+    () => _repository.reboot(device.serial, target),
+  );
 
-  Future<void> disconnect(Device device) =>
-      _run(device.serial, () => _repository.disconnect(device));
+  Future<void> disconnect(Device device) => _run(
+    device.serial,
+    DeviceTask.disconnecting,
+    () => _repository.disconnect(device),
+  );
 
   Future<void> openShell(Device device) =>
       _fireAndForget(() => _repository.openShell(device.serial));
@@ -75,14 +81,15 @@ class DeviceManagerCubit extends Cubit<DeviceManagerState> {
 
   /// Captures a screenshot; returns the saved path, or null on failure.
   Future<String?> screenshot(Device device) async {
-    _busy(device.serial, true);
+    _task(device.serial, DeviceTask.capturing);
     try {
       return await _repository.screenshot(device.serial);
     } on Failure catch (e) {
-      _reportError('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
+      _reportError(
+          '${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
       return null;
     } finally {
-      _busy(device.serial, false);
+      _task(device.serial, null);
     }
   }
 
@@ -92,8 +99,12 @@ class DeviceManagerCubit extends Cubit<DeviceManagerState> {
 
   // ---- helpers -------------------------------------------------------------
 
-  Future<void> _run(String serial, Future<void> Function() action) async {
-    _busy(serial, true);
+  Future<void> _run(
+    String serial,
+    DeviceTask task,
+    Future<void> Function() action,
+  ) async {
+    _task(serial, task);
     try {
       await action();
       await load();
@@ -103,7 +114,7 @@ class DeviceManagerCubit extends Cubit<DeviceManagerState> {
     } catch (e) {
       _reportError('$e');
     } finally {
-      _busy(serial, false);
+      _task(serial, null);
     }
   }
 
@@ -117,11 +128,15 @@ class DeviceManagerCubit extends Cubit<DeviceManagerState> {
     }
   }
 
-  void _busy(String serial, bool busy) {
+  void _task(String serial, DeviceTask? task) {
     if (isClosed) return;
-    final next = Set<String>.from(state.busySerials);
-    busy ? next.add(serial) : next.remove(serial);
-    emit(state.copyWith(busySerials: next));
+    final next = Map<String, DeviceTask>.from(state.tasks);
+    if (task == null) {
+      next.remove(serial);
+    } else {
+      next[serial] = task;
+    }
+    emit(state.copyWith(tasks: next));
   }
 
   void _reportError(String message) {

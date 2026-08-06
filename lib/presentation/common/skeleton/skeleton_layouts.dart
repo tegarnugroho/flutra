@@ -64,12 +64,12 @@ class _StatusLineSkeleton extends StatelessWidget {
 
 /// One row inside a skeleton [GroupedList], padded like [GroupedListRow].
 class _SkeletonRow extends StatelessWidget {
-  const _SkeletonRow({required this.children, this.height = 18});
+  const _SkeletonRow({required this.children});
 
   final List<Widget> children;
 
   /// Height of the row's content band, excluding the 9px vertical padding.
-  final double height;
+  static const height = 18.0;
 
   @override
   Widget build(BuildContext context) {
@@ -333,41 +333,50 @@ class EmulatorListSkeleton extends StatelessWidget {
 // Devices
 // ---------------------------------------------------------------------------
 
-/// Three connected-device rows: title over a second meta line, trailing pill.
+/// Three connected-device tiles: icon square, name over a meta line, actions.
 class DeviceListSkeleton extends StatelessWidget {
   const DeviceListSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return _SkeletonPage(
       children: [
-        const _SectionLabelSkeleton(width: 86),
-        const SizedBox(height: 8),
-        _SkeletonGroup(
-          rows: [
-            for (final width in const [132.0, 168.0, 110.0])
-              _SkeletonRow(
-                height: 30,
+        for (final width in const [132.0, 168.0, 110.0])
+          Padding(
+            padding: const EdgeInsets.only(bottom: TileBox.gap),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: palette.border,
+                  width: AppShape.hairline,
+                ),
+                borderRadius: BorderRadius.circular(TileBox.radius),
+              ),
+              child: Row(
                 children: [
-                  const SkeletonCircle(size: 6),
-                  const SizedBox(width: 10),
-                  const SkeletonCircle(size: 16),
-                  const SizedBox(width: 10),
+                  const SkeletonBox(width: 32, height: 32),
+                  const SizedBox(width: 12),
                   Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SkeletonLine(width: width, height: 12),
+                      SkeletonLine(width: width, height: 13),
                       const SizedBox(height: 5),
-                      SkeletonLine(width: width * 0.7, height: 10),
+                      SkeletonLine(width: width + 96, height: 11),
                     ],
                   ),
                   const Spacer(),
-                  const SkeletonBox(width: 62, height: 20),
+                  const SkeletonBox(width: 62, height: 22),
+                  const SizedBox(width: 6),
+                  const SkeletonBox(width: 30, height: 22),
                 ],
               ),
-          ],
-        ),
+            ),
+          ),
       ],
     );
   }

@@ -7,12 +7,12 @@ import '../../domain/entities/device.dart';
 import '../common/command_progress_dialog.dart';
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
-import '../common/grouped_list.dart';
 import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
-import 'widgets/device_row.dart';
+import '../common/tile_box.dart';
+import 'widgets/device_tile.dart';
 
 /// Device Manager: lists connected devices/emulators and their actions.
 class DeviceManagerPage extends StatelessWidget {
@@ -56,6 +56,7 @@ class _DeviceManagerView extends StatelessWidget {
         final cubit = context.read<DeviceManagerCubit>();
         return PageScaffold(
           title: 'Devices',
+          titleMeta: state.devices.isEmpty ? null : state.countLabel,
           actions: [
             OutlinedActionButton(
               icon: FluentIcons.refresh,
@@ -108,33 +109,26 @@ class _DeviceManagerView extends StatelessWidget {
         onAction: cubit.load,
       );
     }
-    return SingleChildScrollView(
+    return ListView.separated(
       padding: kPageBodyPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionLabel('Connected', meta: '${state.devices.length}'),
-          const SizedBox(height: 8),
-          GroupedList(
-            children: [
-              for (final device in state.devices)
-                DeviceRow(
-                  device: device,
-                  busy: state.isBusy(device.serial),
-                  actions: DeviceActions(
-                    onShell: () => cubit.openShell(device),
-                    onLogcat: () => cubit.openLogcat(device),
-                    onScreenshot: () => _screenshot(context, cubit, device),
-                    onInstallApk: () => _installApk(context, cubit, device),
-                    onReboot: (target) =>
-                        _reboot(context, cubit, device, target),
-                    onDisconnect: () => _disconnect(context, cubit, device),
-                  ),
-                ),
-            ],
+      itemCount: state.devices.length,
+      separatorBuilder: (_, _) => const SizedBox(height: TileBox.gap),
+      itemBuilder: (context, i) {
+        final device = state.devices[i];
+        return DeviceTile(
+          key: ValueKey(device.serial),
+          device: device,
+          task: state.taskFor(device.serial),
+          actions: DeviceActions(
+            onShell: () => cubit.openShell(device),
+            onLogcat: () => cubit.openLogcat(device),
+            onScreenshot: () => _screenshot(context, cubit, device),
+            onInstallApk: () => _installApk(context, cubit, device),
+            onReboot: (target) => _reboot(context, cubit, device, target),
+            onDisconnect: () => _disconnect(context, cubit, device),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
