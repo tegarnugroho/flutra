@@ -93,11 +93,19 @@ class FlutterSdkState extends Equatable {
       ? headHash
       : headHash!.substring(0, 7);
 
+  /// Whether HEAD can be compared with the channel tip at all.
+  ///
+  /// False for a checkout with no HEAD to read, and for a channel the release
+  /// index publishes no `current_release` for — master, which rolls. Neither
+  /// can be called up to date *or* behind.
+  bool get latestKnown => headHash != null && latestRelease != null;
+
   /// True when the active channel's newest release differs from HEAD.
-  bool get updateAvailable =>
-      headHash != null &&
-      latestRelease != null &&
-      latestRelease!.hash != headHash;
+  bool get updateAvailable => latestKnown && latestRelease!.hash != headHash;
+
+  /// True when the SDK is provably on the channel tip, so an upgrade would
+  /// fetch nothing.
+  bool get isUpToDate => latestKnown && !updateAvailable;
 
   FlutterSdkState copyWith({
     FlutterSdkStatus? status,

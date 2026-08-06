@@ -359,6 +359,43 @@ void main() {
     });
   });
 
+  group('up-to-date state', () {
+    final latest = _release('3.44.8', hash: 'head');
+
+    test('HEAD sitting on the channel tip has nothing to upgrade to', () {
+      const state = FlutterSdkState(headHash: 'head');
+      final onTip = state.copyWith(latestRelease: latest);
+
+      expect(onTip.latestKnown, isTrue);
+      expect(onTip.updateAvailable, isFalse);
+      expect(onTip.isUpToDate, isTrue);
+    });
+
+    test('HEAD behind the tip is an update, not an up-to-date SDK', () {
+      const state = FlutterSdkState(headHash: 'older');
+      final behind = state.copyWith(latestRelease: latest);
+
+      expect(behind.updateAvailable, isTrue);
+      expect(behind.isUpToDate, isFalse);
+    });
+
+    test('a channel with no published tip is neither — master rolls', () {
+      const rolling = FlutterSdkState(headHash: 'head');
+
+      expect(rolling.latestKnown, isFalse);
+      expect(rolling.updateAvailable, isFalse);
+      expect(rolling.isUpToDate, isFalse);
+    });
+
+    test('a checkout with no HEAD is neither either', () {
+      const state = FlutterSdkState();
+      final noHead = state.copyWith(latestRelease: latest);
+
+      expect(noHead.latestKnown, isFalse);
+      expect(noHead.isUpToDate, isFalse);
+    });
+  });
+
   group('dartMinor', () {
     test('keeps the minor, drops the patch', () {
       expect(dartMinor(_release('3.44.1', dart: '3.12.1')), '3.12');

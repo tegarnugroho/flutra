@@ -274,8 +274,7 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
               SdkIdentityPanel(
                 info: info,
                 updateAvailable: state.updateAvailable,
-                latestKnown:
-                    state.headHash != null && state.latestRelease != null,
+                latestKnown: state.latestKnown,
                 latestVersion: state.latestRelease?.displayVersion,
                 pathStatus: state.pathStatus,
                 onAddToPath: info.sdkPath == null
@@ -988,21 +987,28 @@ class _HeaderActionsState extends State<_HeaderActions> {
           onPressed: () => cubit.load(forceRefresh: true),
         ),
         const SizedBox(width: 8),
-        FilledButton(
-          onPressed: state.info == null
-              ? null
-              : () => _FlutterSdkViewState._run(
-                  context,
-                  'Upgrading Flutter (${state.info!.channel})',
-                  (stash) => cubit.upgrade(stashLocalChanges: stash),
-                ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(FluentIcons.up, size: 12),
-              SizedBox(width: 7),
-              Text('Upgrade'),
-            ],
+        Tooltip(
+          message: state.isUpToDate
+              // Upgrade would fetch the commit the SDK is already on.
+              ? 'Already on the newest ${state.info?.channel ?? ''} build'
+                    .trim()
+              : 'Fetch the newest build on this channel',
+          child: FilledButton(
+            onPressed: state.info == null || state.isUpToDate
+                ? null
+                : () => _FlutterSdkViewState._run(
+                    context,
+                    'Upgrading Flutter (${state.info!.channel})',
+                    (stash) => cubit.upgrade(stashLocalChanges: stash),
+                  ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(FluentIcons.up, size: 12),
+                SizedBox(width: 7),
+                Text('Upgrade'),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 8),
