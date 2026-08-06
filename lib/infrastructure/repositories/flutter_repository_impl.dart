@@ -10,6 +10,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
+import '../../domain/entities/jdk.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../core/platform/env_persistence.dart';
@@ -882,6 +883,39 @@ class FlutterRepositoryImpl implements FlutterRepository {
   Future<void> openReleasePage(String version) async {
     await _links.open(
       'https://github.com/flutter/flutter/releases/tag/$version',
+    );
+  }
+
+  @override
+  Future<String?> configuredJdkDir() async {
+    try {
+      final result = await _runner.run(
+        _flutter,
+        ['config', '--list'],
+        timeout: const Duration(minutes: 1),
+      );
+      if (!result.isSuccess) return null;
+      return parseFlutterJdkDir(result.combinedOutput);
+    } on Failure {
+      // No Flutter, or it would not answer: the page still lists JDKs, it just
+      // cannot say which one Flutter was told to use.
+      return null;
+    }
+  }
+
+  @override
+  Future<void> setJdkDir(String path) async {
+    final result = await _runner.run(
+      _flutter,
+      ['config', '--jdk-dir=$path'],
+      timeout: const Duration(minutes: 2),
+    );
+    if (result.isSuccess) return;
+    throw ProcessFailure(
+      'Flutter refused to set the JDK directory.',
+      exitCode: result.exitCode,
+      output: result.combinedOutput.trim(),
+      suggestion: 'Check that "$path" is a JDK root, not its bin folder.',
     );
   }
 

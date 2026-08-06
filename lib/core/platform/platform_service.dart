@@ -163,14 +163,22 @@ class WindowsPlatformService implements PlatformService {
     ];
   }
 
+  /// Read from `%ProgramFiles%` rather than hardcoded: an install on a machine
+  /// whose Program Files sits on another drive is invisible otherwise.
   @override
-  List<String> get jdkSearchPaths => const [
-        r'C:\Program Files\Microsoft',
-        r'C:\Program Files\Eclipse Adoptium',
-        r'C:\Program Files\Java',
-        r'C:\Program Files\Amazon Corretto',
-        r'C:\Program Files\Zulu',
-      ];
+  List<String> get jdkSearchPaths {
+    final programFiles = environment['ProgramFiles'] ?? r'C:\Program Files';
+    return [
+      for (final vendor in const [
+        'Microsoft',
+        'Eclipse Adoptium',
+        'Java',
+        'Amazon Corretto',
+        'Zulu',
+      ])
+        _win.join(programFiles, vendor),
+    ];
+  }
 
   @override
   List<String> get browserCandidates {

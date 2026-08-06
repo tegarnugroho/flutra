@@ -15,6 +15,7 @@ class AppSettings extends Equatable {
     this.windowY,
     this.windowWidth,
     this.windowHeight,
+    this.manualJdkPaths = const [],
     this.doctorTimings = const {},
   });
 
@@ -46,6 +47,12 @@ class AppSettings extends Equatable {
   final double? windowWidth;
   final double? windowHeight;
 
+  /// JDK roots the user added by hand on the Java screen.
+  ///
+  /// Kept because nothing on disk records them: a JDK unzipped somewhere no
+  /// installer knows about would vanish from the list on every restart.
+  final List<String> manualJdkPaths;
+
   /// How long each `flutter doctor` check took on the last successful run, in
   /// milliseconds, keyed by check name. Drives the time-weighted progress bar.
   final Map<String, int> doctorTimings;
@@ -58,6 +65,14 @@ class AppSettings extends Equatable {
 
   static String? _str(Object? v) =>
       (v is String && v.trim().isNotEmpty) ? v : null;
+
+  static List<String> _strings(Object? v) {
+    if (v is! List) return const [];
+    return [
+      for (final entry in v)
+        if (entry is String && entry.trim().isNotEmpty) entry,
+    ];
+  }
 
   static Map<String, int> _timings(Object? v) {
     if (v is! Map) return const {};
@@ -85,6 +100,7 @@ class AppSettings extends Equatable {
       windowY: (json['windowY'] as num?)?.toDouble(),
       windowWidth: (json['windowWidth'] as num?)?.toDouble(),
       windowHeight: (json['windowHeight'] as num?)?.toDouble(),
+      manualJdkPaths: _strings(json['manualJdkPaths']),
       doctorTimings: _timings(json['doctorTimings']),
     );
   }
@@ -105,6 +121,7 @@ class AppSettings extends Equatable {
         'windowY': windowY,
         'windowWidth': windowWidth,
         'windowHeight': windowHeight,
+        'manualJdkPaths': manualJdkPaths,
         'doctorTimings': doctorTimings,
       };
 
@@ -122,6 +139,7 @@ class AppSettings extends Equatable {
     double? windowY,
     double? windowWidth,
     double? windowHeight,
+    List<String>? manualJdkPaths,
     Map<String, int>? doctorTimings,
   }) {
     return AppSettings(
@@ -140,6 +158,7 @@ class AppSettings extends Equatable {
       windowY: windowY ?? this.windowY,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
+      manualJdkPaths: manualJdkPaths ?? this.manualJdkPaths,
       doctorTimings: doctorTimings ?? this.doctorTimings,
     );
   }
@@ -157,6 +176,7 @@ class AppSettings extends Equatable {
         windowY,
         windowWidth,
         windowHeight,
+        manualJdkPaths,
         doctorTimings,
       ];
 }

@@ -75,6 +75,10 @@ class SettingsCubit extends Cubit<AppSettings> {
   Future<void> setSidebarCollapsed(bool value) =>
       _persist(state.copyWith(sidebarCollapsed: value));
 
+  /// Remembers a JDK the user picked by hand, or forgets it again.
+  Future<void> setManualJdkPaths(List<String> paths) =>
+      _persist(state.copyWith(manualJdkPaths: List.unmodifiable(paths)));
+
   Future<void> setDeveloperMode(bool value) =>
       _persist(state.copyWith(developerMode: value));
 

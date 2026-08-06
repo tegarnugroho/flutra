@@ -20,6 +20,7 @@ import 'package:flutra/application/emulator/emulator_list_cubit.dart' as _i497;
 import 'package:flutra/application/flutter_sdk/flutter_sdk_cubit.dart' as _i357;
 import 'package:flutra/application/flutter_sdk/flutter_update_cubit.dart'
     as _i781;
+import 'package:flutra/application/java/java_cubit.dart' as _i276;
 import 'package:flutra/application/log/logcat_devices_cubit.dart' as _i194;
 import 'package:flutra/application/sdk/reclaim_cubit.dart' as _i963;
 import 'package:flutra/application/sdk/sdk_manager_cubit.dart' as _i276;
@@ -44,6 +45,7 @@ import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
     as _i846;
 import 'package:flutra/infrastructure/flutter/flutter_update_service.dart'
     as _i483;
+import 'package:flutra/infrastructure/java/jdk_detection_service.dart' as _i324;
 import 'package:flutra/infrastructure/logging/dev_log_service.dart' as _i730;
 import 'package:flutra/infrastructure/repositories/device_repository_impl.dart'
     as _i580;
@@ -115,6 +117,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i1018.DoctorRunner>(
       () => _i1018.DoctorRunner(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+      ),
+    );
+    gh.lazySingleton<_i324.JdkDetectionService>(
+      () => _i324.JdkDetectionService(
         gh<_i989.CommandRunner>(),
         gh<_i427.PlatformService>(),
       ),
@@ -302,6 +310,14 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i151.FlutterRepository>(),
         gh<_i427.PlatformService>(),
         gh<_i964.SystemActions>(),
+      ),
+    );
+    gh.factory<_i276.JavaCubit>(
+      () => _i276.JavaCubit(
+        gh<_i324.JdkDetectionService>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i964.SystemActions>(),
+        gh<_i520.SettingsCubit>(),
       ),
     );
     gh.factory<_i698.DoctorFixCubit>(

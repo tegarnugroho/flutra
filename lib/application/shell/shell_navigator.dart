@@ -12,6 +12,7 @@ enum ShellDestination {
   sdkManager,
   virtualDevices,
   licenses,
+  java,
   logcat,
   updates,
   flutterSdk,

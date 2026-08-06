@@ -94,6 +94,14 @@ abstract class FlutterRepository {
   /// inherited, or the user-level one a new terminal would see.
   Future<bool> isSdkOnPath(String sdkDir);
 
+  /// The JDK `flutter config --jdk-dir` points at, or null when it is unset and
+  /// Flutter falls back to the system default.
+  Future<String?> configuredJdkDir();
+
+  /// Points `flutter config --jdk-dir` at [path]. Throws a [Failure] when the
+  /// command fails.
+  Future<void> setJdkDir(String path);
+
   /// Permanently deletes the Flutter SDK at [sdkPath].
   Future<void> uninstallSdk(String sdkPath);
 }

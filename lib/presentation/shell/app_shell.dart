@@ -23,6 +23,7 @@ import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
 import '../emulator/emulator_manager_page.dart';
 import '../flutter_sdk/flutter_sdk_page.dart';
+import '../java/java_page.dart';
 import '../logcat/logcat_viewer_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
@@ -106,6 +107,12 @@ class _AppShellState extends State<AppShell> {
       icon: sys.FluentIcons.document_ribbon_24_regular,
       label: 'Licenses',
       body: LicenseManagerPage(),
+    ),
+    _Destination(
+      id: ShellDestination.java,
+      icon: SimpleIcons.openjdk,
+      label: 'Java',
+      body: JavaPage(),
     ),
     _Destination(
       id: ShellDestination.logcat,

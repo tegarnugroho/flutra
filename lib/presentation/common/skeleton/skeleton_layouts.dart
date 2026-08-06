@@ -361,6 +361,85 @@ class EmulatorListSkeleton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Java
+// ---------------------------------------------------------------------------
+
+/// The identity panel over three JDK tiles.
+///
+/// The scan reads the registry and can shell out to `java -version`, so this is
+/// on screen for a moment on most machines rather than a single frame.
+class JavaSkeleton extends StatelessWidget {
+  const JavaSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return _SkeletonPage(
+      children: [
+        GroupedBox(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              SkeletonBox(width: 40, height: 40, radius: 8),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonLine(width: 104, height: 20),
+                    SizedBox(height: 12),
+                    SkeletonLine(width: 300, height: 12),
+                  ],
+                ),
+              ),
+              SizedBox(width: 16),
+              SkeletonBox(width: 124, height: 26),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        for (final width in const [88.0, 104.0, 96.0])
+          Padding(
+            padding: const EdgeInsets.only(bottom: TileBox.gap),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: palette.border,
+                  width: AppShape.hairline,
+                ),
+                borderRadius: BorderRadius.circular(TileBox.radius),
+              ),
+              child: Row(
+                children: [
+                  const SkeletonBox(width: 32, height: 32),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonLine(width: width, height: 13),
+                      const SizedBox(height: 5),
+                      SkeletonLine(width: width + 150, height: 11),
+                    ],
+                  ),
+                  const Spacer(),
+                  const SkeletonBox(width: 58, height: 18),
+                  const SizedBox(width: 10),
+                  const SkeletonBox(width: 96, height: 22),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Devices
 // ---------------------------------------------------------------------------
 
