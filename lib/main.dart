@@ -14,9 +14,23 @@ import 'infrastructure/logging/dev_log_service.dart';
 import 'infrastructure/settings/settings_service.dart';
 import 'infrastructure/trash/trash_service.dart';
 import 'presentation/app.dart';
-import 'presentation/window/task_window_host.dart';
-import 'presentation/window/task_window_routes.dart';
-import 'presentation/window/warm_window_pool.dart';
+import 'presentation/window/about_window.dart';
+import 'presentation/window/create_emulator_window.dart';
+import 'presentation/window/dev_logs_window.dart';
+import 'presentation/window/emulator_console_window.dart';
+import 'presentation/window/window_placement.dart';
+
+/// Business id marking the standalone Create-Emulator window.
+const String kCreateEmulatorWindow = 'createEmulator';
+
+/// Business id marking the standalone Emulator-Console window.
+const String kEmulatorConsoleWindow = 'emulatorConsole';
+
+/// Business id marking the standalone Developer-Logs window.
+const String kDevLogsWindow = 'devLogs';
+
+/// Business id marking the standalone About window.
+const String kAboutWindow = 'about';
 
 Future<void> main(List<String> args) async {
   _setupLogging();
@@ -53,8 +67,20 @@ Future<void> main(List<String> args) async {
     await getIt<DevLogService>().attach();
   }
 
-  if (businessId != null) {
-    await _runTaskWindow(businessId, decoded!);
+  if (businessId == kCreateEmulatorWindow) {
+    await _runCreateEmulatorWindow(decoded!);
+    return;
+  }
+  if (businessId == kEmulatorConsoleWindow) {
+    await _runEmulatorConsoleWindow(decoded!);
+    return;
+  }
+  if (businessId == kDevLogsWindow) {
+    await _runDevLogsWindow(decoded!);
+    return;
+  }
+  if (businessId == kAboutWindow) {
+    await _runAboutWindow(decoded!);
     return;
   }
 
@@ -64,31 +90,6 @@ Future<void> main(List<String> args) async {
   await _restoreWindowBounds();
   unawaited(getIt<TrashService>().purgeExpired());
   runApp(const AndroidSdkManagerApp());
-  // Boot the standby window once this one is on screen and idle. Opening a
-  // task window costs an engine start; this is where that cost gets paid,
-  // instead of between a click and the window appearing.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    getIt<WarmWindowPool>().scheduleWarmUp();
-  });
-}
-
-/// Runs any sub-window.
-///
-/// Every task window is the same host with a different route, so a window
-/// created ahead of time can be told what to become later — see
-/// [TaskWindowHost] and [WarmWindowPool]. The launch-argument path below is the
-/// one a cold open takes, and the fallback whenever the warm one is unusable.
-Future<void> _runTaskWindow(String route, Map<String, dynamic> args) async {
-  // Chrome before anything is visible: the first painted frame is already the
-  // right size, in the right place. A standby window skips it — it has no job
-  // yet, and gets its chrome when it is handed one.
-  if (route != kStandbyWindow) await applyWindowChrome(route, args);
-  final controller = await WindowController.fromCurrentEngine();
-  runApp(TaskWindowHost(
-    controller: controller,
-    initialRoute: route,
-    initialArgs: args,
-  ));
 }
 
 /// Reads the arguments string passed to this engine, tolerating the case where
@@ -111,6 +112,30 @@ Map<String, dynamic>? _tryDecode(String arguments) {
   }
 }
 
+Future<void> _runCreateEmulatorWindow(Map<String, dynamic> args) async {
+  // Position first, while the window is still hidden — see _revealWindow.
+  await _placeTaskWindow(args, kWizardWindowSize, kWizardWindowMinSize);
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(
+    CreateEmulatorWindowApp(
+      windowController: controller,
+      dark: args['dark'] == true,
+    ),
+  );
+  _revealWindow();
+}
+
+Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(
+    EmulatorConsoleWindowApp(
+      windowController: controller,
+      dark: args['dark'] == true,
+      avdName: args['avd'] as String? ?? '',
+    ),
+  );
+}
+
 /// Removes the native caption so [CustomTitleBar] can draw it instead.
 ///
 /// [TitleBarStyle.hidden] only strips the caption band — the resize borders and
@@ -124,6 +149,49 @@ Future<void> _hideNativeTitleBar() async {
       windowButtonVisibility: false,
     ),
   );
+}
+
+/// Applies the frame the opener worked out for this window, before anything is
+/// visible.
+///
+/// The rect arrives in the arguments already centred (see
+/// `centeredOverMainWindow`); this side only applies it. Falling back to
+/// centring on this window's own display is the defensive path for a missing or
+/// malformed argument — never show unpositioned.
+Future<void> _placeTaskWindow(
+  Map<String, dynamic> args,
+  Size defaultSize,
+  Size minSize,
+) async {
+  await _tryWindow(() async {
+    await windowManager.setMinimumSize(minSize);
+    final frame = (args['frame'] as List?)?.cast<num>();
+    if (frame == null || frame.length != 4) {
+      await windowManager.setSize(defaultSize);
+      await windowManager.setAlignment(Alignment.center);
+      return;
+    }
+    await windowManager.setBounds(
+      Rect.fromLTWH(
+        frame[0].toDouble(),
+        frame[1].toDouble(),
+        frame[2].toDouble(),
+        frame[3].toDouble(),
+      ),
+    );
+  });
+}
+
+/// Reveals a window created hidden, once its first frame has been rasterised.
+///
+/// The only `show()` in the sub-window flow, and it runs strictly after the
+/// bounds above are applied — so the first painted frame is already in its
+/// final place. Ordering, not a timer: the post-frame callback fires when the
+/// frame is actually on the surface.
+void _revealWindow() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _tryWindow(() => windowManager.show());
+  });
 }
 
 /// Runs a window_manager call, tolerating an engine where the plugin is
@@ -147,6 +215,26 @@ Future<void> _restoreWindowBounds() async {
   } on MissingPluginException catch (_) {
     // window_manager unavailable — keep native default bounds.
   } catch (_) {}
+}
+
+Future<void> _runDevLogsWindow(Map<String, dynamic> args) async {
+  await _placeTaskWindow(args, kDevLogsWindowSize, kDevLogsWindowMinSize);
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(
+    DevLogsWindowApp(windowController: controller, dark: args['dark'] == true),
+  );
+  _revealWindow();
+}
+
+Future<void> _runAboutWindow(Map<String, dynamic> args) async {
+  await _placeTaskWindow(args, kAboutWindowSize, kAboutWindowSize);
+  // A fixed card: nothing in it reflows, so resizing only ever makes it worse.
+  await _tryWindow(() => windowManager.setResizable(false));
+  final controller = await WindowController.fromCurrentEngine();
+  runApp(
+    AboutWindowApp(windowController: controller, dark: args['dark'] == true),
+  );
+  _revealWindow();
 }
 
 void _setupLogging() {

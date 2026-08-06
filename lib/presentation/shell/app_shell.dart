@@ -26,7 +26,7 @@ import '../logcat/logcat_viewer_page.dart';
 import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import '../sdk/updates_page.dart';
-import '../settings/settings_page.dart' show SettingsPage;
+import '../settings/settings_page.dart' show SettingsPage, openDevLogsWindow;
 import '../window/task_windows.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';

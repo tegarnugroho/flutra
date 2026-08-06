@@ -26,14 +26,7 @@ class EmulatorConsoleWindowApp extends StatelessWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: body(windowController: windowController, avdName: avdName),
+      home: EmulatorConsolePage(initialAvd: avdName),
     );
   }
-
-  /// Just the page, for [TaskWindowHost].
-  static Widget body({
-    required WindowController windowController,
-    required String avdName,
-  }) =>
-      EmulatorConsolePage(initialAvd: avdName);
 }

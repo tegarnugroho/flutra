@@ -25,23 +25,17 @@ class AboutWindowApp extends StatelessWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: body(windowController: windowController),
+      home: AboutPage(onClose: _handleClose),
     );
   }
 
-  /// Just the page, for a host that already provides the app shell — see
-  /// [TaskWindowHost], which mounts this into a window it did not create for
-  /// this job.
-  static Widget body({required WindowController windowController}) =>
-      AboutPage(onClose: () => closeWindow(windowController));
-
-  static Future<void> closeWindow(WindowController controller) async {
+  Future<void> _handleClose() async {
     try {
       // close(), never destroy(): destroy() is PostQuitMessage on Windows and
       // every window shares one UI thread — it would end the whole app.
       await windowManager.close();
     } on MissingPluginException {
-      await controller.hide();
+      await windowController.hide();
     }
   }
 }

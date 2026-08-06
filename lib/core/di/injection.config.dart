@@ -107,8 +107,6 @@ import 'package:android_sdk_manager/infrastructure/system/process_service.dart'
     as _i891;
 import 'package:android_sdk_manager/infrastructure/trash/trash_service.dart'
     as _i95;
-import 'package:android_sdk_manager/presentation/window/warm_window_pool.dart'
-    as _i188;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -140,10 +138,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i839.SdkLocator>(() => _i839.SdkLocator());
     gh.lazySingleton<_i404.SdkScanService>(() => _i404.SdkScanService());
     gh.lazySingleton<_i517.SettingsService>(() => _i517.SettingsService());
-    gh.lazySingleton<_i188.WarmWindowPool>(
-      () => _i188.WarmWindowPool(),
-      dispose: (i) => i.dispose(),
-    );
     gh.lazySingleton<_i144.CommandRunner>(
       () => _i144.CommandRunner(gh<_i771.SessionEnvironment>()),
     );

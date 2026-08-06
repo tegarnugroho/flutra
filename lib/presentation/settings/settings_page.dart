@@ -1,4 +1,6 @@
+import 'dart:convert';
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,10 +8,12 @@ import '../../application/address/address_cubit.dart';
 import '../../application/settings/app_settings.dart';
 import '../../application/settings/detected_paths_cubit.dart';
 import '../../application/settings/settings_cubit.dart';
+import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/address.dart';
 import '../../infrastructure/sdk/sdk_scan_service.dart';
 import '../../infrastructure/system/process_service.dart';
+import '../../main.dart' show kDevLogsWindow;
 import '../common/app_badge.dart';
 import '../common/app_loader.dart';
 import '../common/compact_field.dart';
@@ -22,7 +26,7 @@ import '../common/skeleton/skeleton_layouts.dart';
 import '../common/segmented_control.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../window/task_windows.dart';
+import '../window/window_placement.dart';
 import 'widgets/path_setting_row.dart';
 
 /// Settings: theme, SDK path overrides, behaviour and developer tools.
@@ -378,6 +382,22 @@ class _AddressRow extends StatelessWidget {
       subtitle: address.formatted,
     );
   }
+}
+
+/// Opens the Developer Logs as a separate OS window.
+Future<void> openDevLogsWindow() async {
+  final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
+  await WindowController.create(
+    WindowConfiguration(
+      arguments: jsonEncode({
+        'businessId': kDevLogsWindow,
+        'dark': dark,
+        // Positions itself before its first paint — see _placeTaskWindow.
+        'frame': await centeredOverMainWindow(kDevLogsWindowSize),
+      }),
+      hiddenAtLaunch: true,
+    ),
+  );
 }
 
 /// A path override: description, editable value and apply/auto actions.
