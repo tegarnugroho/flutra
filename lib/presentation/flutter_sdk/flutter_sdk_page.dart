@@ -924,6 +924,17 @@ class _VersionsSectionState extends State<_VersionsSection> {
         severity: InfoBarSeverity.info,
       );
     }
+    if (!outcome.toolCacheRebuilt && context.mounted) {
+      await _notify(
+        context,
+        title: 'Tool cache was not rebuilt',
+        message:
+            'The SDK is on ${outcome.version} (${outcome.channel}), but '
+            '"flutter --version" did not finish. The first flutter command you '
+            'run rebuilds the cache itself.',
+        severity: InfoBarSeverity.warning,
+      );
+    }
     if (!outcome.upstreamSet && context.mounted) {
       await _notify(
         context,

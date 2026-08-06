@@ -229,11 +229,59 @@ class FlutterRepositoryImpl implements FlutterRepository {
         .toList();
   }
 
+  // ---- The SDK write lock ---------------------------------------------------
+  //
+  // Version switch, channel switch, upgrade and the stable reset all move HEAD
+  // in the same working tree, so only one of them may be in flight at a time.
+  // TODO: confirm this belongs here — the app has no operation lock of its own
+  // (device/AVD cubits only track per-item busy flags), so this is deliberately
+  // the single one rather than a second scheme layered on an existing lock.
+
+  /// What currently holds the lock, e.g. "An upgrade". Null when free.
+  String? _sdkOperation;
+
+  /// Takes the lock for [operation], or throws when someone else holds it.
+  void _claimSdk(String operation) {
+    if (_sdkOperation != null) {
+      throw UnknownFailure('$_sdkOperation is still running on this SDK.');
+    }
+    _sdkOperation = operation;
+  }
+
+  void _releaseSdk() => _sdkOperation = null;
+
+  /// Holds the lock until [command] exits — a streaming command owns the SDK
+  /// for as long as its process runs, not just until it is handed back.
+  RunningCommand _holdUntilDone(RunningCommand command) {
+    // The result is awaited by the caller too; swallowing the error here only
+    // stops this second listener from reporting it as unhandled.
+    command.result.then<void>((_) {}, onError: (Object _) {})
+        .whenComplete(_releaseSdk);
+    return command;
+  }
+
+  /// Runs [start] under the lock, releasing it again if it never gets as far as
+  /// spawning the process.
+  Future<RunningCommand> _locked(
+    String operation,
+    Future<RunningCommand> Function() start,
+  ) async {
+    _claimSdk(operation);
+    try {
+      return _holdUntilDone(await start());
+    } catch (_) {
+      _releaseSdk();
+      rethrow;
+    }
+  }
+
   @override
   Future<RunningCommand> switchChannel(String channel,
-      {bool stashLocalChanges = false}) async {
-    if (stashLocalChanges) await _stashCurrentSdk();
-    return _runner.start(_flutter, ['channel', channel]);
+      {bool stashLocalChanges = false}) {
+    return _locked('A channel switch', () async {
+      if (stashLocalChanges) await _stashCurrentSdk();
+      return _runner.start(_flutter, ['channel', channel]);
+    });
   }
 
   @override
@@ -286,13 +334,19 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
-  Future<RunningCommand> upgrade({bool stashLocalChanges = false}) async {
-    if (stashLocalChanges) await _stashCurrentSdk();
-    return _runner.start(_flutter, ['upgrade']);
+  Future<RunningCommand> upgrade({bool stashLocalChanges = false}) {
+    return _locked('An upgrade', () async {
+      if (stashLocalChanges) await _stashCurrentSdk();
+      return _runner.start(_flutter, ['upgrade']);
+    });
   }
 
   @override
-  Future<RunningCommand> resetToStable({bool stashLocalChanges = false}) async {
+  Future<RunningCommand> resetToStable({bool stashLocalChanges = false}) {
+    return _locked('A reset to stable', () => _resetToStable(stashLocalChanges));
+  }
+
+  Future<RunningCommand> _resetToStable(bool stashLocalChanges) async {
     final info = await getSdkInfo();
     final root = info.sdkPath;
 
@@ -355,13 +409,6 @@ class FlutterRepositoryImpl implements FlutterRepository {
 
   // ---- Version switching ----------------------------------------------------
 
-  /// Guards the git sequence below against a second one starting mid-flight,
-  /// which would interleave checkouts in the same working tree.
-  // TODO: confirm whether an app-wide operation lock should exist — today
-  // nothing guards the upgrade/channel flows, and this is deliberately the only
-  // lock rather than a second scheme layered on an existing one.
-  bool _switchInProgress = false;
-
   @override
   Future<bool> isOnVersion(String version, String channel) async {
     final info = await getSdkInfo();
@@ -381,18 +428,18 @@ class FlutterRepositoryImpl implements FlutterRepository {
   @override
   Stream<VersionSwitchEvent> switchVersion(String version,
       {required String channel}) async* {
-    if (_switchInProgress) {
-      yield const VersionSwitchFailed(
-        'Another version switch is still running.',
+    if (_sdkOperation != null) {
+      yield VersionSwitchFailed(
+        '$_sdkOperation is still running on this SDK.',
         suggestion: 'Wait for it to finish, then switch again.',
       );
       return;
     }
-    _switchInProgress = true;
+    _claimSdk('A version switch');
     try {
       yield* _switchVersion(version, channel);
     } finally {
-      _switchInProgress = false;
+      _releaseSdk();
     }
   }
 
@@ -517,12 +564,7 @@ class FlutterRepositoryImpl implements FlutterRepository {
       // 6. Upstream, so `flutter upgrade` knows where to go next.
       yield const VersionSwitchStepStarted(VersionSwitchStep.settingUpstream);
       var upstreamSet = false;
-      final hasRemoteBranch = (await _git(root, [
-        'rev-parse', '--verify', '--quiet', 'refs/remotes/origin/$channel',
-      ]))
-          .stdout
-          .trim()
-          .isNotEmpty;
+      final hasRemoteBranch = await _ensureChannelTracking(root, channel);
       if (hasRemoteBranch) {
         final upstream = await _git(
             root, ['branch', '--set-upstream-to=origin/$channel', channel]);
@@ -543,9 +585,30 @@ class FlutterRepositoryImpl implements FlutterRepository {
       }
 
       // 7. Any flutter command rebuilds the snapshot for the new version.
+      //
+      // Deliberately not fatal: by now the checkout and the upstream are both
+      // correct, so the SDK is a valid $channel install whatever happens here.
+      // A snapshot the antivirus held open is rebuilt by the next flutter
+      // command anyway — rolling the whole switch back over it would be worse.
       yield const VersionSwitchStepStarted(VersionSwitchStep.rebuildingCache);
-      yield* _stream(_flutterIn(root), ['--version'],
-          onFail: 'Flutter could not rebuild its tool cache for $version.');
+      var toolCacheRebuilt = false;
+      try {
+        final rebuild = await _runner.start(_flutterIn(root), ['--version']);
+        await for (final line in rebuild.output) {
+          yield VersionSwitchLogged(line.text, isError: line.isError);
+        }
+        toolCacheRebuilt = (await rebuild.result).isSuccess;
+      } on Failure catch (e) {
+        yield VersionSwitchLogged(e.message, isError: true);
+      }
+      if (!toolCacheRebuilt) {
+        yield VersionSwitchLogged(
+          'Flutter could not rebuild its tool cache for $version. The SDK is '
+          'on $version ($channel) regardless; the next flutter command will '
+          'rebuild it.',
+          isError: true,
+        );
+      }
 
       yield const VersionSwitchStepStarted(VersionSwitchStep.done);
       yield VersionSwitchSucceeded(VersionSwitchOutcome(
@@ -554,6 +617,7 @@ class FlutterRepositoryImpl implements FlutterRepository {
         stashed: stashed,
         remoteUrl: remoteUrl,
         upstreamSet: upstreamSet,
+        toolCacheRebuilt: toolCacheRebuilt,
       ));
     } on _SwitchAbort catch (abort) {
       final restore = checkedOut
@@ -583,6 +647,42 @@ class FlutterRepositoryImpl implements FlutterRepository {
       );
     }
   }
+
+  /// Makes `origin/<channel>` exist as a remote-tracking branch, so the channel
+  /// branch can be pointed at it. Returns whether it is there afterwards.
+  ///
+  /// `git clone -b stable` — the recipe on Flutter's own install page — writes
+  /// a single-branch refspec, so `origin/beta` never appears and
+  /// `--set-upstream-to` fails with "not a branch" even after `--unshallow
+  /// --tags`. Widening the refspec and fetching that one branch repairs it; the
+  /// config line is only added when nothing maps the branch already, so
+  /// switching repeatedly does not pile up duplicates.
+  Future<bool> _ensureChannelTracking(String root, String channel) async {
+    if (await _hasRemoteBranch(root, channel)) return true;
+
+    final refspecs =
+        await _git(root, ['config', '--get-all', 'remote.origin.fetch']);
+    final mapped = const LineSplitter().convert(refspecs.stdout).any((line) =>
+        line.contains('refs/heads/*') ||
+        line.contains('refs/heads/$channel:'));
+    if (!mapped) {
+      await _tryGit(root, [
+        'config', '--add', 'remote.origin.fetch',
+        '+refs/heads/$channel:refs/remotes/origin/$channel',
+      ]);
+    }
+    await _tryGit(root, [
+      'fetch', 'origin', '+refs/heads/$channel:refs/remotes/origin/$channel',
+    ]);
+    return _hasRemoteBranch(root, channel);
+  }
+
+  Future<bool> _hasRemoteBranch(String root, String channel) async =>
+      (await _git(root,
+              ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/$channel']))
+          .stdout
+          .trim()
+          .isNotEmpty;
 
   /// Runs a git command in [root] and buffers its output.
   Future<CommandResult> _git(

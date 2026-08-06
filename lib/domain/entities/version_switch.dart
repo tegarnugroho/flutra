@@ -24,6 +24,8 @@ enum VersionSwitchStep {
   settingUpstream,
 
   /// `flutter --version`, which rebuilds the tool snapshot for the new version.
+  /// The only step allowed to fail without failing the switch: the SDK is
+  /// already on the right commit and branch by the time it runs.
   rebuildingCache,
 
   done;
@@ -60,6 +62,7 @@ class VersionSwitchOutcome extends Equatable {
     this.stashed = false,
     this.remoteUrl,
     this.upstreamSet = false,
+    this.toolCacheRebuilt = true,
   });
 
   final String version;
@@ -78,12 +81,17 @@ class VersionSwitchOutcome extends Equatable {
   /// has no such branch (a partial mirror), which blocks `flutter upgrade`.
   final bool upstreamSet;
 
+  /// `flutter --version` rebuilt the tool snapshot. False when it could not —
+  /// the switch still succeeded, and the next flutter command rebuilds it.
+  final bool toolCacheRebuilt;
+
   /// The SDK is cloned from a fork/mirror, so Flutter still warns about its
   /// upstream even though the channel is now correct.
   bool get remoteMismatch => !isOfficialFlutterRemote(remoteUrl);
 
   @override
-  List<Object?> get props => [version, channel, stashed, remoteUrl, upstreamSet];
+  List<Object?> get props =>
+      [version, channel, stashed, remoteUrl, upstreamSet, toolCacheRebuilt];
 }
 
 /// One update from a running version switch.

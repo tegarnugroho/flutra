@@ -78,6 +78,12 @@ void main() {
       expect(mirror.remoteMismatch, isTrue);
       expect(official.remoteMismatch, isFalse);
     });
+
+    test('assumes the tool cache was rebuilt unless told otherwise', () {
+      const outcome =
+          VersionSwitchOutcome(version: '3.44.4', channel: 'stable');
+      expect(outcome.toolCacheRebuilt, isTrue);
+    });
   });
 
   group('VersionSwitchStep.label', () {
@@ -119,6 +125,29 @@ void main() {
       expect(cubit.state.outcome, outcome);
       expect(cubit.state.completed, VersionSwitchStep.values.toSet());
       expect(cubit.state.lines.single.text, 'Fetching origin');
+      await cubit.close();
+    });
+
+    test('a failed tool-cache rebuild still counts as a switch', () async {
+      const outcome = VersionSwitchOutcome(
+        version: '3.44.4',
+        channel: 'stable',
+        remoteUrl: kFlutterRepoUrl,
+        upstreamSet: true,
+        toolCacheRebuilt: false,
+      );
+      final cubit = VersionSwitchCubit('3.44.4', () => Stream.fromIterable([
+            const VersionSwitchStepStarted(VersionSwitchStep.rebuildingCache),
+            const VersionSwitchLogged('could not rebuild', isError: true),
+            const VersionSwitchStepStarted(VersionSwitchStep.done),
+            const VersionSwitchSucceeded(outcome),
+          ]));
+
+      await cubit.run();
+
+      expect(cubit.state.isSuccess, isTrue);
+      expect(cubit.state.failure, isNull);
+      expect(cubit.state.outcome?.toolCacheRebuilt, isFalse);
       await cubit.close();
     });
 
