@@ -56,6 +56,10 @@ class SdkPackageTile extends StatelessWidget {
   final VoidCallback onInstall;
   final VoidCallback onUninstall;
 
+  /// Room for `34.0.0 → 35.0.0`, past which the version ellipsizes rather than
+  /// eating into the description.
+  static const _versionWidth = 150.0;
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -74,9 +78,15 @@ class SdkPackageTile extends StatelessWidget {
                 _Mark(package: package),
                 const SizedBox(width: 12),
                 Expanded(child: _identity(context, palette)),
-                const SizedBox(width: 12),
-                Flexible(child: _version(context, palette)),
-                const SizedBox(width: 10),
+                const SizedBox(width: 16),
+                // Capped rather than flexible: a Flexible here would share the
+                // row's free space with the title and leave the version and
+                // its button floating in the middle of the tile.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _versionWidth),
+                  child: _version(context, palette),
+                ),
+                const SizedBox(width: 14),
                 _action(context),
               ],
             ),
@@ -174,6 +184,9 @@ class SdkPackageTile extends StatelessWidget {
             TextSpan(text: package.availableVersion ?? '?'),
           ],
         ),
+        // Right-aligned so the numbers form a column down the list instead of
+        // stepping in and out with the description above them.
+        textAlign: TextAlign.end,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       );
@@ -181,6 +194,7 @@ class SdkPackageTile extends StatelessWidget {
     return Text(
       package.displayVersion ?? '—',
       style: text.monoValue,
+      textAlign: TextAlign.end,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

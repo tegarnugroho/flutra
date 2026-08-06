@@ -149,6 +149,25 @@ void main() {
       expect(selects, 1);
     });
 
+    testWidgets('the version and its button sit against the right edge',
+        (tester) async {
+      await tester.pumpWidget(_host(_tile(_updatable)));
+
+      final tile = tester.getRect(find.byType(SdkPackageTile));
+      final button = tester.getRect(find.text('Update'));
+      final version = tester.getRect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.textSpan?.toPlainText() ?? '').contains('→'),
+        ),
+      );
+
+      // A Flexible version block would share the row's free space with the
+      // title and leave both floating mid-tile, with empty room to the right.
+      expect(tile.right - button.right, lessThan(60));
+      expect(button.left - version.right, greaterThan(8));
+      expect(version.left, greaterThan(tile.width / 2));
+    });
+
     testWidgets('a narrow window ellipsizes rather than overflowing',
         (tester) async {
       for (final width in const [720.0, 560.0, 420.0, 360.0]) {
