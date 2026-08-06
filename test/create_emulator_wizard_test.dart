@@ -1,16 +1,16 @@
 import 'dart:async';
 
-import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart';
-import 'package:android_sdk_manager/domain/entities/avd.dart';
-import 'package:android_sdk_manager/domain/entities/avd_create_request.dart';
-import 'package:android_sdk_manager/domain/entities/device_definition.dart';
-import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
-import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart';
-import 'package:android_sdk_manager/infrastructure/system/host_info_service.dart';
-import 'package:android_sdk_manager/domain/entities/system_image.dart';
-import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart';
-import 'package:android_sdk_manager/presentation/emulator/widgets/device_step.dart';
-import 'package:android_sdk_manager/presentation/theme/app_theme.dart';
+import 'package:flutra/application/emulator/create_emulator_cubit.dart';
+import 'package:flutra/domain/entities/avd.dart';
+import 'package:flutra/domain/entities/avd_create_request.dart';
+import 'package:flutra/domain/entities/device_definition.dart';
+import 'package:flutra/domain/entities/sdk_package.dart';
+import 'package:flutra/domain/repositories/sdk_repository.dart';
+import 'package:flutra/infrastructure/system/host_info_service.dart';
+import 'package:flutra/domain/entities/system_image.dart';
+import 'package:flutra/domain/repositories/emulator_repository.dart';
+import 'package:flutra/presentation/emulator/widgets/device_step.dart';
+import 'package:flutra/presentation/theme/app_theme.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';

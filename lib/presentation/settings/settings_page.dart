@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/constants/app_info.dart';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -175,7 +176,7 @@ class _SettingsViewState extends State<_SettingsView> {
                       GroupedListRow(
                         title: 'Run at startup',
                         subtitle:
-                            'Launch Flutter SDK Manager when you sign in '
+                            'Launch ${AppInfo.name} when you sign in '
                             'to Windows.',
                         trailing: [
                           AppToggle(

@@ -139,12 +139,12 @@ abstract class _UnixSystemActions implements SystemActions {
 
   String? get home => Platform.environment['HOME'];
 
-  /// `~/.config/flutter_sdk_manager/env.sh`.
+  /// `~/.config/flutra/env.sh`.
   String? get envScriptPath {
     final base = home;
     if (base == null || base.isEmpty) return null;
     return p.posix
-        .join(base, '.config', 'flutter_sdk_manager', kEnvScriptName);
+        .join(base, '.config', 'flutra', kEnvScriptName);
   }
 
   @override

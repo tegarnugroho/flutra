@@ -25,8 +25,8 @@ class EnvPersistResult {
 /// Everything between them is ours to rewrite; everything outside is the
 /// user's and is never touched. Matching the exact strings is what makes
 /// re-running idempotent rather than additive.
-const String kEnvBlockStart = '# >>> flutter_sdk_manager >>>';
-const String kEnvBlockEnd = '# <<< flutter_sdk_manager <<<';
+const String kEnvBlockStart = '# >>> flutra >>>';
+const String kEnvBlockEnd = '# <<< flutra <<<';
 
 /// The file the app writes its exports to, relative to the config directory.
 const String kEnvScriptName = 'env.sh';

@@ -1,7 +1,7 @@
-import 'package:android_sdk_manager/core/platform/platform_service.dart';
-import 'package:android_sdk_manager/domain/entities/doctor_issue.dart';
-import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
-import 'package:android_sdk_manager/domain/entities/linux_distro.dart';
+import 'package:flutra/core/platform/platform_service.dart';
+import 'package:flutra/domain/entities/doctor_issue.dart';
+import 'package:flutra/domain/entities/doctor_report.dart';
+import 'package:flutra/domain/entities/linux_distro.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

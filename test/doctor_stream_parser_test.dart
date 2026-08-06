@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
-import 'package:android_sdk_manager/infrastructure/doctor/doctor_runner.dart';
+import 'package:flutra/domain/entities/doctor_report.dart';
+import 'package:flutra/infrastructure/doctor/doctor_runner.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Captured from a real run on Windows: the marker really is `√` (U+221A) and

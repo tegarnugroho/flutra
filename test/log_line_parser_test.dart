@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/domain/entities/log_line.dart';
+import 'package:flutra/domain/entities/log_line.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

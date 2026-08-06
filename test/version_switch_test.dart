@@ -1,7 +1,7 @@
-import 'package:android_sdk_manager/application/flutter_sdk/version_switch_cubit.dart';
-import 'package:android_sdk_manager/domain/entities/flutter_release.dart';
-import 'package:android_sdk_manager/domain/entities/flutter_sdk_info.dart';
-import 'package:android_sdk_manager/domain/entities/version_switch.dart';
+import 'package:flutra/application/flutter_sdk/version_switch_cubit.dart';
+import 'package:flutra/domain/entities/flutter_release.dart';
+import 'package:flutra/domain/entities/flutter_sdk_info.dart';
+import 'package:flutra/domain/entities/version_switch.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 FlutterRelease _release(String version, String channel) =>

@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/core/constants/app_info.dart';
+import 'package:flutra/core/constants/app_info.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

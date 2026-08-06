@@ -11,12 +11,14 @@ class AppInfo {
   /// What to render for a value the build didn't supply.
   static const String unknown = '—';
 
-  static const String name = 'Flutter SDK Manager';
+  /// The product name, everywhere it is shown: window titles, the tray, the
+  /// About box, the installer. One constant so a rename is one edit.
+  static const String name = 'Flutra';
   static const String author = 'Tegar';
   static const String license = 'MIT License';
 
   static const String repositoryUrl =
-      'https://github.com/tegaranugroho/android_sdk_manager';
+      'https://github.com/tegarnugroho/android_sdk_manager';
   static const String issuesUrl = '$repositoryUrl/issues';
   static const String releaseNotesUrl = '$repositoryUrl/releases';
 
@@ -25,8 +27,9 @@ class AppInfo {
   // script reports the fallbacks, which is why they are honest placeholders
   // rather than stale copies of last release's numbers.
   //
-  // TODO(ci): no CI config exists in this repository yet. When one is added,
-  // call tool/build.ps1 from it rather than re-deriving the defines there.
+  // TODO(ci): the GitHub Actions workflow builds with plain `flutter build`
+  // and so reports these fallbacks. Have it call tool/build.ps1 instead of
+  // re-deriving the defines.
 
   /// Mirrors `version:` in pubspec.yaml.
   ///

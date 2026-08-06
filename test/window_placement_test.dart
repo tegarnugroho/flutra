@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/presentation/window/window_placement.dart';
+import 'package:flutra/presentation/window/window_placement.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

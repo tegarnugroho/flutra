@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds Flutter SDK Manager for Windows, then packages it as an MSIX and an
+    Builds Flutra for Windows, then packages it as an MSIX and an
     Inno Setup installer, with its build metadata baked in.
 
 .DESCRIPTION
@@ -291,7 +291,7 @@ try {
         Write-Host "flutter build windows --$Mode" -ForegroundColor DarkGray
         flutter build windows "--$Mode" @defines
         if ($LASTEXITCODE -ne 0) { throw "Build failed. $lockHint" }
-        Write-Host "Built $outDir\android_sdk_manager.exe" -ForegroundColor Green
+        Write-Host "Built $outDir\flutra.exe" -ForegroundColor Green
     }
 
     # ---- Inno Setup installer, over whatever was just built ----------------
@@ -322,7 +322,7 @@ try {
         & $IsccPath /Q "/DMyAppVersion=$appVersion" "/DSourceDir=$outDir" "/DOutputDir=$installerDir" $iss
         if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed.' }
 
-        $setup = Join-Path $installerDir "FlutterSdkManager-Setup-$appVersion.exe"
+        $setup = Join-Path $installerDir "Flutra-Setup-$appVersion.exe"
         Write-Host "Built $setup" -ForegroundColor Green
     }
 }

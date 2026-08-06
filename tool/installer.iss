@@ -1,4 +1,4 @@
-; Inno Setup script for Flutter SDK Manager.
+; Inno Setup script for Flutra.
 ;
 ; Not run by hand — tool\build.ps1 compiles it and supplies the version and
 ; paths, so the installer can never disagree with the binary it wraps:
@@ -15,10 +15,10 @@
   #define OutputDir "..\build\installer"
 #endif
 
-#define MyAppName "Flutter SDK Manager"
+#define MyAppName "Flutra"
 #define MyAppPublisher "Tegar Nugroho"
-#define MyAppURL "https://github.com/tegaranugroho/android_sdk_manager"
-#define MyAppExeName "android_sdk_manager.exe"
+#define MyAppURL "https://github.com/tegarnugroho/android_sdk_manager"
+#define MyAppExeName "flutra.exe"
 
 [Setup]
 ; Identifies the product across versions. Never change it: a new AppId makes
@@ -48,7 +48,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 OutputDir={#OutputDir}
-OutputBaseFilename=FlutterSdkManager-Setup-{#MyAppVersion}
+OutputBaseFilename=Flutra-Setup-{#MyAppVersion}
 SetupIconFile=..\windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
@@ -77,7 +77,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 ; Deliberately no [UninstallDelete]: settings, the storage report and the dev
-; log live in %APPDATA%\com.androidsdkmanager\android_sdk_manager (the folder
+; log live in %APPDATA%\com.flutra\Flutra (the folder
 ; path_provider derives from the exe's CompanyName/ProductName). Wiping it on
 ; uninstall would also wipe it on every reinstall-over-upgrade, and losing a
 ; user's SDK path overrides is not worth the tidiness.

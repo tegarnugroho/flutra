@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/domain/entities/storage_report.dart';
-import 'package:android_sdk_manager/presentation/dashboard/widgets/storage_panel.dart';
+import 'package:flutra/domain/entities/storage_report.dart';
+import 'package:flutra/presentation/dashboard/widgets/storage_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _gb = 1024 * 1024 * 1024;

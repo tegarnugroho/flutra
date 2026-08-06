@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/presentation/settings/dev_logs_page.dart';
+import 'package:flutra/presentation/settings/dev_logs_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

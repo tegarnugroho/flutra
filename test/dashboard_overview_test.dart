@@ -1,17 +1,17 @@
 import 'dart:async';
 
-import 'package:android_sdk_manager/application/dashboard/dashboard_cubit.dart';
-import 'package:android_sdk_manager/domain/entities/avd.dart';
-import 'package:android_sdk_manager/domain/entities/device.dart';
-import 'package:android_sdk_manager/domain/entities/environment_snapshot.dart';
-import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
-import 'package:android_sdk_manager/domain/entities/tool_status.dart';
-import 'package:android_sdk_manager/domain/entities/storage_report.dart';
-import 'package:android_sdk_manager/domain/repositories/device_repository.dart';
-import 'package:android_sdk_manager/domain/repositories/emulator_repository.dart';
-import 'package:android_sdk_manager/domain/repositories/environment_repository.dart';
-import 'package:android_sdk_manager/domain/repositories/sdk_repository.dart';
-import 'package:android_sdk_manager/infrastructure/storage/storage_analysis_service.dart';
+import 'package:flutra/application/dashboard/dashboard_cubit.dart';
+import 'package:flutra/domain/entities/avd.dart';
+import 'package:flutra/domain/entities/device.dart';
+import 'package:flutra/domain/entities/environment_snapshot.dart';
+import 'package:flutra/domain/entities/sdk_package.dart';
+import 'package:flutra/domain/entities/tool_status.dart';
+import 'package:flutra/domain/entities/storage_report.dart';
+import 'package:flutra/domain/repositories/device_repository.dart';
+import 'package:flutra/domain/repositories/emulator_repository.dart';
+import 'package:flutra/domain/repositories/environment_repository.dart';
+import 'package:flutra/domain/repositories/sdk_repository.dart';
+import 'package:flutra/infrastructure/storage/storage_analysis_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Detection the test can hold open, so the race with loadOverview is

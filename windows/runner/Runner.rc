@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.androidsdkmanager" "\0"
-            VALUE "FileDescription", "android_sdk_manager" "\0"
+            VALUE "CompanyName", "com.flutra" "\0"
+            VALUE "FileDescription", "Flutra" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "android_sdk_manager" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.androidsdkmanager. All rights reserved." "\0"
-            VALUE "OriginalFilename", "android_sdk_manager.exe" "\0"
-            VALUE "ProductName", "android_sdk_manager" "\0"
+            VALUE "InternalName", "flutra" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Tegar. All rights reserved." "\0"
+            VALUE "OriginalFilename", "flutra.exe" "\0"
+            VALUE "ProductName", "Flutra" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

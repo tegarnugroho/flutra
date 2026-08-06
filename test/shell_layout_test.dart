@@ -1,7 +1,7 @@
-import 'package:android_sdk_manager/presentation/shell/custom_title_bar.dart';
-import 'package:android_sdk_manager/presentation/theme/app_colors.dart';
-import 'package:android_sdk_manager/presentation/theme/app_text_styles.dart';
-import 'package:android_sdk_manager/presentation/theme/app_theme.dart';
+import 'package:flutra/presentation/shell/custom_title_bar.dart';
+import 'package:flutra/presentation/theme/app_colors.dart';
+import 'package:flutra/presentation/theme/app_text_styles.dart';
+import 'package:flutra/presentation/theme/app_theme.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 

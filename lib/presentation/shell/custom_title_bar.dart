@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../core/constants/app_info.dart';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:window_manager/window_manager.dart';
@@ -88,7 +89,7 @@ class _AppLabel extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(left: hasLeading ? 8 : 12, right: 4),
       child: Text(
-        'Flutter SDK Manager',
+        AppInfo.name,
         style: AppTextStyles.of(context).titleBar,
       ),
     );

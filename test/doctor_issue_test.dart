@@ -1,7 +1,7 @@
-import 'package:android_sdk_manager/core/platform/platform_service.dart';
-import 'package:android_sdk_manager/domain/entities/doctor_issue.dart';
-import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
-import 'package:android_sdk_manager/infrastructure/doctor/doctor_fix_service.dart';
+import 'package:flutra/core/platform/platform_service.dart';
+import 'package:flutra/domain/entities/doctor_issue.dart';
+import 'package:flutra/domain/entities/doctor_report.dart';
+import 'package:flutra/infrastructure/doctor/doctor_fix_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<DoctorIssue> match(

@@ -1,5 +1,5 @@
-name: android_sdk_manager
-description: "Graphical frontend for the Android SDK command-line tools (Windows desktop)."
+name: flutra
+description: "Flutra — a desktop manager for the Android SDK and Flutter toolchain."
 publish_to: 'none'
 version: 1.0.4+4
 
@@ -65,12 +65,12 @@ flutter:
 
 # Windows MSIX packaging. Build with: dart run msix:create
 msix_config:
-  display_name: Flutter SDK Manager
+  display_name: Flutra
   publisher_display_name: Tegar Nugroho
-  identity_name: com.flutter.sdkmanager
-  publisher: CN=FlutterSdkManager
+  identity_name: com.flutra
+  publisher: CN=Flutra
   msix_version: 1.0.4.4
-  output_name: FlutterSdkManager
+  output_name: Flutra
   certificate_path: certificate.pfx
   certificate_password: flutter123
   capabilities: internetClient

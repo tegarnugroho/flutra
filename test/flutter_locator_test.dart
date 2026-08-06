@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:android_sdk_manager/core/platform/platform_service.dart';
-import 'package:android_sdk_manager/infrastructure/sdk/flutter_locator.dart';
+import 'package:flutra/core/platform/platform_service.dart';
+import 'package:flutra/infrastructure/sdk/flutter_locator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

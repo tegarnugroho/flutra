@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/presentation/dashboard/widgets/stat_cards.dart';
-import 'package:android_sdk_manager/presentation/theme/app_theme.dart';
+import 'package:flutra/presentation/dashboard/widgets/stat_cards.dart';
+import 'package:flutra/presentation/theme/app_theme.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 

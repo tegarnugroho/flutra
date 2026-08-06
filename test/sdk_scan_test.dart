@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:android_sdk_manager/application/settings/detected_paths_cubit.dart';
-import 'package:android_sdk_manager/infrastructure/sdk/sdk_locator.dart';
-import 'package:android_sdk_manager/infrastructure/sdk/sdk_scan_service.dart';
+import 'package:flutra/application/settings/detected_paths_cubit.dart';
+import 'package:flutra/infrastructure/sdk/sdk_locator.dart';
+import 'package:flutra/infrastructure/sdk/sdk_scan_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

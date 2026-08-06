@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/application/shell/shell_navigator.dart';
+import 'package:flutra/application/shell/shell_navigator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

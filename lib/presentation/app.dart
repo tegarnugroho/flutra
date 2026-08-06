@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../core/constants/app_info.dart';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,11 +50,11 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       await trayManager.setIcon(
         File(assetIcon).existsSync() ? assetIcon : 'assets/app_icon.ico',
       );
-      await trayManager.setToolTip('Flutter SDK Manager');
+      await trayManager.setToolTip(AppInfo.name);
       await trayManager.setContextMenu(
         Menu(
           items: [
-            MenuItem(key: 'show', label: 'Open Flutter SDK Manager'),
+            MenuItem(key: 'show', label: 'Open ${AppInfo.name}'),
             MenuItem.separator(),
             MenuItem(key: 'exit', label: 'Exit'),
           ],
@@ -152,7 +153,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, mode) {
           return FluentApp(
-            title: 'Flutter SDK Manager',
+            title: AppInfo.name,
             debugShowCheckedModeBanner: false,
             themeMode: mode,
             theme: AppTheme.light(),

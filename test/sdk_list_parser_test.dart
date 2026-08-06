@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
-import 'package:android_sdk_manager/infrastructure/repositories/sdk_repository_impl.dart';
+import 'package:flutra/domain/entities/sdk_package.dart';
+import 'package:flutra/infrastructure/repositories/sdk_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _sample = '''

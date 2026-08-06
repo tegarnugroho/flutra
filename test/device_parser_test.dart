@@ -1,6 +1,6 @@
-import 'package:android_sdk_manager/domain/entities/device.dart';
-import 'package:android_sdk_manager/infrastructure/repositories/device_repository_impl.dart';
-import 'package:android_sdk_manager/infrastructure/repositories/flutter_repository_impl.dart';
+import 'package:flutra/domain/entities/device.dart';
+import 'package:flutra/infrastructure/repositories/device_repository_impl.dart';
+import 'package:flutra/infrastructure/repositories/flutter_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _sample = '''

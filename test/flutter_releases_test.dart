@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:android_sdk_manager/domain/entities/flutter_release.dart';
+import 'package:flutra/domain/entities/flutter_release.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A miniature stand-in for releases_windows.json covering every messy shape

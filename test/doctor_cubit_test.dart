@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:android_sdk_manager/application/doctor/flutter_doctor_cubit.dart';
-import 'package:android_sdk_manager/application/settings/app_settings.dart';
-import 'package:android_sdk_manager/core/command/command_runner.dart';
-import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
-import 'package:android_sdk_manager/infrastructure/doctor/doctor_runner.dart';
-import 'package:android_sdk_manager/core/command/session_environment.dart';
-import 'package:android_sdk_manager/core/platform/platform_service.dart';
-import 'package:android_sdk_manager/infrastructure/settings/settings_service.dart';
+import 'package:flutra/application/doctor/flutter_doctor_cubit.dart';
+import 'package:flutra/application/settings/app_settings.dart';
+import 'package:flutra/core/command/command_runner.dart';
+import 'package:flutra/domain/entities/doctor_report.dart';
+import 'package:flutra/infrastructure/doctor/doctor_runner.dart';
+import 'package:flutra/core/command/session_environment.dart';
+import 'package:flutra/core/platform/platform_service.dart';
+import 'package:flutra/infrastructure/settings/settings_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A runner the test drives by hand, so event ordering is deterministic.

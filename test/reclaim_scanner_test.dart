@@ -1,6 +1,6 @@
-import 'package:android_sdk_manager/domain/entities/reclaimable_item.dart';
-import 'package:android_sdk_manager/domain/entities/sdk_package.dart';
-import 'package:android_sdk_manager/infrastructure/sdk/reclaim_scanner.dart';
+import 'package:flutra/domain/entities/reclaimable_item.dart';
+import 'package:flutra/domain/entities/sdk_package.dart';
+import 'package:flutra/infrastructure/sdk/reclaim_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 SdkPackage installed(String path, {String? location}) => SdkPackage(

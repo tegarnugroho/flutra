@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/presentation/common/page_scaffold.dart';
-import 'package:android_sdk_manager/presentation/theme/app_theme.dart';
+import 'package:flutra/presentation/common/page_scaffold.dart';
+import 'package:flutra/presentation/theme/app_theme.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';

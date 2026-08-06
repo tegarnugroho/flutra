@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/application/emulator/create_emulator_cubit.dart';
+import 'package:flutra/application/emulator/create_emulator_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ImageOption _img(int api, String tag, String abi, {bool installed = true}) =>

@@ -1,4 +1,4 @@
-import 'package:android_sdk_manager/infrastructure/repositories/flutter_repository_impl.dart';
+import 'package:flutra/infrastructure/repositories/flutter_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

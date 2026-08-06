@@ -82,29 +82,29 @@ jobs:
 
           cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
           cp assets/app_icon.png \
-             "$APPDIR/usr/share/icons/hicolor/256x256/apps/flutter-sdk-manager.png"
+             "$APPDIR/usr/share/icons/hicolor/256x256/apps/flutra.png"
           # AppImage looks for the icon beside AppRun as well.
-          cp assets/app_icon.png "$APPDIR/flutter-sdk-manager.png"
+          cp assets/app_icon.png "$APPDIR/flutra.png"
 
-          cat > "$APPDIR/usr/share/applications/flutter-sdk-manager.desktop" <<'DESKTOP'
+          cat > "$APPDIR/usr/share/applications/flutra.desktop" <<'DESKTOP'
           [Desktop Entry]
           Type=Application
-          Name=Flutter SDK Manager
+          Name=Flutra
           Comment=Graphical frontend for the Android SDK command-line tools
-          Exec=android_sdk_manager
-          Icon=flutter-sdk-manager
+          Exec=flutra
+          Icon=flutra
           Categories=Development;
           Terminal=false
           DESKTOP
-          cp "$APPDIR/usr/share/applications/flutter-sdk-manager.desktop" \
-             "$APPDIR/flutter-sdk-manager.desktop"
+          cp "$APPDIR/usr/share/applications/flutra.desktop" \
+             "$APPDIR/flutra.desktop"
 
           cat > "$APPDIR/AppRun" <<'APPRUN'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "$0")")"
           # The bundle keeps its libraries beside the binary.
           export LD_LIBRARY_PATH="$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
-          exec "$HERE/usr/bin/android_sdk_manager" "$@"
+          exec "$HERE/usr/bin/flutra" "$@"
           APPRUN
           chmod +x "$APPDIR/AppRun"
 
@@ -116,12 +116,12 @@ jobs:
           # The runner has no FUSE, so the tool has to be unpacked to run.
           ./appimagetool-x86_64.AppImage --appimage-extract > /dev/null
           ARCH=x86_64 ./squashfs-root/AppRun build/AppDir \
-            build/FlutterSdkManager-x86_64.AppImage
+            build/Flutra-x86_64.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-appimage
-          path: build/FlutterSdkManager-x86_64.AppImage
+          path: build/Flutra-x86_64.AppImage
 
   macos:
     name: macOS dmg
@@ -145,15 +145,15 @@ jobs:
       - name: Package the dmg
         run: |
           set -eux
-          APP="build/macos/Build/Products/Release/android_sdk_manager.app"
+          APP="build/macos/Build/Products/Release/Flutra.app"
           STAGING=build/dmg
           mkdir -p "$STAGING"
           cp -R "$APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
-          hdiutil create -volname "Flutter SDK Manager" -srcfolder "$STAGING" \
-            -ov -format UDZO build/FlutterSdkManager.dmg
+          hdiutil create -volname "Flutra" -srcfolder "$STAGING" \
+            -ov -format UDZO build/Flutra.dmg
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: build/FlutterSdkManager.dmg
+          path: build/Flutra.dmg

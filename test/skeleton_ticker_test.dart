@@ -1,5 +1,5 @@
-import 'package:android_sdk_manager/presentation/common/loading_switcher.dart';
-import 'package:android_sdk_manager/presentation/common/skeleton/skeleton_layouts.dart';
+import 'package:flutra/presentation/common/loading_switcher.dart';
+import 'package:flutra/presentation/common/skeleton/skeleton_layouts.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'dart:async';
+import '../../core/constants/app_info.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -221,7 +222,7 @@ class _AppShellState extends State<AppShell> {
           const MenuFlyoutSeparator(),
           MenuFlyoutItem(
             leading: const Icon(WindowsIcons.info),
-            text: const Text('About Flutter SDK Manager'),
+            text: Text('About ${AppInfo.name}'),
             onPressed: openAboutWindow,
           ),
           const MenuFlyoutSeparator(),

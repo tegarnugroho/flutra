@@ -1,8 +1,8 @@
-import 'package:android_sdk_manager/application/device/device_manager_cubit.dart';
-import 'package:android_sdk_manager/application/emulator/emulator_list_cubit.dart';
-import 'package:android_sdk_manager/application/flutter_sdk/flutter_sdk_cubit.dart';
-import 'package:android_sdk_manager/application/log/logcat_devices_cubit.dart';
-import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart';
+import 'package:flutra/application/device/device_manager_cubit.dart';
+import 'package:flutra/application/emulator/emulator_list_cubit.dart';
+import 'package:flutra/application/flutter_sdk/flutter_sdk_cubit.dart';
+import 'package:flutra/application/log/logcat_devices_cubit.dart';
+import 'package:flutra/application/sdk/sdk_manager_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Guards the rule that made screens flash their centred empty state before the

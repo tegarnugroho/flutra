@@ -10,11 +10,11 @@ namespace {
 // The GUID is the installer's AppId. It keeps the name unique without a second
 // identifier to keep in step.
 constexpr wchar_t kMutexName[] =
-    L"Local\\FlutterSdkManager.SingleInstance."
+    L"Local\\Flutra.SingleInstance."
     L"44359FD9-1412-4751-9983-3F53BB31BA68";
 
 constexpr wchar_t kMessageName[] =
-    L"FlutterSdkManager.ShowExistingInstance."
+    L"Flutra.ShowExistingInstance."
     L"44359FD9-1412-4751-9983-3F53BB31BA68";
 
 }  // namespace
