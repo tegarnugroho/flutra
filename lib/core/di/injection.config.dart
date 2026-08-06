@@ -28,6 +28,7 @@ import 'package:flutra/application/settings/detected_paths_cubit.dart' as _i594;
 import 'package:flutra/application/settings/settings_cubit.dart' as _i520;
 import 'package:flutra/application/settings/theme_cubit.dart' as _i386;
 import 'package:flutra/application/shell/shell_navigator.dart' as _i338;
+import 'package:flutra/application/windows/windows_cubit.dart' as _i745;
 import 'package:flutra/core/command/command_runner.dart' as _i989;
 import 'package:flutra/core/command/sdk_operation_lock.dart' as _i29;
 import 'package:flutra/core/command/session_environment.dart' as _i282;
@@ -76,6 +77,8 @@ import 'package:flutra/infrastructure/system/external_link_service.dart'
 import 'package:flutra/infrastructure/system/host_info_service.dart' as _i698;
 import 'package:flutra/infrastructure/system/process_service.dart' as _i1039;
 import 'package:flutra/infrastructure/trash/trash_service.dart' as _i509;
+import 'package:flutra/infrastructure/windows/windows_toolchain_service.dart'
+    as _i608;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -135,6 +138,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
       ),
     );
+    gh.lazySingleton<_i608.WindowsToolchainService>(
+      () => _i608.WindowsToolchainService(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+      ),
+    );
     gh.lazySingleton<_i712.JdkCatalogService>(
       () => _i712.JdkCatalogService(gh<_i427.PlatformService>()),
     );
@@ -153,6 +162,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i706.SdkLocator>(),
         gh<_i427.PlatformService>(),
       ),
+    );
+    gh.factory<_i745.WindowsCubit>(
+      () => _i745.WindowsCubit(gh<_i608.WindowsToolchainService>()),
     );
     gh.factory<_i497.EmulatorListCubit>(
       () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),

@@ -29,6 +29,7 @@ import '../sdk/license_manager_page.dart';
 import '../sdk/sdk_manager_page.dart';
 import '../sdk/updates_page.dart';
 import '../settings/settings_page.dart' show SettingsPage, openDevLogsWindow;
+import '../windows/windows_page.dart';
 import '../window/task_windows.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -138,6 +139,12 @@ class _AppShellState extends State<AppShell> {
       icon: sys.FluentIcons.heart_pulse_24_regular,
       label: 'Flutter doctor',
       body: FlutterDoctorPage(),
+    ),
+    _Destination(
+      id: ShellDestination.windows,
+      icon: sys.FluentIcons.window_dev_tools_24_regular,
+      label: 'Windows',
+      body: WindowsPage(),
     ),
     _Destination(
       id: ShellDestination.devices,

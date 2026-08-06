@@ -17,6 +17,7 @@ enum ShellDestination {
   updates,
   flutterSdk,
   flutterDoctor,
+  windows,
   devices,
   settings,
 }
