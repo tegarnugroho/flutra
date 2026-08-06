@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 
 import '../error/failures.dart';
 import 'command_result.dart';
+import 'session_environment.dart';
 
 /// Handle to a process that is currently running.
 ///
@@ -40,7 +41,11 @@ class RunningCommand {
 /// cancellation, logging and error classification are handled consistently.
 @lazySingleton
 class CommandRunner {
-  CommandRunner();
+  CommandRunner(this._session);
+
+  /// Variables a fix set during this session, merged into every spawn — see
+  /// [SessionEnvironment] for why they cannot wait for a restart.
+  final SessionEnvironment _session;
 
   static final Logger _log = Logger('CommandRunner');
 
@@ -97,7 +102,7 @@ class CommandRunner {
         executable,
         arguments,
         workingDirectory: workingDirectory,
-        environment: environment,
+        environment: _session.merged(environment),
         runInShell: runInShell,
       );
     } on ProcessException catch (e) {
@@ -116,7 +121,10 @@ class CommandRunner {
 
     Stream<void> pipe(Stream<List<int>> src, StringBuffer buf, bool isErr) {
       return src
-          .transform(utf8.decoder)
+          // Tools print in the console codepage, not always UTF-8: a stray byte
+          // in `flutter doctor` output on a non-English locale must not kill
+          // the whole stream.
+          .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .map((line) {
         buf.writeln(line);

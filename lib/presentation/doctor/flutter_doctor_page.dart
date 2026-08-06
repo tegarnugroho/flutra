@@ -2,10 +2,13 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../application/doctor/doctor_fix_cubit.dart';
 import '../../application/doctor/flutter_doctor_cubit.dart';
 import '../../application/shell/shell_navigator.dart';
 import '../../core/di/injection.dart';
+import '../../domain/entities/doctor_issue.dart';
 import '../../domain/entities/doctor_report.dart';
+import '../../infrastructure/system/external_link_service.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
 import '../common/loading_switcher.dart';
@@ -15,6 +18,7 @@ import '../common/skeleton/skeleton_layouts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'doctor_animations.dart';
+import 'widgets/doctor_fix_dialog.dart';
 import 'widgets/doctor_indicators.dart';
 import 'widgets/doctor_progress_bar.dart';
 
@@ -28,16 +32,21 @@ class FlutterDoctorPage extends StatelessWidget {
     // Normally does NOT auto-run — the user starts diagnostics explicitly. The
     // one exception is arriving from the Dashboard's "Run flutter doctor",
     // which is a request to run, not just to look.
-    return BlocProvider(
-      create: (_) {
-        final cubit = getIt<FlutterDoctorCubit>();
-        if (getIt<ShellNavigator>().consumeAutoRun(
-          ShellDestination.flutterDoctor,
-        )) {
-          cubit.run();
-        }
-        return cubit;
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) {
+            final cubit = getIt<FlutterDoctorCubit>();
+            if (getIt<ShellNavigator>().consumeAutoRun(
+              ShellDestination.flutterDoctor,
+            )) {
+              cubit.run();
+            }
+            return cubit;
+          },
+        ),
+        BlocProvider(create: (_) => getIt<DoctorFixCubit>()),
+      ],
       child: const _FlutterDoctorView(),
     );
   }
@@ -75,7 +84,11 @@ class _FlutterDoctorView extends StatelessWidget {
               OutlinedActionButton(
                 icon: state.hasChecks ? FluentIcons.refresh : FluentIcons.play,
                 label: state.hasChecks ? 'Run again' : 'Run doctor',
-                onPressed: cubit.run,
+                // A run while a fix is mid-flight would report the state the
+                // fix is in the middle of changing.
+                onPressed: context.watch<DoctorFixCubit>().state.isRunning
+                    ? null
+                    : cubit.run,
               ),
           ],
           child: _body(context, state, cubit),
@@ -150,17 +163,39 @@ class _RunViewState extends State<_RunView> {
   /// Expanded rows, by check name — purely view state.
   final Set<String> _expanded = {};
 
+  /// Set by a fix whose change only new processes can see. Survives until the
+  /// next run, which is the only thing that can prove it landed.
+  String? _restartNote;
+
   @override
   void didUpdateWidget(covariant _RunView old) {
     super.didUpdateWidget(old);
     // A new run starts from collapsed rows.
-    if (!old.state.isRunning && widget.state.isRunning) _expanded.clear();
+    if (!old.state.isRunning && widget.state.isRunning) {
+      _expanded.clear();
+      _restartNote = null;
+    }
   }
+
+  /// The problems each finished check has, keyed by check name.
+  Map<String, List<DoctorIssue>> get _issues => {
+        for (final check in widget.state.checks)
+          if (check.isDone)
+            check.name: issuesFor(
+              category: check.name,
+              status: check.status,
+              detailLines: check.details,
+            ),
+      };
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final state = widget.state;
+    final issues = _issues;
+    final fixState = context.watch<DoctorFixCubit>().state;
+    // One fix at a time, and never while doctor itself is running.
+    final busy = fixState.isRunning || state.isRunning;
 
     return SingleChildScrollView(
       padding: kPageBodyPadding,
@@ -174,8 +209,40 @@ class _RunViewState extends State<_RunView> {
             completed: !state.isRunning,
             completionColor: _summaryColor(state, palette),
           ),
+          if (_restartNote != null) ...[
+            const SizedBox(height: 12),
+            InfoBar(
+              title: const Text('Restart required'),
+              content: Text(_restartNote!),
+              severity: InfoBarSeverity.warning,
+              isLong: true,
+              action: Button(
+                onPressed: busy
+                    ? null
+                    : () {
+                        setState(() => _restartNote = null);
+                        context.read<FlutterDoctorCubit>().run();
+                      },
+                child: const Text('Re-run doctor anyway'),
+              ),
+              onClose: () => setState(() => _restartNote = null),
+            ),
+          ],
           const SizedBox(height: 14),
-          const SectionLabel('Checks'),
+          Row(
+            children: [
+              const SectionLabel('Checks'),
+              const Spacer(),
+              if (_autoFixable(issues).isNotEmpty)
+                OutlinedActionButton(
+                  icon: FluentIcons.repair,
+                  label: 'Fix all',
+                  dense: true,
+                  busy: fixState.isRunning,
+                  onPressed: busy ? null : () => _fixAll(issues),
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
           GroupedList(
             children: [
@@ -183,6 +250,9 @@ class _RunViewState extends State<_RunView> {
                 _CheckRow(
                   key: ValueKey(check.name),
                   check: check,
+                  issues: issues[check.name] ?? const [],
+                  busy: busy,
+                  onFix: (issue) => _fix(issue),
                   expanded: _expanded.contains(check.name),
                   onTap: check.isDone && check.canExpand
                       ? () => setState(() {
@@ -197,6 +267,104 @@ class _RunViewState extends State<_RunView> {
         ],
       ),
     );
+  }
+
+  /// Every issue "Fix all" would act on, in check order.
+  List<DoctorIssue> _autoFixable(Map<String, List<DoctorIssue>> issues) => [
+        for (final list in issues.values)
+          for (final issue in list)
+            if (issue.kind == FixKind.auto) issue,
+      ];
+
+  /// Runs one issue's remedy: a dialog for anything with an executor, a jump
+  /// somewhere else for a redirect.
+  Future<void> _fix(DoctorIssue issue) async {
+    final doctor = context.read<FlutterDoctorCubit>();
+    final fixes = context.read<DoctorFixCubit>();
+
+    if (issue.kind == FixKind.redirect || !fixes.canFix(issue)) {
+      await _redirect(issue);
+      return;
+    }
+
+    final result = await showDoctorFixDialog(
+      context,
+      issue: issue,
+      cubit: fixes,
+    );
+    if (!mounted) return;
+    if (result.rerun) {
+      doctor.run();
+    } else if (result.succeeded &&
+        (result.restartRequired || result.blocksRerun)) {
+      setState(() => _restartNote = result.note ??
+          'Environment changes only reach processes started from now on.');
+    }
+  }
+
+  /// Redirects go outside the app, or to the screen that owns the problem.
+  Future<void> _redirect(DoctorIssue issue) async {
+    if (issue.id == 'no_devices') {
+      getIt<ShellNavigator>().go(ShellDestination.virtualDevices);
+      return;
+    }
+    final url = issue.url ?? kWindowsInstallDocs;
+    final opened = await getIt<ExternalLinkService>().open(url);
+    if (!mounted || opened) return;
+    await displayInfoBar(
+      context,
+      builder: (context, close) => InfoBar(
+        title: const Text('Could not open the link'),
+        content: Text(url),
+        severity: InfoBarSeverity.warning,
+        onClose: close,
+      ),
+    );
+  }
+
+  /// Runs every automatic fix, then says what still needs a person.
+  Future<void> _fixAll(Map<String, List<DoctorIssue>> issues) async {
+    final doctor = context.read<FlutterDoctorCubit>();
+    final fixes = context.read<DoctorFixCubit>();
+    final all = [
+      for (final list in issues.values) ...list,
+    ];
+
+    final report = await fixes.runAll(all);
+    fixes.reset();
+    if (!mounted) return;
+
+    final parts = <String>[
+      if (report.fixed.isNotEmpty)
+        '${report.fixed.length} fixed'
+      else
+        'nothing could be fixed automatically',
+      if (report.failedOn != null) '"${report.failedOn!.title}" failed',
+      if (report.needsAttention.isNotEmpty)
+        '${report.needsAttention.length} need your attention: '
+            '${report.needsAttention.map((i) => i.title).join(', ')}',
+    ];
+
+    await displayInfoBar(
+      context,
+      builder: (context, close) => InfoBar(
+        title: Text(report.anythingChanged ? 'Fixes applied' : 'Nothing to do'),
+        content: Text(parts.join(' · ')),
+        severity: report.failedOn != null
+            ? InfoBarSeverity.warning
+            : InfoBarSeverity.info,
+        isLong: true,
+        onClose: close,
+      ),
+    );
+    if (!mounted) return;
+
+    if (report.restartRequired || report.blocksRerun) {
+      setState(() => _restartNote =
+          'Environment changes only reach processes started from now on.');
+    } else if (report.anythingChanged) {
+      doctor.run();
+    }
   }
 }
 
@@ -248,12 +416,11 @@ class _StatusLine extends StatelessWidget {
     final warn = state.count(DoctorStatus.warning);
     final err = state.count(DoctorStatus.error);
     final total = state.checks.length;
-    if (err > 0) {
-      return 'Action required — $err error${err == 1 ? '' : 's'}, '
-          '$warn warning${warn == 1 ? '' : 's'}, $ok of $total passed';
-    }
-    if (warn > 0) {
-      return 'A few things to check — $warn warning${warn == 1 ? '' : 's'}, '
+    final problems = warn + err;
+    if (problems > 0) {
+      // The dot beside this already carries the severity, so the count is
+      // what the sentence is for.
+      return '$problems problem${problems == 1 ? '' : 's'} found — '
           '$ok of $total passed';
     }
     return 'All checks passed — $ok of $total';
@@ -292,11 +459,22 @@ class _CheckRow extends StatelessWidget {
     super.key,
     required this.check,
     required this.expanded,
+    this.issues = const [],
+    this.busy = false,
+    this.onFix,
     this.onTap,
   });
 
   final DoctorCheck check;
   final bool expanded;
+
+  /// The problems this check has, one button each.
+  final List<DoctorIssue> issues;
+
+  /// True while another fix — or doctor itself — is running.
+  final bool busy;
+
+  final ValueChanged<DoctorIssue>? onFix;
   final VoidCallback? onTap;
 
   @override
@@ -316,6 +494,22 @@ class _CheckRow extends StatelessWidget {
         ],
       ),
       trailing: [
+        // One button per problem: an Android toolchain missing both its
+        // licences and cmdline-tools is two separate jobs.
+        for (final issue in issues)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: OutlinedActionButton(
+              icon: issue.kind == FixKind.redirect
+                  ? FluentIcons.navigate_external_inline
+                  : FluentIcons.repair,
+              label: issue.actionLabel,
+              dense: true,
+              tooltip: issue.title,
+              onPressed:
+                  busy || onFix == null ? null : () => onFix!(issue),
+            ),
+          ),
         if (running)
           const RowSpinner()
         else if (check.elapsed != null)
