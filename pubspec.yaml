@@ -68,7 +68,15 @@ msix_config:
   display_name: Flutra
   publisher_display_name: Tegar Nugroho
   identity_name: com.flutra
-  publisher: CN=Flutra
+  # Must match the subject of certificate.pfx exactly, or SignTool fails with
+  # SignerSign() 0x8007000b. The bundled self-signed certificate was issued to
+  # CN=FlutterSdkManager, so this keeps the old name even though the product is
+  # now Flutra — it is a cryptographic identity, not a label. What users see is
+  # publisher_display_name above.
+  #
+  # To make it match the product name, generate a certificate for CN=Flutra and
+  # change both lines together.
+  publisher: CN=FlutterSdkManager
   msix_version: 1.0.4.4
   output_name: Flutra
   certificate_path: certificate.pfx
