@@ -59,4 +59,37 @@ void main() {
       expect(cats, sorted);
     });
   });
+
+  group('SdkRepositoryImpl.parseList cost', () {
+    /// A payload the size of a real `sdkmanager --list`: the machine this was
+    /// profiled on reports 556 packages over 584 lines / 110KB.
+    String bigListing() {
+      final rows = StringBuffer('Installed packages:\n')
+        ..writeln('  Path | Version | Description | Location');
+      for (var i = 0; i < 600; i++) {
+        rows.writeln('  system-images;android-$i;google_apis;x86_64 | $i.0 | '
+            'Google APIs Intel x86_64 System Image $i | system-images\\a$i');
+      }
+      return rows.toString();
+    }
+
+    test('parses a full listing in well under one frame', () {
+      final input = bigListing();
+      // Warm the JIT so this measures the parse, not first-call compilation.
+      SdkRepositoryImpl.parseList(input);
+
+      final sw = Stopwatch()..start();
+      final packages = SdkRepositoryImpl.parseList(input);
+      sw.stop();
+
+      expect(packages, hasLength(600));
+      // A tripwire, not a benchmark. Profiling put this at ~1.7ms on a debug
+      // VM, which is why the Dashboard parses on the UI isolate instead of
+      // paying for an Isolate.run hop. If a change ever makes this quadratic,
+      // that decision has to be revisited — this is what catches it.
+      expect(sw.elapsedMilliseconds, lessThan(50),
+          reason: 'parseList got dramatically slower; re-check whether the '
+              'Dashboard should still parse on the UI isolate');
+    });
+  });
 }

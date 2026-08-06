@@ -1,6 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../theme/app_colors.dart';
+import '../loading_switcher.dart';
 
 /// The opaque fill a skeleton shape rests at.
 ///
@@ -94,6 +95,16 @@ class SkeletonCircle extends StatelessWidget {
 /// skeleton primitives and spacing — no real text or icons.
 ///
 /// Renders the flat base colour, with no sweep, when the OS has animations off.
+///
+// TODO(raster): the sweep costs a full-page saveLayer every frame, because
+// ShaderMask rebuilds its gradient shader on each tick. That is raster-thread
+// cost, which cannot be measured from a headless test — it needs a profile-mode
+// DevTools capture. If a capture shows raster time elevated while the skeleton
+// is up, the swap is to a pulse-opacity skeleton (one FadeTransition over flat
+// boxes, same block sizes). Not done on suspicion: the UI-thread stall that was
+// actually measured came from process spawning, not from this.
+// TODO(pacing): if stutter survives with a clean timeline, check 144Hz vsync
+// pacing on Windows rather than tuning the 1400ms duration to hide it.
 class SkeletonShimmer extends StatefulWidget {
   const SkeletonShimmer({super.key, required this.child});
 
@@ -116,7 +127,12 @@ class _SkeletonShimmerState extends State<SkeletonShimmer>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reducedMotion = MediaQuery.disableAnimationsOf(context);
-    if (_reducedMotion) {
+    // The switcher keeps this subtree mounted through the cross-fade to the
+    // real content. Sweeping a full-page ShaderMask over it during those frames
+    // buys nothing and competes with the content's first layout, so the ticker
+    // stops the moment the swap starts.
+    final visible = SkeletonVisibility.of(context);
+    if (_reducedMotion || !visible) {
       _controller.stop();
     } else if (!_controller.isAnimating) {
       _controller.repeat();

@@ -85,6 +85,13 @@ class _LoadingSwitcherState extends State<LoadingSwitcher> {
 
   @override
   Widget build(BuildContext context) {
+    return SkeletonVisibility(
+      showing: _showing,
+      child: _switcher(context),
+    );
+  }
+
+  Widget _switcher(BuildContext context) {
     return AnimatedSwitcher(
       duration: kSkeletonFade,
       switchInCurve: Curves.easeOut,
@@ -108,4 +115,33 @@ class _LoadingSwitcherState extends State<LoadingSwitcher> {
             ),
     );
   }
+}
+
+/// Tells the skeleton subtree whether it is still the thing being shown.
+///
+/// Sits *above* the [AnimatedSwitcher] on purpose. The switcher keeps the
+/// outgoing skeleton mounted for the whole [kSkeletonFade], and never rebuilds
+/// it — so a flag passed down through the child would stay stale and the
+/// shimmer would keep ticking (and repainting a full-page ShaderMask) while the
+/// real content is doing its first layout. An inherited widget above the
+/// switcher still notifies that retained subtree, which is what stops it.
+class SkeletonVisibility extends InheritedWidget {
+  const SkeletonVisibility({
+    super.key,
+    required this.showing,
+    required super.child,
+  });
+
+  /// False once the swap to real content has begun.
+  final bool showing;
+
+  /// Defaults to true, so a skeleton used outside a [LoadingSwitcher] animates.
+  static bool of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<SkeletonVisibility>()
+          ?.showing ??
+      true;
+
+  @override
+  bool updateShouldNotify(SkeletonVisibility old) => showing != old.showing;
 }

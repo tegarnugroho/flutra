@@ -27,20 +27,32 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
 
   @override
   Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) async {
-    // Run every probe concurrently for a fast dashboard refresh.
-    final results = await Future.wait([
-      _detectSdk(),
-      _detectJava(),
+    // Two waves, not five probes at once.
+    //
+    // Each probe is one or two `Process.start` calls (the version check, plus a
+    // `where` lookup for the tool's path), and on Windows every spawn blocks
+    // the calling isolate for ~1.2ms. All of them together stalls the event
+    // loop long enough to drop frames on the Dashboard while its skeleton is
+    // animating; measured lag scales with how many are in flight — 3 at once
+    // costs ~10ms, 9 at once costs 32-75ms.
+    //
+    // Flutter leads: it is the slowest (~600ms) and the only one that may hit
+    // the network, so starting it first overlaps it with the rest.
+    final first = await Future.wait([
       _detectFlutter(forceRefresh: forceRefresh),
-      _detectEmulator(),
+      _detectSdk(), // pure filesystem, spawns nothing
       _detectAdb(),
     ]);
+    final second = await Future.wait([
+      _detectJava(),
+      _detectEmulator(),
+    ]);
 
-    final sdk = results[0];
-    final java = results[1];
-    final flutter = results[2];
-    final emulator = results[3];
-    final adb = results[4];
+    final flutter = first[0];
+    final sdk = first[1];
+    final adb = first[2];
+    final java = second[0];
+    final emulator = second[1];
 
     return EnvironmentSnapshot(
       sdk: sdk,

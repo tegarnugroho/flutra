@@ -32,6 +32,24 @@ class DashboardCubit extends Cubit<DashboardState> {
   final SdkRepository _sdk;
   final StorageAnalysisService _storage;
 
+  /// The screen's startup load, in the order the user sees things.
+  ///
+  /// Sequential on purpose. Every tool invocation is a `Process.start`, and on
+  /// Windows each one blocks this isolate for ~1.2ms while the OS spawns it (a
+  /// shell included). Firing the detection probes and the overview tools
+  /// together — 9 spawns at once — stalls the event loop for 32-75ms, which is
+  /// 2-5 dropped frames at 60Hz and lands exactly while the skeleton shimmer is
+  /// starting. Measured lag drops to 5-6ms when the same 9 are spread out.
+  ///
+  /// Detection comes first because the skeleton is up until [state.snapshot]
+  /// arrives: the stat counts are invisible before that, however early they
+  /// land.
+  Future<void> load({bool forceRefresh = false}) async {
+    await refresh(forceRefresh: forceRefresh);
+    if (isClosed) return;
+    await loadOverview();
+  }
+
   /// Loads the stat-card counts and whatever storage report is on disk.
   ///
   /// Cached storage renders instantly; a report older than a day refreshes
@@ -39,21 +57,23 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// the user waiting for a disk walk.
   Future<void> loadOverview() async {
     if (isClosed) return;
-    // Fired together: three tool invocations that have nothing to say to each
-    // other, and a file read.
+    // Two waves rather than one: see [load] for why concurrent spawns cost
+    // frames. adb and avdmanager are the cheap pair and feed three of the four
+    // stat cards; sdkmanager --list is the slow one and follows on its own.
     final avdsFuture = _emulators.listAvds();
     final devicesFuture = _devices.listDevices();
-    final packagesFuture = _sdk.listPackages();
     final cachedFuture = _storage.cached();
 
     // A tool that fails contributes a zero rather than sinking the whole
     // overview — the toolchain list above already reports what is broken.
     final avds = await avdsFuture.catchError((_) => const <Avd>[]);
     final devices = await devicesFuture.catchError((_) => const <Device>[]);
-    final packages = await packagesFuture.catchError(
+    final cached = await cachedFuture;
+    if (isClosed) return;
+
+    final packages = await _sdk.listPackages().catchError(
       (_) => const <SdkPackage>[],
     );
-    final cached = await cachedFuture;
     if (isClosed) return;
 
     emit(state.copyWith(

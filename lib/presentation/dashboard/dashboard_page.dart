@@ -28,9 +28,7 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<DashboardCubit>()
-        ..refresh()
-        ..loadOverview(),
+      create: (_) => getIt<DashboardCubit>()..load(),
       child: const _DashboardView(),
     );
   }
