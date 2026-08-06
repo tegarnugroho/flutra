@@ -2,6 +2,10 @@ part of 'java_cubit.dart';
 
 enum JavaStatus { initial, loading, ready, failure }
 
+/// The download catalogue is fetched on demand and fails on its own terms — no
+/// network is a fine state for a screen whose job is the JDKs already here.
+enum CatalogStatus { initial, loading, ready, failure }
+
 /// What a JDK is in the middle of, which is what its button says while it runs.
 enum JdkTask {
   settingFlutter,
@@ -24,6 +28,12 @@ class JavaState extends Equatable {
     this.pathJdk,
     this.flutterVersion,
     this.errorMessage,
+    this.catalog = const [],
+    this.catalogStatus = CatalogStatus.initial,
+    this.catalogVendor,
+    this.catalogSource,
+    this.catalogError,
+    this.installs = const {},
   });
 
   final JavaStatus status;
@@ -47,6 +57,26 @@ class JavaState extends Equatable {
   final String? flutterVersion;
 
   final String? errorMessage;
+
+  /// JDKs that can be downloaded, newest major first.
+  final List<JdkRelease> catalog;
+
+  final CatalogStatus catalogStatus;
+
+  /// Which API answered, for the picker's footnote.
+  final JdkVendor? catalogVendor;
+
+  /// The source the user pinned, or null for "whichever answers".
+  final JdkVendor? catalogSource;
+
+  final String? catalogError;
+
+  /// Installs in flight or just finished, keyed by download URL.
+  final Map<String, JdkInstallEvent> installs;
+
+  /// What is happening to [release], or null when nothing is.
+  JdkInstallEvent? installOf(JdkRelease release) =>
+      installs[release.downloadUrl];
 
   bool get isLoading => status == JavaStatus.loading;
 
@@ -102,6 +132,14 @@ class JavaState extends Equatable {
     String? flutterVersion,
     String? errorMessage,
     bool clearError = false,
+    List<JdkRelease>? catalog,
+    CatalogStatus? catalogStatus,
+    JdkVendor? catalogVendor,
+    JdkVendor? catalogSource,
+    bool clearCatalogSource = false,
+    String? catalogError,
+    bool clearCatalogError = false,
+    Map<String, JdkInstallEvent>? installs,
   }) {
     return JavaState(
       status: status ?? this.status,
@@ -114,6 +152,16 @@ class JavaState extends Equatable {
       pathJdk: pathJdk ?? this.pathJdk,
       flutterVersion: flutterVersion ?? this.flutterVersion,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      catalog: catalog ?? this.catalog,
+      catalogStatus: catalogStatus ?? this.catalogStatus,
+      catalogVendor: catalogVendor ?? this.catalogVendor,
+      catalogSource: clearCatalogSource
+          ? null
+          : (catalogSource ?? this.catalogSource),
+      catalogError: clearCatalogError
+          ? null
+          : (catalogError ?? this.catalogError),
+      installs: installs ?? this.installs,
     );
   }
 
@@ -127,5 +175,11 @@ class JavaState extends Equatable {
     pathJdk,
     flutterVersion,
     errorMessage,
+    catalog,
+    catalogStatus,
+    catalogVendor,
+    catalogSource,
+    catalogError,
+    installs,
   ];
 }

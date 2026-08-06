@@ -15,6 +15,9 @@ enum JdkSource {
 
   /// The JBR bundled with Android Studio.
   androidStudio,
+
+  /// Downloaded and unpacked by this app.
+  managed,
   javaHome,
   path,
 
@@ -26,6 +29,7 @@ enum JdkSource {
     JdkSource.disk => 'installed',
     JdkSource.jdksDir => '.jdks',
     JdkSource.androidStudio => 'Android Studio',
+    JdkSource.managed => 'Flutra',
     JdkSource.javaHome => 'JAVA_HOME',
     JdkSource.path => 'PATH',
     JdkSource.manual => 'manual',

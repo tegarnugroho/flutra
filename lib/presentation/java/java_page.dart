@@ -17,6 +17,7 @@ import '../common/tile_box.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'widgets/java_identity_panel.dart';
+import 'widgets/jdk_install_dialog.dart';
 import 'widgets/jdk_tile.dart';
 
 /// Java: which JDKs are installed, and which one the toolchain uses.
@@ -61,6 +62,11 @@ class _JavaView extends StatelessWidget {
           title: 'Java',
           titleMeta: state.jdks.isEmpty ? null : state.countLabel,
           actions: [
+            OutlinedActionButton(
+              icon: FluentIcons.download,
+              label: 'Install JDK…',
+              onPressed: () => showJdkInstallDialog(context, cubit),
+            ),
             OutlinedActionButton(
               icon: FluentIcons.add,
               label: 'Add JDK…',
@@ -112,6 +118,7 @@ class _JavaView extends StatelessWidget {
                 onSetForFlutter: active == null || !active.jdk.isSelectable
                     ? null
                     : () => cubit.useForFlutter(active.jdk),
+                onInstall: () => showJdkInstallDialog(context, cubit),
               ),
               // Only on a known conflict: a hint that shows when things are
               // fine is a hint nobody reads when they are not.

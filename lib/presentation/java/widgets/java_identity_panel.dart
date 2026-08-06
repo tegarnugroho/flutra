@@ -19,6 +19,7 @@ class JavaIdentityPanel extends StatelessWidget {
     required this.configuredForFlutter,
     required this.busy,
     required this.onSetForFlutter,
+    required this.onInstall,
   });
 
   /// The JDK in force, or null when nothing usable was found.
@@ -32,6 +33,9 @@ class JavaIdentityPanel extends StatelessWidget {
   /// Pins the active JDK for Flutter builds. Null when there is nothing to
   /// pin — an empty machine, or an entry that cannot be selected.
   final VoidCallback? onSetForFlutter;
+
+  /// Opens the downloadable-JDK picker.
+  final VoidCallback onInstall;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +52,7 @@ class JavaIdentityPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppShape.radiusGroup),
       ),
       child: active == null
-          ? _NoJdk(palette: palette)
+          ? _NoJdk(palette: palette, onInstall: onInstall)
           : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -228,9 +232,10 @@ class _FlutterStatus extends StatelessWidget {
 
 /// The panel when the machine has no JDK the app can see.
 class _NoJdk extends StatelessWidget {
-  const _NoJdk({required this.palette});
+  const _NoJdk({required this.palette, required this.onInstall});
 
   final AppPalette palette;
+  final VoidCallback onInstall;
 
   @override
   Widget build(BuildContext context) {
@@ -255,12 +260,12 @@ class _NoJdk extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-        // TODO(phase2): Adoptium install flow.
-        const OutlinedActionButton(
+        OutlinedActionButton(
           icon: FluentIcons.download,
           label: 'Install JDK',
-          tooltip: 'Coming soon',
-          onPressed: null,
+          warning: true,
+          tooltip: 'Show the JDKs available to download',
+          onPressed: onInstall,
         ),
       ],
     );

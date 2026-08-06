@@ -45,7 +45,9 @@ import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
     as _i846;
 import 'package:flutra/infrastructure/flutter/flutter_update_service.dart'
     as _i483;
+import 'package:flutra/infrastructure/java/jdk_catalog_service.dart' as _i712;
 import 'package:flutra/infrastructure/java/jdk_detection_service.dart' as _i324;
+import 'package:flutra/infrastructure/java/jdk_install_service.dart' as _i129;
 import 'package:flutra/infrastructure/logging/dev_log_service.dart' as _i730;
 import 'package:flutra/infrastructure/repositories/device_repository_impl.dart'
     as _i580;
@@ -121,12 +123,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
       ),
     );
-    gh.lazySingleton<_i324.JdkDetectionService>(
-      () => _i324.JdkDetectionService(
-        gh<_i989.CommandRunner>(),
-        gh<_i427.PlatformService>(),
-      ),
-    );
     gh.lazySingleton<_i936.PathProbeService>(
       () => _i936.PathProbeService(
         gh<_i989.CommandRunner>(),
@@ -138,6 +134,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i989.CommandRunner>(),
         gh<_i427.PlatformService>(),
       ),
+    );
+    gh.lazySingleton<_i712.JdkCatalogService>(
+      () => _i712.JdkCatalogService(gh<_i427.PlatformService>()),
     );
     gh.lazySingleton<_i166.FlutterLocator>(
       () => _i166.FlutterLocator(gh<_i427.PlatformService>()),
@@ -157,6 +156,13 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i497.EmulatorListCubit>(
       () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
+    );
+    gh.lazySingleton<_i129.JdkInstallService>(
+      () => _i129.JdkInstallService(
+        gh<_i712.JdkCatalogService>(),
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+      ),
     );
     gh.factory<_i247.FlutterDoctorCubit>(
       () => _i247.FlutterDoctorCubit(
@@ -201,6 +207,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i541.SdkRepository>(),
         gh<_i706.SdkLocator>(),
         gh<_i427.PlatformService>(),
+      ),
+    );
+    gh.lazySingleton<_i324.JdkDetectionService>(
+      () => _i324.JdkDetectionService(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+        gh<_i129.JdkInstallService>(),
       ),
     );
     gh.factory<_i594.DetectedPathsCubit>(
@@ -290,6 +303,17 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i151.FlutterRepository>(),
       ),
     );
+    gh.factory<_i276.JavaCubit>(
+      () => _i276.JavaCubit(
+        gh<_i324.JdkDetectionService>(),
+        gh<_i712.JdkCatalogService>(),
+        gh<_i129.JdkInstallService>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i964.SystemActions>(),
+        gh<_i420.ExternalLinkService>(),
+        gh<_i520.SettingsCubit>(),
+      ),
+    );
     gh.factory<_i352.DashboardCubit>(
       () => _i352.DashboardCubit(
         gh<_i359.EnvironmentRepository>(),
@@ -310,14 +334,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i151.FlutterRepository>(),
         gh<_i427.PlatformService>(),
         gh<_i964.SystemActions>(),
-      ),
-    );
-    gh.factory<_i276.JavaCubit>(
-      () => _i276.JavaCubit(
-        gh<_i324.JdkDetectionService>(),
-        gh<_i151.FlutterRepository>(),
-        gh<_i964.SystemActions>(),
-        gh<_i520.SettingsCubit>(),
       ),
     );
     gh.factory<_i698.DoctorFixCubit>(

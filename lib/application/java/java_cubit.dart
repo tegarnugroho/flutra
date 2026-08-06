@@ -6,8 +6,12 @@ import '../../core/error/failures.dart';
 import '../../core/platform/system_actions.dart';
 import '../../domain/entities/jdk.dart';
 import '../../domain/entities/jdk_compatibility.dart';
+import '../../domain/entities/jdk_release.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../../infrastructure/java/jdk_catalog_service.dart';
 import '../../infrastructure/java/jdk_detection_service.dart';
+import '../../infrastructure/java/jdk_install_service.dart';
+import '../../infrastructure/system/external_link_service.dart';
 import '../settings/settings_cubit.dart';
 
 part 'java_state.dart';
@@ -16,12 +20,22 @@ part 'java_state.dart';
 /// change that.
 @injectable
 class JavaCubit extends Cubit<JavaState> {
-  JavaCubit(this._detection, this._flutter, this._actions, this._settings)
-    : super(const JavaState());
+  JavaCubit(
+    this._detection,
+    this._catalog,
+    this._installs,
+    this._flutter,
+    this._actions,
+    this._links,
+    this._settings,
+  ) : super(const JavaState());
 
   final JdkDetectionService _detection;
+  final JdkCatalogService _catalog;
+  final JdkInstallService _installs;
   final FlutterRepository _flutter;
   final SystemActions _actions;
+  final ExternalLinkService _links;
   final SettingsCubit _settings;
 
   /// Scans for JDKs and resolves the active one.
@@ -113,6 +127,107 @@ class JavaCubit extends Cubit<JavaState> {
       if (!isClosed) emit(state.copyWith(javaHome: jdk.path));
     });
     return note;
+  }
+
+  /// Fetches the downloadable JDKs, on demand rather than with the page.
+  ///
+  /// Two network calls for a dialog nobody opened would be two calls wasted, so
+  /// this runs when the picker does.
+  Future<void> loadCatalog({bool force = false}) async {
+    if (isClosed) return;
+    if (!force && state.catalogStatus == CatalogStatus.ready) return;
+    emit(state.copyWith(
+      catalogStatus: CatalogStatus.loading,
+      clearCatalogError: true,
+    ));
+    try {
+      final releases = await _catalog.available(
+        vendor: state.catalogSource,
+        forceRefresh: force,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(
+        catalog: releases,
+        catalogStatus: CatalogStatus.ready,
+        catalogVendor: _catalog.servedBy,
+      ));
+    } on Failure catch (e) {
+      if (!isClosed) {
+        emit(state.copyWith(
+          catalogStatus: CatalogStatus.failure,
+          catalogError: e.message,
+        ));
+      }
+    } catch (e) {
+      if (!isClosed) {
+        emit(state.copyWith(
+          catalogStatus: CatalogStatus.failure,
+          catalogError: '$e',
+        ));
+      }
+    }
+  }
+
+  /// Switches which API the picker reads from, and reloads it.
+  ///
+  /// Null means "whichever answers" — Adoptium, then Azul.
+  Future<void> setCatalogSource(JdkVendor? vendor) async {
+    if (isClosed || vendor == state.catalogSource) return;
+    emit(state.copyWith(
+      catalogSource: vendor,
+      clearCatalogSource: vendor == null,
+      catalog: const [],
+      catalogStatus: CatalogStatus.initial,
+    ));
+    await loadCatalog();
+  }
+
+  /// Downloads, verifies and unpacks [release] into the app's own folder, then
+  /// rescans so the new JDK appears in the list.
+  Future<void> install(JdkRelease release) async {
+    if (isClosed || state.installOf(release) != null) return;
+    _install(release, const JdkInstallEvent(
+      stage: JdkInstallStage.downloading,
+      progress: 0,
+    ));
+
+    await for (final event in _installs.install(release)) {
+      if (isClosed) return;
+      _install(release, event);
+      if (event.stage == JdkInstallStage.done) {
+        // The install landed in the managed folder, which the scan reads.
+        await load(force: true);
+        if (isClosed) return;
+        _install(release, null);
+        return;
+      }
+      if (event.stage == JdkInstallStage.failed) return;
+    }
+  }
+
+  /// Stops an install in flight; the partial download is discarded.
+  void cancelInstall(JdkRelease release) {
+    _installs.cancel(release);
+    _install(release, null);
+  }
+
+  /// Clears a failed install's message once it has been read.
+  void dismissInstall(JdkRelease release) => _install(release, null);
+
+  /// Opens a build's archive in the browser, for anyone who would rather not
+  /// have the app fetch 200 MB for them.
+  Future<void> openDownload(JdkRelease release) =>
+      _links.open(release.downloadUrl);
+
+  void _install(JdkRelease release, JdkInstallEvent? event) {
+    if (isClosed) return;
+    final next = Map<String, JdkInstallEvent>.from(state.installs);
+    if (event == null) {
+      next.remove(release.downloadUrl);
+    } else {
+      next[release.downloadUrl] = event;
+    }
+    emit(state.copyWith(installs: next));
   }
 
   /// Validates [directory] as a JDK and remembers it.

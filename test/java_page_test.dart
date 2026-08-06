@@ -59,6 +59,7 @@ Widget _panel({
   configuredForFlutter: configured,
   busy: busy,
   onSetForFlutter: onSet ?? () {},
+  onInstall: () {},
 );
 
 void main() {
@@ -100,18 +101,23 @@ void main() {
       expect(find.text('Set for Flutter'), findsNothing);
     });
 
-    testWidgets('an empty machine gets the install card, disabled for now',
-        (tester) async {
-      await tester.pumpWidget(_host(_panel()));
-
-      expect(find.text('No JDK detected'), findsOneWidget);
-      final button = tester.widget<Tooltip>(
-        find.ancestor(
-          of: find.text('Install JDK'),
-          matching: find.byType(Tooltip),
+    testWidgets('an empty machine gets the install card', (tester) async {
+      var installs = 0;
+      await tester.pumpWidget(
+        _host(
+          JavaIdentityPanel(
+            active: null,
+            configuredForFlutter: false,
+            busy: false,
+            onSetForFlutter: () {},
+            onInstall: () => installs++,
+          ),
         ),
       );
-      expect(button.message, 'Coming soon');
+
+      expect(find.text('No JDK detected'), findsOneWidget);
+      await tester.tap(find.text('Install JDK'));
+      expect(installs, 1);
     });
   });
 

@@ -43,6 +43,7 @@ dependencies:
   tray_manager: ^0.5.3
   file_selector: ^1.1.0
   simple_icons: ^16.23.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

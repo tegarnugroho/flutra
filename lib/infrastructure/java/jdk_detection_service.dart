@@ -8,6 +8,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/jdk.dart';
+import 'jdk_install_service.dart';
 
 /// Finds every JDK on the machine, and what each one is.
 ///
@@ -17,10 +18,11 @@ import '../../domain/entities/jdk.dart';
 /// actually using" against the full set rather than the one on PATH.
 @lazySingleton
 class JdkDetectionService {
-  JdkDetectionService(this._runner, this._platform);
+  JdkDetectionService(this._runner, this._platform, this._installs);
 
   final CommandRunner _runner;
   final PlatformService _platform;
+  final JdkInstallService _installs;
 
   static final Logger _log = Logger('JdkDetectionService');
 
@@ -118,6 +120,7 @@ class JdkDetectionService {
     // Ordered by how much each source knows about the install: a registry
     // entry names a real installer, PATH only names what a shell happened to
     // export. The first source to claim a path is the one the tile shows.
+    found.addAll(await _describeAll(await _managedJdks(), JdkSource.managed));
     found.addAll(await _describeAll(await _registryHomes(), JdkSource.registry));
     found.addAll(await _describeAll(_commonDirJdks(), JdkSource.disk));
     found.addAll(await _describeAll(_jdksDirJdks(), JdkSource.jdksDir));
@@ -150,6 +153,20 @@ class JdkDetectionService {
       }
     }
     return out;
+  }
+
+  /// The JDKs this app downloaded, listed first: they are the ones it can
+  /// speak for completely.
+  Future<List<String>> _managedJdks() async {
+    try {
+      return _childDirectories((await _installs.managedRoot()).path)
+          // Staging folders of an install that died mid-run are not JDKs.
+          .where((path) => !p.basename(path).startsWith('.'))
+          .toList();
+    } catch (e) {
+      _log.fine('could not list managed JDKs: $e');
+      return const [];
+    }
   }
 
   /// `HKLM\SOFTWARE\JavaSoft\JDK` and the legacy key beside it.
