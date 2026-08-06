@@ -7,7 +7,7 @@ const Size kWizardWindowSize = Size(720, 640);
 const Size kWizardWindowMinSize = Size(640, 560);
 
 /// About is a fixed card: no resize, so default and floor are the same.
-const Size kAboutWindowSize = Size(400, 470);
+const Size kAboutWindowSize = Size(400, 500);
 
 /// The Developer Logs viewer wants width for long mono lines.
 const Size kDevLogsWindowSize = Size(900, 640);
