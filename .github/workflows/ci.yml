@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# A new push to the same branch makes the previous run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Matches the `environment: sdk: ^3.12.1` constraint in pubspec.yaml.
+  FLUTTER_CHANNEL: stable
+
+jobs:
+  # The cheap job, and the one that catches most things. Runs on every push.
+  analyze:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+      - run: flutter pub get
+      # The generated DI/freezed files are committed; regenerating here proves
+      # they are not stale, which is otherwise only found at runtime.
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - name: Fail if generated files drifted
+        run: git diff --exit-code -- lib/core/di/injection.config.dart
+      - run: flutter analyze
+      - run: flutter test
+
+  windows:
+    name: Windows build
+    runs-on: windows-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: build/windows/x64/runner/Release/
+
+  linux:
+    name: Linux AppImage
+    runs-on: ubuntu-22.04
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      # The same packages the app's own `linux_deps_missing` doctor fix
+      # installs — if this list changes, change it there too.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+
+      - run: flutter pub get
+      - run: flutter build linux --release
+
+      - name: Assemble the AppDir
+        run: |
+          set -eux
+          APPDIR=build/AppDir
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" \
+                   "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
+          cp assets/app_icon.png \
+             "$APPDIR/usr/share/icons/hicolor/256x256/apps/flutter-sdk-manager.png"
+          # AppImage looks for the icon beside AppRun as well.
+          cp assets/app_icon.png "$APPDIR/flutter-sdk-manager.png"
+
+          cat > "$APPDIR/usr/share/applications/flutter-sdk-manager.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Flutter SDK Manager
+          Comment=Graphical frontend for the Android SDK command-line tools
+          Exec=android_sdk_manager
+          Icon=flutter-sdk-manager
+          Categories=Development;
+          Terminal=false
+          DESKTOP
+          cp "$APPDIR/usr/share/applications/flutter-sdk-manager.desktop" \
+             "$APPDIR/flutter-sdk-manager.desktop"
+
+          cat > "$APPDIR/AppRun" <<'APPRUN'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          # The bundle keeps its libraries beside the binary.
+          export LD_LIBRARY_PATH="$HERE/usr/bin/lib:$LD_LIBRARY_PATH"
+          exec "$HERE/usr/bin/android_sdk_manager" "$@"
+          APPRUN
+          chmod +x "$APPDIR/AppRun"
+
+      - name: Build the AppImage
+        run: |
+          set -eux
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          # The runner has no FUSE, so the tool has to be unpacked to run.
+          ./appimagetool-x86_64.AppImage --appimage-extract > /dev/null
+          ARCH=x86_64 ./squashfs-root/AppRun build/AppDir \
+            build/FlutterSdkManager-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: build/FlutterSdkManager-x86_64.AppImage
+
+  macos:
+    name: macOS dmg
+    # Expensive minutes, and the artifact is unsigned — not worth running on
+    # every pull request.
+    if: github.event_name == 'push'
+    runs-on: macos-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+
+      # Unsigned and un-notarised: there is no Apple Developer account, so
+      # Gatekeeper will refuse a double-click. Right-click → Open, or
+      # `xattr -dr com.apple.quarantine <app>`, is the documented way in.
+      - name: Package the dmg
+        run: |
+          set -eux
+          APP="build/macos/Build/Products/Release/android_sdk_manager.app"
+          STAGING=build/dmg
+          mkdir -p "$STAGING"
+          cp -R "$APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "Flutter SDK Manager" -srcfolder "$STAGING" \
+            -ov -format UDZO build/FlutterSdkManager.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: build/FlutterSdkManager.dmg
