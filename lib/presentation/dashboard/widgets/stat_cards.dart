@@ -9,6 +9,54 @@ import '../../theme/app_text_styles.dart';
 const double kStatCardHeight = 88;
 const double kQuickActionHeight = 58;
 
+/// The stat labels, which are fixed no matter what the numbers turn out to be.
+///
+/// Shared with the skeleton so it can print the real words while only the
+/// values shimmer — and so renaming one here renames it in both places.
+const String kStatDiskUsed = 'Disk used';
+const String kStatVirtualDevices = 'Virtual devices';
+const String kStatUpdates = 'Updates';
+const String kStatDevices = 'Devices';
+
+/// In the order the dashboard lays them out.
+const List<String> kDashboardStatLabels = [
+  kStatDiskUsed,
+  kStatVirtualDevices,
+  kStatUpdates,
+  kStatDevices,
+];
+
+/// The card's frame: padding, border and radius, with nothing in it.
+///
+/// Shared with the skeleton so the placeholder sits inside the very same box
+/// the real card will — the frame is not what the user is waiting for, so it
+/// has no reason to be a grey slab first.
+class StatCardShell extends StatelessWidget {
+  const StatCardShell({super.key, required this.child, this.lifted = false});
+
+  final Widget child;
+
+  /// True while the real card is hovered or focused.
+  final bool lifted;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: lifted ? palette.surfaceRaised : Colors.transparent,
+        border: Border.all(
+          color: lifted ? palette.borderStrong : palette.border,
+          width: AppShape.hairline,
+        ),
+        borderRadius: BorderRadius.circular(AppShape.radiusGroup),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// One number worth glancing at, with the context that makes it mean
 /// something.
 class StatCard extends StatefulWidget {
@@ -61,16 +109,8 @@ class _StatCardState extends State<StatCard> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: lifted ? palette.surfaceRaised : Colors.transparent,
-              border: Border.all(
-                color: lifted ? palette.borderStrong : palette.border,
-                width: AppShape.hairline,
-              ),
-              borderRadius: BorderRadius.circular(AppShape.radiusGroup),
-            ),
+          child: StatCardShell(
+            lifted: lifted,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -222,6 +262,7 @@ class StatCardsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextStyles.of(context);
     return SkeletonShimmer(
       child: LayoutBuilder(
         builder: (context, constraints) => GridView(
@@ -234,8 +275,27 @@ class StatCardsSkeleton extends StatelessWidget {
             mainAxisExtent: kStatCardHeight,
           ),
           children: [
-            for (var i = 0; i < 4; i++)
-              const SkeletonBox(height: kStatCardHeight, radius: 8),
+            for (final label in kDashboardStatLabels)
+              StatCardShell(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // The label is known before the number is; only the number
+                    // and its sub-line are still being fetched.
+                    Text(
+                      label,
+                      style: text.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    const SkeletonLine(width: 58, height: 15),
+                    const SizedBox(height: 7),
+                    const SkeletonLine(width: 92, height: 10),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

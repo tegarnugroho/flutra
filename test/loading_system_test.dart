@@ -89,9 +89,37 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(ShaderMask), findsOneWidget);
+      // Each shape masks itself, so real chrome can sit between them without
+      // being recoloured — but they all read the same animation, which is what
+      // "one controller" has to mean now. Counting ShaderMasks would only
+      // count shapes.
+      expect(find.byType(ShaderMask), findsNWidgets(3));
+      expect(tester.binding.transientCallbackCount, 1);
+
       await tester.pump(const Duration(milliseconds: 700));
       expect(tester.takeException(), isNull);
+      expect(tester.binding.transientCallbackCount, 1);
+    });
+
+    testWidgets('a nested shimmer does not start a second controller',
+        (tester) async {
+      // A page skeleton may reuse a component's skeleton, and that component
+      // wraps itself so it still shimmers when used on its own.
+      await tester.pumpWidget(
+        _host(
+          const SkeletonShimmer(
+            child: Column(
+              children: [
+                SkeletonLine(width: 100),
+                SkeletonShimmer(child: SkeletonBox(width: 60, height: 20)),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.binding.transientCallbackCount, 1);
     });
 
     testWidgets('drops the sweep when animations are disabled', (tester) async {

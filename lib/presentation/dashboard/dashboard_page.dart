@@ -163,7 +163,7 @@ class _StatCards extends StatelessWidget {
 
     final cards = <Widget>[
       StatCard(
-        label: 'Disk used',
+        label: kStatDiskUsed,
         value: storage == null ? '—' : formatBytes(storage.totalBytes),
         subtitle: reclaimable > 0
             ? '${formatBytes(reclaimable)} reclaimable'
@@ -172,7 +172,7 @@ class _StatCards extends StatelessWidget {
         onTap: () => Scrollable.ensureVisible(context),
       ),
       StatCard(
-        label: 'Virtual devices',
+        label: kStatVirtualDevices,
         value: '${stats.avdCount}',
         subtitle: stats.runningAvdCount > 0
             ? '${stats.runningAvdCount} running'
@@ -181,14 +181,14 @@ class _StatCards extends StatelessWidget {
             getIt<ShellNavigator>().go(ShellDestination.virtualDevices),
       ),
       StatCard(
-        label: 'Updates',
+        label: kStatUpdates,
         value: '${stats.updateCount}',
         valueColor: stats.updateCount > 0 ? palette.accent : null,
         subtitle: stats.updateCount > 0 ? 'available' : 'up to date',
         onTap: () => getIt<ShellNavigator>().go(ShellDestination.updates),
       ),
       StatCard(
-        label: 'Devices',
+        label: kStatDevices,
         value: '${stats.deviceCount}',
         subtitle: 'connected',
         onTap: () => getIt<ShellNavigator>().go(ShellDestination.devices),

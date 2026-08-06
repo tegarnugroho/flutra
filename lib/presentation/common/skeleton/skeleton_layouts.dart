@@ -1,6 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
+import '../../dashboard/widgets/stat_cards.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_text_styles.dart';
 import '../grouped_list.dart';
 import '../page_scaffold.dart';
 import 'skeleton_primitives.dart';
@@ -93,27 +95,25 @@ class _SkeletonGroup extends StatelessWidget {
 // Dashboard
 // ---------------------------------------------------------------------------
 
-/// Status line, "Toolchain" label, then the five detected tools.
+/// The dashboard, with everything that is known already drawn for real.
+///
+/// Only the parts still being fetched shimmer — the numbers, the tool names
+/// and versions, the storage figures. Card borders, the section label and the
+/// stat labels are not waiting on anything, so turning them into grey slabs
+/// only made the page look emptier than it is.
 class DashboardSkeleton extends StatelessWidget {
   const DashboardSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextStyles.of(context);
     return _SkeletonPage(
       children: [
         const _StatusLineSkeleton(width: 300),
-        const SizedBox(height: 18),
-        // Stat cards.
-        Row(
-          children: [
-            for (var i = 0; i < 4; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              const Expanded(child: SkeletonBox(height: 74, radius: 8)),
-            ],
-          ],
-        ),
         const SizedBox(height: 14),
-        const _SectionLabelSkeleton(width: 66),
+        const StatCardsSkeleton(),
+        const SizedBox(height: 14),
+        const SectionLabel('Toolchain'),
         const SizedBox(height: 8),
         _SkeletonGroup(
           rows: [
@@ -132,14 +132,88 @@ class DashboardSkeleton extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        // Storage panel: title, bar, two legend columns.
-        const SkeletonBox(height: 132, radius: 8),
+        // Storage panel: real box and title, shimmering figures.
+        GroupedBox(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Storage analysis', style: text.rowTitle),
+                  const SizedBox(width: 10),
+                  const SkeletonLine(width: 96, height: 10),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // The stacked bar.
+              const SkeletonBox(height: 10, radius: 5),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var column = 0; column < 2; column++) ...[
+                    if (column > 0) const SizedBox(width: 24),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          for (var row = 0; row < 2; row++)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  const SkeletonBox(
+                                    width: 9,
+                                    height: 9,
+                                    radius: 2,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SkeletonLine(
+                                    width: 84 + (column * 18) + (row * 12),
+                                    height: 11,
+                                  ),
+                                  const Spacer(),
+                                  const SkeletonLine(width: 48, height: 11),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 14),
+        // Quick actions: real frames, shimmering icon and labels.
         Row(
           children: [
             for (var i = 0; i < 3; i++) ...[
               if (i > 0) const SizedBox(width: 10),
-              const Expanded(child: SkeletonBox(height: 58, radius: 8)),
+              Expanded(
+                child: StatCardShell(
+                  child: SizedBox(
+                    height: kQuickActionHeight - 20,
+                    child: Row(
+                      children: [
+                        const SkeletonCircle(size: 18),
+                        const SizedBox(width: 10),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SkeletonLine(width: 104 + i * 14, height: 12),
+                            const SizedBox(height: 6),
+                            SkeletonLine(width: 72 + i * 8, height: 10),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
