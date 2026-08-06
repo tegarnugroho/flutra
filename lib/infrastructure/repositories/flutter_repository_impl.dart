@@ -12,7 +12,10 @@ import '../../domain/entities/device.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../../core/platform/platform_service.dart';
+import '../../core/platform/system_actions.dart';
 import '../sdk/flutter_locator.dart';
+import '../system/external_link_service.dart';
 import '../trash/trash_service.dart';
 
 /// A step of the version switch failed. Internal to [FlutterRepositoryImpl];
@@ -29,18 +32,28 @@ class _SwitchAbort implements Exception {
 /// [FlutterRepository] backed by the `flutter` command-line tool.
 @LazySingleton(as: FlutterRepository)
 class FlutterRepositoryImpl implements FlutterRepository {
-  FlutterRepositoryImpl(this._runner, this._locator, this._trash);
+  FlutterRepositoryImpl(
+    this._runner,
+    this._locator,
+    this._trash,
+    this._platform,
+    this._actions,
+    this._links,
+  );
 
   final CommandRunner _runner;
   final FlutterLocator _locator;
   final TrashService _trash;
+  final PlatformService _platform;
+  final SystemActions _actions;
+  final ExternalLinkService _links;
 
   String get _flutter => _locator.executable;
 
   @override
   Future<List<Device>> listDevices() async {
     final result = await _runner.run(
-      Platform.isWindows ? 'flutter.bat' : 'flutter',
+      _platform.flutterExecutable,
       ['devices', '--machine'],
       timeout: const Duration(minutes: 2),
     );
@@ -732,7 +745,7 @@ class FlutterRepositoryImpl implements FlutterRepository {
   /// are the same install in practice, but the switch must rebuild *this* one.
   String _flutterIn(String root) {
     final exe =
-        p.join(root, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
+        p.join(root, 'bin', _platform.flutterExecutable);
     return File(exe).existsSync() ? exe : _flutter;
   }
 
@@ -771,9 +784,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
     if (target.existsSync() && target.listSync().isNotEmpty) {
       // Never auto-delete a non-empty folder — it could be a working SDK. If it
       // already holds a Flutter, say so; otherwise ask for an empty folder.
-      final isFlutter = File(p.join(dir, 'bin',
-                  Platform.isWindows ? 'flutter.bat' : 'flutter'))
-              .existsSync() ||
+      final isFlutter =
+          File(p.join(dir, 'bin', _platform.flutterExecutable)).existsSync() ||
           Directory(p.join(dir, 'packages')).existsSync();
       throw FileSystemFailure(
         isFlutter
@@ -816,28 +828,14 @@ class FlutterRepositoryImpl implements FlutterRepository {
 
   @override
   Future<void> addSdkToPath(String sdkDir) async {
-    if (!Platform.isWindows) return;
     final bin = p.join(sdkDir, 'bin');
-    // Append to the *user* PATH only if not already present, via PowerShell so
-    // the existing value is read and written safely (no setx truncation).
-    final script = "\$b='$bin'; "
-        "\$p=[Environment]::GetEnvironmentVariable('Path','User'); "
-        "if(\$p -notlike \"*\$b*\"){"
-        "[Environment]::SetEnvironmentVariable('Path', "
-        "(\$p.TrimEnd(';') + ';' + \$b), 'User')}";
-    final result = await _runner.run(
-      'powershell',
-      ['-NoProfile', '-Command', script],
-      timeout: const Duration(seconds: 30),
+    final result = await _actions.appendToUserPath(bin);
+    if (result.success) return;
+    throw ProcessFailure(
+      result.note ?? 'Could not update PATH automatically.',
+      exitCode: -1,
+      suggestion: 'Add "$bin" to your PATH manually.',
     );
-    if (!result.isSuccess) {
-      throw ProcessFailure(
-        'Could not update PATH automatically.',
-        exitCode: result.exitCode,
-        output: result.combinedOutput,
-        suggestion: 'Add "$bin" to your PATH manually.',
-      );
-    }
   }
 
   @override
@@ -848,9 +846,9 @@ class FlutterRepositoryImpl implements FlutterRepository {
     }
     // Safety: only delete something that looks like a Flutter SDK (a full one,
     // or leftovers from a previous partial uninstall).
-    final looksLikeFlutter = File(p.join(sdkPath, 'bin',
-                Platform.isWindows ? 'flutter.bat' : 'flutter'))
-            .existsSync() ||
+    final looksLikeFlutter =
+        File(p.join(sdkPath, 'bin', _platform.flutterExecutable))
+                .existsSync() ||
         Directory(p.join(sdkPath, 'bin')).existsSync() ||
         Directory(p.join(sdkPath, 'packages')).existsSync() ||
         p.basename(sdkPath).toLowerCase() == 'flutter';
@@ -867,13 +865,8 @@ class FlutterRepositoryImpl implements FlutterRepository {
 
   @override
   Future<void> openReleasePage(String version) async {
-    final url = 'https://github.com/flutter/flutter/releases/tag/$version';
-    if (Platform.isWindows) {
-      await Process.start('cmd', ['/c', 'start', '', url],
-          runInShell: true, mode: ProcessStartMode.detached);
-    } else {
-      final opener = Platform.isMacOS ? 'open' : 'xdg-open';
-      await Process.start(opener, [url], mode: ProcessStartMode.detached);
-    }
+    await _links.open(
+      'https://github.com/flutter/flutter/releases/tag/$version',
+    );
   }
 }

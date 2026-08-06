@@ -6,12 +6,14 @@ import 'package:android_sdk_manager/core/command/command_runner.dart';
 import 'package:android_sdk_manager/domain/entities/doctor_report.dart';
 import 'package:android_sdk_manager/infrastructure/doctor/doctor_runner.dart';
 import 'package:android_sdk_manager/core/command/session_environment.dart';
+import 'package:android_sdk_manager/core/platform/platform_service.dart';
 import 'package:android_sdk_manager/infrastructure/settings/settings_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A runner the test drives by hand, so event ordering is deterministic.
 class _FakeRunner extends DoctorRunner {
-  _FakeRunner() : super(CommandRunner(SessionEnvironment()));
+  _FakeRunner()
+      : super(CommandRunner(SessionEnvironment()), hostPlatform);
 
   final _controller = StreamController<DoctorEvent>();
   List<String>? requestedChecks;

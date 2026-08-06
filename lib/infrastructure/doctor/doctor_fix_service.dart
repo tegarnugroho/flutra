@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../core/command/command_runner.dart';
 import '../../core/command/session_environment.dart';
 import '../../core/platform/platform_service.dart';
+import '../../core/platform/system_actions.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../domain/repositories/sdk_repository.dart';
 import '../sdk/flutter_locator.dart';
@@ -94,7 +95,11 @@ abstract class DoctorFixExecutor {
   String get issueId;
 
   /// Whether this fix can run on the host at all.
-  bool get isSupported => Platform.isWindows;
+  ///
+  /// True by default: a fix is written against the platform layer, so it works
+  /// wherever the app does. Only the ones tied to a platform's own tooling —
+  /// the Visual Studio installer — say otherwise.
+  bool get isSupported => true;
 
   /// Options for a guided fix, in the order they should be offered. Empty for
   /// an automatic one.
@@ -120,6 +125,7 @@ class DoctorFixService {
     this._sdk,
     this._flutter,
     this._platform,
+    this._actions,
   );
 
   final CommandRunner _runner;
@@ -130,15 +136,16 @@ class DoctorFixService {
   final SdkRepository _sdk;
   final FlutterRepository _flutter;
   final PlatformService _platform;
+  final SystemActions _actions;
 
   late final Map<String, DoctorFixExecutor> _executors = {
     for (final executor in <DoctorFixExecutor>[
-      AcceptAndroidLicencesFix(_runner),
-      InstallCmdlineToolsFix(_sdk, _sdkLocator),
-      SelectAndroidSdkFix(_runner, _scanner),
-      SelectJdkFix(_runner, _platform),
-      SelectBrowserFix(_runner, _session, _platform),
-      RepairVisualStudioFix(_runner),
+      AcceptAndroidLicencesFix(_runner, _actions, _platform),
+      InstallCmdlineToolsFix(_sdk, _sdkLocator, _actions),
+      SelectAndroidSdkFix(_runner, _scanner, _actions, _platform),
+      SelectJdkFix(_runner, _platform, _actions),
+      SelectBrowserFix(_session, _platform, _actions),
+      RepairVisualStudioFix(_runner, _platform),
       AddFlutterToPathFix(_flutter),
     ])
       executor.issueId: executor,
@@ -174,6 +181,7 @@ const Duration kInstallTimeout = Duration(minutes: 15);
 /// both spawn a java child that outlives a plain kill.
 Stream<FixEvent> runStreaming(
   CommandRunner runner,
+  SystemActions actions,
   String executable,
   List<String> arguments, {
   Duration timeout = kFixTimeout,
@@ -192,7 +200,7 @@ Stream<FixEvent> runStreaming(
   var timedOut = false;
   final timer = Timer(timeout, () {
     timedOut = true;
-    _killTree(command.pid);
+    unawaited(actions.killProcessTree(command.pid));
   });
 
   // Prompts arrive on the same stream as everything else, so the answer has to
@@ -227,17 +235,6 @@ Stream<FixEvent> runStreaming(
       : FixOutcome.failed('$onFailure (exit ${result.exitCode})'));
 }
 
-/// Best-effort `taskkill /T /F`, for a process that owns children.
-void _killTree(int pid) {
-  try {
-    Process.runSync('taskkill', ['/T', '/F', '/PID', '$pid']);
-  } catch (_) {
-    // Already gone, or no permission — the timeout is reported either way.
-  }
-}
-
-/// The `flutter` launcher, since these run it directly rather than via PATH.
-String _flutterExe() => Platform.isWindows ? 'flutter.bat' : 'flutter';
 
 // ---------------------------------------------------------------------------
 // 1. Android licences
@@ -245,9 +242,11 @@ String _flutterExe() => Platform.isWindows ? 'flutter.bat' : 'flutter';
 
 /// Accepts every pending Android SDK licence.
 class AcceptAndroidLicencesFix implements DoctorFixExecutor {
-  AcceptAndroidLicencesFix(this._runner);
+  AcceptAndroidLicencesFix(this._runner, this._actions, this._platform);
 
   final CommandRunner _runner;
+  final SystemActions _actions;
+  final PlatformService _platform;
 
   /// Both shapes the prompt takes across sdkmanager versions.
   static final RegExp prompt = RegExp(r'\(y/N\)|Accept\?', caseSensitive: false);
@@ -256,19 +255,20 @@ class AcceptAndroidLicencesFix implements DoctorFixExecutor {
   String get issueId => 'android_licenses';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => const [];
 
   @override
   List<String> preview(FixContext ctx) =>
-      ['${_flutterExe()} doctor --android-licenses'];
+      ['${_platform.flutterExecutable} doctor --android-licenses'];
 
   @override
   Stream<FixEvent> execute(FixContext ctx) => runStreaming(
         _runner,
-        _flutterExe(),
+        _actions,
+        _platform.flutterExecutable,
         ['doctor', '--android-licenses'],
         autoAnswer: prompt,
         onFailure: 'Could not accept the licences.',
@@ -285,16 +285,17 @@ class AcceptAndroidLicencesFix implements DoctorFixExecutor {
 /// that path already answers the licence prompts and, on Windows, runs from a
 /// throwaway copy so the tool can overwrite its own jars.
 class InstallCmdlineToolsFix implements DoctorFixExecutor {
-  InstallCmdlineToolsFix(this._sdk, this._locator);
+  InstallCmdlineToolsFix(this._sdk, this._locator, this._actions);
 
   final SdkRepository _sdk;
   final SdkLocator _locator;
+  final SystemActions _actions;
 
   @override
   String get issueId => 'cmdline_tools_missing';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => const [];
@@ -332,7 +333,10 @@ class InstallCmdlineToolsFix implements DoctorFixExecutor {
       return;
     }
 
-    final timer = Timer(kInstallTimeout, () => _killTree(command.pid));
+    final timer = Timer(
+      kInstallTimeout,
+      () => unawaited(_actions.killProcessTree(command.pid)),
+    );
     await for (final line in command.output) {
       yield FixLogged(line.text, isError: line.isError);
     }
@@ -351,16 +355,18 @@ class InstallCmdlineToolsFix implements DoctorFixExecutor {
 
 /// Tells Flutter which Android SDK to use, from the ones found on disk.
 class SelectAndroidSdkFix implements DoctorFixExecutor {
-  SelectAndroidSdkFix(this._runner, this._scanner);
+  SelectAndroidSdkFix(this._runner, this._scanner, this._actions, this._platform);
 
   final CommandRunner _runner;
   final SdkScanService _scanner;
+  final SystemActions _actions;
+  final PlatformService _platform;
 
   @override
   String get issueId => 'android_sdk_missing';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async {
@@ -391,7 +397,7 @@ class SelectAndroidSdkFix implements DoctorFixExecutor {
     }
 
     final config = await _runner.run(
-      _flutterExe(),
+      _platform.flutterExecutable,
       ['config', '--android-sdk', path],
       timeout: kFixTimeout,
     );
@@ -404,15 +410,13 @@ class SelectAndroidSdkFix implements DoctorFixExecutor {
 
     // ANDROID_HOME is what everything *else* reads — the app's own locator
     // included, on the next launch.
-    final env = await _runner.run('setx', ['ANDROID_HOME', path],
-        timeout: const Duration(seconds: 30));
-    yield FixLogged(env.combinedOutput.trim());
+    final env = await _actions.persistUserEnvVar('ANDROID_HOME', path);
+    if (env.note != null) yield FixLogged(env.note!, isError: !env.success);
 
     yield FixFinished(FixOutcome(
       success: true,
-      restartRequired: true,
-      note: 'ANDROID_HOME was set to $path. Open a new terminal for it to '
-          'take effect there.',
+      restartRequired: env.restartRequired,
+      note: 'ANDROID_HOME was set to $path. ${env.note ?? ''}'.trim(),
     ));
   }
 }
@@ -423,10 +427,11 @@ class SelectAndroidSdkFix implements DoctorFixExecutor {
 
 /// Points Flutter at a JDK 17+ install.
 class SelectJdkFix implements DoctorFixExecutor {
-  SelectJdkFix(this._runner, this._platform);
+  SelectJdkFix(this._runner, this._platform, this._actions);
 
   final CommandRunner _runner;
   final PlatformService _platform;
+  final SystemActions _actions;
 
   /// Android's Gradle plugin needs 17 or newer; older JDKs fail the build with
   /// an error that looks nothing like a JDK problem.
@@ -436,7 +441,7 @@ class SelectJdkFix implements DoctorFixExecutor {
   String get issueId => 'jdk_missing_or_invalid';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async {
@@ -523,7 +528,8 @@ class SelectJdkFix implements DoctorFixExecutor {
     }
     yield* runStreaming(
       _runner,
-      _flutterExe(),
+      _actions,
+      _platform.flutterExecutable,
       ['config', '--jdk-dir', path],
       onFailure: 'flutter config would not take that JDK.',
     ).map((event) => event is FixFinished && event.outcome.success
@@ -543,11 +549,11 @@ class SelectJdkFix implements DoctorFixExecutor {
 
 /// Records a Chromium browser for web builds.
 class SelectBrowserFix implements DoctorFixExecutor {
-  SelectBrowserFix(this._runner, this._session, this._platform);
+  SelectBrowserFix(this._session, this._platform, this._actions);
 
-  final CommandRunner _runner;
   final SessionEnvironment _session;
   final PlatformService _platform;
+  final SystemActions _actions;
 
   static const String variable = 'CHROME_EXECUTABLE';
 
@@ -556,7 +562,7 @@ class SelectBrowserFix implements DoctorFixExecutor {
   String get issueId => 'chrome_missing';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => [
@@ -590,11 +596,11 @@ class SelectBrowserFix implements DoctorFixExecutor {
     _session.set(variable, path);
     yield FixLogged('$variable set for this session → $path');
 
-    final result = await _runner.run('setx', [variable, path],
-        timeout: const Duration(seconds: 30));
-    yield FixLogged(result.combinedOutput.trim(),
-        isError: !result.isSuccess);
-    if (!result.isSuccess) {
+    final saved = await _actions.persistUserEnvVar(variable, path);
+    if (saved.note != null) {
+      yield FixLogged(saved.note!, isError: !saved.success);
+    }
+    if (!saved.success) {
       yield FixFinished(const FixOutcome(
         success: true,
         note: 'Set for this app, but saving it for other terminals failed.',
@@ -602,10 +608,10 @@ class SelectBrowserFix implements DoctorFixExecutor {
       return;
     }
 
-    yield FixFinished(const FixOutcome(
+    yield FixFinished(FixOutcome(
       success: true,
-      note: 'Saved. Terminals already open keep the old value until they are '
-          'reopened.',
+      restartRequired: saved.restartRequired,
+      note: saved.note,
     ));
   }
 }
@@ -616,9 +622,10 @@ class SelectBrowserFix implements DoctorFixExecutor {
 
 /// Adds the C++ desktop workload through the Visual Studio Installer.
 class RepairVisualStudioFix implements DoctorFixExecutor {
-  RepairVisualStudioFix(this._runner);
+  RepairVisualStudioFix(this._runner, this._platform);
 
   final CommandRunner _runner;
+  final PlatformService _platform;
 
   static const String installerDir =
       r'C:\Program Files (x86)\Microsoft Visual Studio\Installer';
@@ -628,7 +635,7 @@ class RepairVisualStudioFix implements DoctorFixExecutor {
   String get issueId => 'vs_incomplete';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => _platform.isWindows;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => const [];
@@ -712,7 +719,7 @@ class AddFlutterToPathFix implements DoctorFixExecutor {
   String get issueId => 'flutter_not_on_path';
 
   @override
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => true;
 
   @override
   Future<List<FixChoice>> options(FixContext ctx) async => const [];

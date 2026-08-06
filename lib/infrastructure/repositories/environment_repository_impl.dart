@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
+import '../../core/platform/platform_service.dart';
 import '../../domain/entities/environment_snapshot.dart';
 import '../../domain/entities/tool_status.dart';
 import '../../domain/repositories/environment_repository.dart';
@@ -17,10 +18,16 @@ import '../sdk/sdk_locator.dart';
 /// never aborts the others — it surfaces as an error/missing [ToolStatus].
 @LazySingleton(as: EnvironmentRepository)
 class EnvironmentRepositoryImpl implements EnvironmentRepository {
-  EnvironmentRepositoryImpl(this._runner, this._locator, this._flutterUpdates);
+  EnvironmentRepositoryImpl(
+    this._runner,
+    this._locator,
+    this._flutterUpdates,
+    this._platform,
+  );
 
   final CommandRunner _runner;
   final SdkLocator _locator;
+  final PlatformService _platform;
   final FlutterUpdateService _flutterUpdates;
 
   static const _probeTimeout = Duration(seconds: 30);
@@ -101,7 +108,7 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
   Future<ToolStatus> _detectJava() async {
     final javaHome = Platform.environment['JAVA_HOME'];
     final executable = javaHome != null
-        ? p.join(javaHome, 'bin', Platform.isWindows ? 'java.exe' : 'java')
+        ? p.join(javaHome, 'bin', _platform.executableName('java'))
         : 'java';
 
     try {
@@ -136,7 +143,7 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
   Future<ToolStatus> _detectFlutter({bool forceRefresh = false}) async {
     try {
       final result = await _runner.run(
-        Platform.isWindows ? 'flutter.bat' : 'flutter',
+        _platform.flutterExecutable,
         ['--version', '--machine'],
         timeout: _probeTimeout,
       );

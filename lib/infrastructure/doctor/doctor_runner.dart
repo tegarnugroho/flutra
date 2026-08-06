@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:injectable/injectable.dart';
 
 import '../../core/command/command_runner.dart';
+import '../../core/platform/platform_service.dart';
 import '../../domain/entities/doctor_report.dart';
 
 /// The default check order used before a successful run has been recorded.
@@ -104,9 +104,10 @@ class DoctorRunFailed extends DoctorEvent {
 /// text output is the only source.
 @lazySingleton
 class DoctorRunner {
-  DoctorRunner(this._runner);
+  DoctorRunner(this._runner, this._platform);
 
   final CommandRunner _runner;
+  final PlatformService _platform;
 
   RunningCommand? _current;
 
@@ -142,7 +143,7 @@ class DoctorRunner {
 
     try {
       final command = await _runner.start(
-        Platform.isWindows ? 'flutter.bat' : 'flutter',
+        _platform.flutterExecutable,
         ['doctor', '-v'],
       );
       _current = command;

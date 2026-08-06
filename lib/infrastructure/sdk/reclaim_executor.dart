@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:injectable/injectable.dart';
 
+import '../../core/platform/system_actions.dart';
 import '../../domain/entities/reclaimable_item.dart';
 import '../../domain/repositories/sdk_repository.dart';
 import '../trash/trash_service.dart';
@@ -45,14 +46,15 @@ class ReclaimItemFinished extends ReclaimEvent {
 
 /// Removes superseded SDK packages.
 ///
-/// Behind an interface-shaped class so a macOS/Linux variant can replace the
-/// Windows specifics (the taskkill, the trash) without the cubit changing.
+/// The platform specifics — ending a process tree, moving a folder to the
+/// trash — go through the platform layer, so this reads the same on every OS.
 @lazySingleton
 class ReclaimExecutor {
-  ReclaimExecutor(this._sdk, this._trash);
+  ReclaimExecutor(this._sdk, this._trash, this._actions);
 
   final SdkRepository _sdk;
   final TrashService _trash;
+  final SystemActions _actions;
 
   /// sdkmanager can spend minutes deleting a large system image.
   static const Duration perItemTimeout = Duration(minutes: 5);
@@ -90,7 +92,10 @@ class ReclaimExecutor {
 
     try {
       final command = await _sdk.uninstall(item.id);
-      final timer = Timer(perItemTimeout, () => _killTree(command.pid));
+      final timer = Timer(
+        perItemTimeout,
+        () => unawaited(_actions.killProcessTree(command.pid)),
+      );
       await for (final line in command.output) {
         yield ReclaimLogged(line.text, isError: line.isError);
       }
@@ -153,15 +158,6 @@ class ReclaimExecutor {
         message: 'Could not remove ${item.displayName}. Close any running '
             'emulator or Gradle daemon using it, then retry.',
       );
-    }
-  }
-
-  /// sdkmanager runs a java child that outlives a plain kill.
-  void _killTree(int pid) {
-    try {
-      Process.runSync('taskkill', ['/T', '/F', '/PID', '$pid']);
-    } catch (_) {
-      // Already gone, or not permitted — the timeout is reported either way.
     }
   }
 }

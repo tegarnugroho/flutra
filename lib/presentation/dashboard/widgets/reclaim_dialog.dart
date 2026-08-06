@@ -1,10 +1,11 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../application/sdk/reclaim_cubit.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/platform/system_actions.dart';
 import '../../../domain/entities/reclaimable_item.dart';
 import '../../common/app_loader.dart';
 import '../../common/command_log_view.dart';
@@ -313,12 +314,10 @@ class _ItemRow extends StatelessWidget {
     );
   }
 
-  /// Explorer at the folder, so the user can look before deciding.
-  void _openFolder(String path) {
-    if (!Platform.isWindows) return;
-    Process.start('explorer', [path], mode: ProcessStartMode.detached)
-        .ignore();
-  }
+  /// The system file manager at the folder, so the user can look before
+  /// deciding.
+  void _openFolder(String path) =>
+      unawaited(getIt<SystemActions>().revealInFileManager(path));
 }
 
 /// Phase 2: exactly what will run, and what it costs.

@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:injectable/injectable.dart';
 import 'package:logging/logging.dart';
 
 import '../../core/command/command_runner.dart';
+import '../../core/platform/platform_service.dart';
 
 /// Opens http(s) links in whatever browser the OS considers default.
 ///
@@ -13,9 +12,10 @@ import '../../core/command/command_runner.dart';
 /// the runner.
 @lazySingleton
 class ExternalLinkService {
-  ExternalLinkService(this._runner);
+  ExternalLinkService(this._runner, this._platform);
 
   final CommandRunner _runner;
+  final PlatformService _platform;
 
   static final Logger _log = Logger('ExternalLinkService');
 
@@ -31,18 +31,19 @@ class ExternalLinkService {
       _log.warning('refused to open non-web link: $url');
       return false;
     }
-    if (!Platform.isWindows) {
-      // TODO(platform): the app is Windows-only today; add xdg-open/open here
-      // if that ever changes.
-      _log.warning('opening links is only implemented for Windows');
-      return false;
-    }
+    // Each desktop has its own opener; the empty argument on Windows is
+    // `start`'s title parameter — without it a quoted URL is taken as the
+    // window title and nothing opens.
+    final (command, arguments) = switch (_platform.operatingSystem) {
+      'windows' => ('cmd', ['/c', 'start', '', uri.toString()]),
+      'macos' => ('open', [uri.toString()]),
+      _ => ('xdg-open', [uri.toString()]),
+    };
+
     try {
-      // The empty argument is `start`'s title parameter — without it a quoted
-      // URL is taken as the window title and nothing opens.
       final result = await _runner.run(
-        'cmd',
-        ['/c', 'start', '', uri.toString()],
+        command,
+        arguments,
         timeout: const Duration(seconds: 10),
       );
       return result.isSuccess;
