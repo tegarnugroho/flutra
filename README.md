@@ -29,17 +29,36 @@ About box each open in their own window.
 
 ## Requirements
 
-- Windows 10 or later, x64
-- [Flutter](https://docs.flutter.dev/get-started/install/windows/desktop) with
-  Windows desktop support, on a Dart SDK matching `^3.12.1`
-- Visual Studio with the "Desktop development with C++" workload — Flutter's
-  Windows toolchain, not optional
+Windows is the platform this is developed and tested on. Linux and macOS build
+from the same source; see the caveats below.
+
+- Flutter on a Dart SDK matching `^3.12.1`, with desktop support for your
+  platform
 - The Android SDK command-line tools, for the app to drive
+- Per platform:
+  - **Windows 10+ (x64)** — Visual Studio with the "Desktop development with
+    C++" workload. Flutter's Windows toolchain, not optional.
+  - **Linux** — `clang cmake ninja-build pkg-config libgtk-3-dev`. These are
+    the same packages the app's own Flutter Doctor fix offers to install.
+  - **macOS** — Xcode plus its command-line tools (`xcode-select --install`),
+    and CocoaPods.
 
 The SDK root is resolved in this order, first hit wins: the override in
-Settings, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then the usual install locations
-(`%LOCALAPPDATA%\Android\Sdk` and friends). Nothing needs to be configured if
-Android Studio put the SDK where it normally does.
+Settings, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then the platform's usual install
+location — `%LOCALAPPDATA%\Android\Sdk` on Windows, `~/Android/Sdk` on Linux,
+`~/Library/Android/sdk` on macOS. Nothing needs to be configured if Android
+Studio put the SDK where it normally does.
+
+The AVD folder follows the emulator's own precedence: `ANDROID_AVD_HOME`, then
+`ANDROID_USER_HOME/avd`, then `~/.android/avd`.
+
+### Platform status
+
+| Platform | State |
+| --- | --- |
+| Windows | Developed and tested here |
+| Linux | Builds and packages in CI; **not yet run by a maintainer** |
+| macOS | Builds and packages in CI; **not yet run by a maintainer**. The `.dmg` is unsigned and un-notarised — there is no Apple Developer account — so Gatekeeper blocks a double-click. Right-click → Open, or `xattr -dr com.apple.quarantine`, is the way in. The Mac App Store is not an option: the app spawns processes and writes shell rc files, so it cannot be sandboxed. |
 
 [Inno Setup 6](https://jrsoftware.org/isinfo.php) is needed only to build the
 `.exe` installer.
@@ -64,7 +83,13 @@ running copy before `flutter run`.
 
 ## Building
 
-Use the build script, not `flutter build` directly:
+CI (`.github/workflows/ci.yml`) analyzes and tests on every push, builds
+Windows and a Linux **AppImage** on every push and pull request, and produces
+an unsigned macOS `.dmg` on pushes to `main` and tags. The Linux job runs on
+`ubuntu-22.04`, so the AppImage needs glibc 2.35 or newer — old enough for
+current distributions, not for 20.04-era ones.
+
+On Windows, use the build script rather than `flutter build` directly:
 
 ```powershell
 .\tool\build.ps1                  # release build + MSIX + .exe installer
