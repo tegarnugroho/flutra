@@ -40,6 +40,9 @@ dependencies:
   intl: ^0.20.2
   desktop_multi_window: ^0.3.0
   window_manager: ^0.5.1
+  # Already in the lock as a window_manager transitive dep; declared because
+  # window placement reads the displays directly to clamp to the work area.
+  screen_retriever: ^0.2.1
   tray_manager: ^0.5.3
   file_selector: ^1.1.0
   simple_icons: ^16.23.0

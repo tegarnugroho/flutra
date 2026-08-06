@@ -28,11 +28,18 @@ class CreateEmulatorWindowApp extends StatelessWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: CreateEmulatorPage(onClose: _handleClose),
+      home: body(windowController: windowController),
     );
   }
 
-  Future<void> _handleClose(bool created) async {
+  /// Just the page, for [TaskWindowHost].
+  static Widget body({required WindowController windowController}) =>
+      CreateEmulatorPage(
+        onClose: (created) => closeWindow(windowController, created),
+      );
+
+  static Future<void> closeWindow(
+      WindowController controller, bool created) async {
     // The main window reloads its AVD list when it regains focus, so simply
     // closing this window is enough to keep both in sync. Guard the call in case
     // window_manager's native side is unavailable (e.g. after a hot restart).
@@ -47,7 +54,7 @@ class CreateEmulatorWindowApp extends StatelessWidget {
       // window's own handle.
       await windowManager.close();
     } on MissingPluginException {
-      await windowController.hide();
+      await controller.hide();
     }
   }
 }

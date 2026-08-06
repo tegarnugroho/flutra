@@ -1,17 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/emulator/emulator_events.dart';
 import '../../application/emulator/emulator_list_cubit.dart';
-import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/avd.dart';
 import '../../domain/entities/avd_create_request.dart';
-import '../../main.dart' show kEmulatorConsoleWindow;
 import '../common/confirm_dialog.dart';
 import '../common/empty_state.dart';
 import '../common/grouped_list.dart';
@@ -53,19 +49,10 @@ class _EmulatorManagerPageState extends State<EmulatorManagerPage> {
     super.dispose();
   }
 
-  Future<void> _openConsoleWindow(Avd avd) async {
-    final dark = getIt<ThemeCubit>().state == ThemeMode.dark;
-    await WindowController.create(
-      WindowConfiguration(
-        arguments: jsonEncode({
-          'businessId': kEmulatorConsoleWindow,
-          'dark': dark,
-          'avd': avd.name,
-        }),
-        hiddenAtLaunch: false,
-      ),
-    );
-  }
+  /// The console goes through the shared opener like every other task window,
+  /// so it gets the warm path, the frame and the debounce too.
+  Future<void> _openConsoleWindow(Avd avd) =>
+      openEmulatorConsoleWindow(avd.name);
 
   @override
   Widget build(BuildContext context) {

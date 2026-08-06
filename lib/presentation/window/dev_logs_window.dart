@@ -25,19 +25,23 @@ class DevLogsWindowApp extends StatelessWidget {
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: DevLogsPage(onClose: _handleClose),
+      home: body(windowController: windowController),
     );
   }
 
+  /// Just the page, for [TaskWindowHost].
+  static Widget body({required WindowController windowController}) =>
+      DevLogsPage(onClose: () => closeWindow(windowController));
+
   /// Closes just this window. Capture keeps running in the main isolate while
   /// developer mode is on, so hiding the viewer loses nothing.
-  Future<void> _handleClose() async {
+  static Future<void> closeWindow(WindowController controller) async {
     try {
       // close(), never destroy(): destroy() is PostQuitMessage on Windows and
       // every window shares one UI thread — it would end the whole app.
       await windowManager.close();
     } on MissingPluginException {
-      await windowController.hide();
+      await controller.hide();
     }
   }
 }
