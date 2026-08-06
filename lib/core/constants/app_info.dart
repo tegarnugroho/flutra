@@ -39,12 +39,12 @@ class AppInfo {
   // TODO(version): keep in step with pubspec until the define is wired in CI.
   static const String version = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '1.0.4',
+    defaultValue: '1.0.5',
   );
 
   static const String buildNumber = String.fromEnvironment(
     'APP_BUILD_NUMBER',
-    defaultValue: '4',
+    defaultValue: '5',
   );
 
   static const String channel = String.fromEnvironment(
