@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
@@ -9,23 +11,22 @@ import '../../domain/entities/flutter_release.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../infrastructure/trash/trash_entry.dart';
-import '../common/app_badge.dart';
 import '../common/app_loader.dart';
 import '../common/busy_dialog.dart';
 import '../common/command_progress_dialog.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
-import '../common/copy_icon_button.dart';
 import '../common/empty_state.dart';
-import '../common/grouped_list.dart';
 import '../common/loading_switcher.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
-import '../common/status_dot.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'version_switch_dialog.dart';
+import 'widgets/channel_tabs.dart';
+import 'widgets/sdk_identity_panel.dart';
+import 'widgets/version_tile.dart';
 
 /// Checks the SDK checkout before a git-backed command (upgrade, channel or
 /// version switch), which Flutter refuses to run while the tree is dirty.
@@ -74,8 +75,82 @@ class FlutterSdkPage extends StatelessWidget {
   }
 }
 
-class _FlutterSdkView extends StatelessWidget {
+class _FlutterSdkView extends StatefulWidget {
   const _FlutterSdkView();
+
+  @override
+  State<_FlutterSdkView> createState() => _FlutterSdkViewState();
+}
+
+class _FlutterSdkViewState extends State<_FlutterSdkView> {
+  /// Tiles shown before the "older versions" footer takes over. The index
+  /// reaches back to v1.0.0; nobody scrolls that on purpose.
+  static const _initialVersionCount = 20;
+
+  /// Roughly one collapsed tile plus its gap. Only used to jump the list to a
+  /// release that has not been built yet — an estimate is enough, because the
+  /// release being jumped to is the newest one, at or near the top.
+  static const _estimatedTileExtent = 62.0;
+
+  /// How long a jumped-to tile keeps its accent outline.
+  static const _highlightDuration = Duration(milliseconds: 1600);
+
+  final _scroll = ScrollController();
+  Timer? _highlightTimer;
+
+  String _query = '';
+
+  /// Identity of the one open tile — the accordion is a single value, so
+  /// opening one closes the other by construction.
+  String? _expandedId;
+  String? _highlightId;
+
+  bool _showOlder = false;
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Keyed by release identity rather than index, so an open tile survives a
+  /// filter keystroke and never follows the position it happened to sit at.
+  static String _idOf(FlutterRelease release) =>
+      '${release.channel}/${release.version}/${release.hash}';
+
+  void _toggle(FlutterRelease release) {
+    final id = _idOf(release);
+    setState(() => _expandedId = _expandedId == id ? null : id);
+  }
+
+  /// Opens the newest release on the channel and brings it into view.
+  void _revealLatest(List<FlutterRelease> shown, FlutterRelease latest) {
+    final id = _idOf(latest);
+    final index = shown.indexWhere((r) => _idOf(r) == id);
+    if (index < 0) return;
+    setState(() {
+      _expandedId = id;
+      _highlightId = id;
+      // A release below the initial cut cannot be scrolled to while the footer
+      // is still hiding it.
+      if (index >= _initialVersionCount) _showOlder = true;
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(_highlightDuration, () {
+      if (mounted) setState(() => _highlightId = null);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final target = (index * _estimatedTileExtent)
+          .clamp(0.0, _scroll.position.maxScrollExtent);
+      _scroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,17 +175,13 @@ class _FlutterSdkView extends StatelessWidget {
         return PageScaffold(
           title: 'Flutter SDK',
           actions: [_HeaderActions(state: state)],
-          child: _body(context, state),
+          child: LoadingSwitcher(
+            showSkeleton: state.isFirstLoad,
+            skeleton: const FlutterSdkSkeleton(),
+            builder: (context) => _loaded(context, state),
+          ),
         );
       },
-    );
-  }
-
-  Widget _body(BuildContext context, FlutterSdkState state) {
-    return LoadingSwitcher(
-      showSkeleton: state.isFirstLoad,
-      skeleton: const FlutterSdkSkeleton(),
-      builder: (context) => _loaded(context, state),
     );
   }
 
@@ -135,6 +206,8 @@ class _FlutterSdkView extends StatelessWidget {
     }
     final info = state.info;
     if (info == null) return const SizedBox.shrink();
+
+    final shown = _visibleReleases(state);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,81 +216,241 @@ class _FlutterSdkView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (state.updateAvailable) ...[
-                _UpdateLine(state: state),
-                const SizedBox(height: 12),
-              ],
-              _CurrentSdkCard(
+              SdkIdentityPanel(
                 info: info,
+                updateAvailable: state.updateAvailable,
+                latestVersion: state.latestRelease?.displayVersion,
+                pathStatus: state.pathStatus,
                 onAddToPath: info.sdkPath == null
                     ? null
                     : () => _addToPath(context, info.sdkPath!),
+                onRevealLatest: () {
+                  final latest = state.latestRelease;
+                  if (latest != null) _revealLatest(shown, latest);
+                },
               ),
-              if (!info.isKnownChannel) ...[
-                const SizedBox(height: 16),
-                InfoBar(
-                  title: const Text('Off the official channel'),
-                  content: Text(
-                    'The SDK is on "${info.channel}", which is not a release '
-                    'channel, so flutter reports an unknown channel. Switching '
-                    'a version here never causes this — it means the checkout '
-                    'was moved outside the app. Reset to stable to return to '
-                    'an official channel and its latest build.',
-                  ),
-                  severity: InfoBarSeverity.warning,
-                  isLong: true,
-                  action: FilledButton(
-                    onPressed: () => _run(
-                      context,
-                      'Resetting to stable channel',
-                      (stash) => cubit.resetToStable(stashLocalChanges: stash),
-                    ),
-                    child: const Text('Reset to stable'),
-                  ),
-                ),
-              ],
-              if (info.isGitRepo && !info.isStandardRemote) ...[
-                const SizedBox(height: 12),
-                InfoBar(
-                  title: const Text('Non-standard upstream remote'),
-                  content: Text(
-                    'The SDK git remote is "${info.remoteUrl ?? 'unknown'}", '
-                    'which triggers a "not a standard remote" warning in '
-                    'Flutter Doctor. Point it at the official repository.',
-                  ),
-                  severity: InfoBarSeverity.warning,
-                  isLong: true,
-                  action: FilledButton(
-                    onPressed: cubit.fixRemote,
-                    child: const Text('Fix remote'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              const SectionLabel('Channel'),
-              const SizedBox(height: 4),
-              Text(
-                'Switch release channel, then Upgrade to fetch its latest '
-                'build.',
-                style: AppTextStyles.of(context).caption,
-              ),
-              const SizedBox(height: 10),
-              _ChannelSection(
+              ..._warnings(context, info, cubit),
+              const SizedBox(height: 18),
+              _ChannelRow(
                 current: info.channel,
                 browsing: state.browsingChannel ?? info.channel,
+                count: shown.length,
+                loading: state.versionsLoading,
+                onQueryChanged: (v) => setState(() {
+                  _query = v;
+                  _showOlder = false;
+                }),
               ),
+              const SizedBox(height: 8),
+              Text(_caption(state), style: AppTextStyles.of(context).caption),
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        // Only the version list scrolls; the SDK card and channel picker
-        // stay put.
-        Expanded(child: _VersionsSection(state: state)),
+        const SizedBox(height: 12),
+        // Only the version list scrolls; the panel and channel row stay put.
+        Expanded(child: _versions(context, state, shown)),
       ],
     );
   }
 
-  /// Runs a streaming SDK command and reloads on success.
+  /// The blockers that are about the checkout rather than about a version.
+  List<Widget> _warnings(
+    BuildContext context,
+    FlutterSdkInfo info,
+    FlutterSdkCubit cubit,
+  ) {
+    return [
+      if (!info.isKnownChannel) ...[
+        const SizedBox(height: 12),
+        InfoBar(
+          title: const Text('Off the official channel'),
+          content: Text(
+            'The SDK is on "${info.channel}", which is not a release channel, '
+            'so flutter reports an unknown channel. Switching a version here '
+            'never causes this — it means the checkout was moved outside the '
+            'app. Reset to stable to return to an official channel and its '
+            'latest build.',
+          ),
+          severity: InfoBarSeverity.warning,
+          isLong: true,
+          action: FilledButton(
+            onPressed: () => _run(
+              context,
+              'Resetting to stable channel',
+              (stash) => cubit.resetToStable(stashLocalChanges: stash),
+            ),
+            child: const Text('Reset to stable'),
+          ),
+        ),
+      ],
+      if (info.isGitRepo && !info.isStandardRemote) ...[
+        const SizedBox(height: 12),
+        InfoBar(
+          title: const Text('Non-standard upstream remote'),
+          content: Text(
+            'The SDK git remote is "${info.remoteUrl ?? 'unknown'}", which '
+            'triggers a "not a standard remote" warning in Flutter Doctor. '
+            'Point it at the official repository.',
+          ),
+          severity: InfoBarSeverity.warning,
+          isLong: true,
+          action: FilledButton(
+            onPressed: cubit.fixRemote,
+            child: const Text('Fix remote'),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  /// Releases on the browsed channel that survive the filter.
+  List<FlutterRelease> _visibleReleases(FlutterSdkState state) {
+    final query = _query.trim();
+    if (query.isEmpty) return state.releases;
+    return state.releases
+        .where((r) => r.displayVersion.contains(query))
+        .toList();
+  }
+
+  Widget _versions(
+    BuildContext context,
+    FlutterSdkState state,
+    List<FlutterRelease> shown,
+  ) {
+    final text = AppTextStyles.of(context);
+
+    if (!state.canSwitchVersion) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: InfoBar(
+          title: Text('Version switching unavailable'),
+          content: Text(
+            'This Flutter SDK is not a git checkout, so specific versions '
+            'cannot be selected. Use channels above.',
+          ),
+          severity: InfoBarSeverity.info,
+          isLong: true,
+        ),
+      );
+    }
+
+    final channel = state.browsingChannel ?? '';
+    // master is a rolling branch: the release index publishes no versioned
+    // entries for it, so there is nothing to list.
+    if (channel == 'master') {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          'master is a rolling branch with no versioned releases. Switch to it '
+          'above, then use Upgrade to move to its tip.',
+          style: text.caption,
+        ),
+      );
+    }
+
+    if (shown.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Text(
+            _query.trim().isNotEmpty
+                ? 'No versions match "${_query.trim()}".'
+                : state.versionsLoading
+                ? 'Loading releases…'
+                : 'No releases found for the "$channel" channel.',
+            style: text.caption,
+          ),
+        ),
+      );
+    }
+
+    final capped = _showOlder || shown.length <= _initialVersionCount
+        ? shown.length
+        : _initialVersionCount;
+    final hasFooter = capped < shown.length;
+
+    return ListView.separated(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      itemCount: capped + (hasFooter ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: 6),
+      itemBuilder: (context, i) {
+        if (i == capped) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _FooterLink(
+              label: 'Show older versions (${shown.length - capped} more)',
+              onTap: () => setState(() => _showOlder = true),
+            ),
+          );
+        }
+        final release = shown[i];
+        final id = _idOf(release);
+        return VersionTile(
+          key: ValueKey(id),
+          release: release,
+          isCurrent: _isCurrent(state, release),
+          expanded: _expandedId == id,
+          highlighted: _highlightId == id,
+          dartBadge: _dartBadge(shown, i),
+          onToggle: () => _toggle(release),
+          onSwitch: () => _switch(context, release),
+          loadChangelog: () => context
+              .read<FlutterSdkCubit>()
+              .changelog(release.gitTag, _previousOf(i, shown)),
+          onOpenGitHub: () =>
+              context.read<FlutterSdkCubit>().openReleasePage(release.gitTag),
+          onOpenPullRequest: (number) =>
+              context.read<FlutterSdkCubit>().openPullRequest(number),
+        );
+      },
+    );
+  }
+
+  /// The Dart version to call out on the tile at [index]: set only where the
+  /// bundled Dart minor changes from the newer release above it.
+  static String? _dartBadge(List<FlutterRelease> shown, int index) {
+    if (index == 0) return null;
+    final mine = dartMinor(shown[index]);
+    final above = dartMinor(shown[index - 1]);
+    if (mine == null || above == null || mine == above) return null;
+    return shown[index].displayDartVersion;
+  }
+
+  /// The current tile is decided by commit, not version string — a re-released
+  /// version shares its number with an older build.
+  ///
+  /// The git-tag fallback list knows no hashes, so those rows fall back to the
+  /// version `flutter --version` reports.
+  static bool _isCurrent(FlutterSdkState state, FlutterRelease release) {
+    final head = state.headHash;
+    if (release.hash.isEmpty || head == null || head.isEmpty) {
+      final installed = state.info?.version;
+      return installed != null && installed == release.displayVersion;
+    }
+    return release.hash == head;
+  }
+
+  String _caption(FlutterSdkState state) {
+    final source = switch (state.versionSource) {
+      VersionSource.releaseIndex =>
+        'Official Flutter releases. Switching checks the release tag out onto '
+            'its channel branch, so the SDK stays on stable or beta.',
+      VersionSource.staleCache =>
+        'Offline — showing the cached release list. Press Refresh to retry.',
+      VersionSource.gitTags =>
+        'Offline — showing release tags from the local git checkout.',
+    };
+    if (!state.isUnlistedCommit) return source;
+    return '$source Local SDK is on an unlisted commit '
+        '${state.shortHeadHash} — no tile is marked current.';
+  }
+
+  /// The next-older release in the list, used as the changelog baseline.
+  static String? _previousOf(int index, List<FlutterRelease> all) =>
+      index + 1 < all.length ? all[index + 1].gitTag : null;
+
   /// Runs a git-backed SDK command, first clearing any local changes in the
   /// checkout that would make it fail. [start] receives whether those changes
   /// were stashed.
@@ -296,564 +529,6 @@ class _FlutterSdkView extends StatelessWidget {
       );
     }
   }
-}
-
-/// Page-header actions: Upgrade, Refresh and an overflow menu holding the
-/// rarely-used (and destructive) commands.
-class _HeaderActions extends StatefulWidget {
-  const _HeaderActions({required this.state});
-
-  final FlutterSdkState state;
-
-  @override
-  State<_HeaderActions> createState() => _HeaderActionsState();
-}
-
-class _HeaderActionsState extends State<_HeaderActions> {
-  final _overflow = FlyoutController();
-
-  @override
-  void dispose() {
-    _overflow.dispose();
-    super.dispose();
-  }
-
-  void _showOverflow(BuildContext context) {
-    final info = widget.state.info;
-    _overflow.showFlyout(
-      builder: (flyoutContext) => MenuFlyout(
-        items: [
-          if (info != null)
-            MenuFlyoutItem(
-              text: Text(
-                'Git repo: ${info.isGitRepo ? 'yes' : 'no'}',
-                style: AppTextStyles.of(context).inlineNote,
-              ),
-              // Diagnostic only — kept out of the card, not actionable here.
-              onPressed: null,
-            ),
-          const MenuFlyoutSeparator(),
-          MenuFlyoutItem(
-            leading: Icon(
-              FluentIcons.delete,
-              size: 14,
-              color: AppPalette.of(context).statusError,
-            ),
-            text: Text(
-              'Uninstall this SDK',
-              style: TextStyle(color: AppPalette.of(context).statusError),
-            ),
-            onPressed: info?.sdkPath == null
-                ? null
-                : () {
-                    Navigator.of(flyoutContext).pop();
-                    _FlutterSdkView._uninstall(
-                      context,
-                      info!.sdkPath!,
-                      info.version,
-                    );
-                  },
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<FlutterSdkCubit>();
-    final state = widget.state;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        OutlinedActionButton(
-          icon: FluentIcons.up,
-          label: 'Upgrade',
-          onPressed: state.info == null
-              ? null
-              : () => _FlutterSdkView._run(
-                  context,
-                  'Upgrading Flutter (${state.info!.channel})',
-                  (stash) => cubit.upgrade(stashLocalChanges: stash),
-                ),
-        ),
-        const SizedBox(width: 8),
-        OutlinedActionButton(
-          icon: FluentIcons.refresh,
-          label: 'Refresh',
-          busy: state.isLoading,
-          // Refresh always re-downloads the release index.
-          onPressed: () => cubit.load(forceRefresh: true),
-        ),
-        const SizedBox(width: 8),
-        FlyoutTarget(
-          controller: _overflow,
-          child: OutlinedActionButton(
-            icon: FluentIcons.more,
-            tooltip: 'More actions',
-            onPressed: () => _showOverflow(context),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// "You are behind the channel tip", driven by the release index's
-/// `current_release` hash rather than a version-string comparison.
-class _UpdateLine extends StatelessWidget {
-  const _UpdateLine({required this.state});
-
-  final FlutterSdkState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    final latest = state.latestRelease;
-    return StatusLine(
-      color: palette.statusWarn,
-      message: latest == null
-          ? 'An update is available on this channel'
-          : 'Flutter ${latest.displayVersion} is available on '
-                '${state.info?.channel ?? latest.channel} — use Upgrade',
-    );
-  }
-}
-
-class _CurrentSdkCard extends StatelessWidget {
-  const _CurrentSdkCard({required this.info, this.onAddToPath});
-
-  /// Revisions are 40-char hashes; this is what git itself shows.
-  static const _shortRevisionLength = 8;
-
-  final FlutterSdkInfo info;
-  final VoidCallback? onAddToPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    final revision = info.frameworkRevision;
-    return GroupedBox(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                FluentIcons.developer_tools,
-                size: 18,
-                color: palette.textSecondary,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Flutter ${info.version}',
-                style: AppTextStyles.of(context).heroTitle,
-              ),
-              const SizedBox(width: 8),
-              AppBadge(info.channel),
-              const Spacer(),
-              if (onAddToPath != null)
-                OutlinedActionButton(
-                  icon: FluentIcons.command_prompt,
-                  label: 'Add to PATH',
-                  tooltip:
-                      'Add Flutter to PATH so "flutter" works in any terminal',
-                  onPressed: onAddToPath,
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 18,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (info.dartVersion != null)
-                _meta(context, label: 'Dart', value: info.dartVersion!),
-              if (revision != null)
-                _meta(context, 
-                  label: 'Revision',
-                  value: revision.length > _shortRevisionLength
-                      ? revision.substring(0, _shortRevisionLength)
-                      : revision,
-                  copyValue: revision,
-                  copyLabel: 'Revision',
-                ),
-              if (info.sdkPath != null)
-                _meta(context, 
-                  value: info.sdkPath!,
-                  copyValue: info.sdkPath!,
-                  copyLabel: 'SDK path',
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// One metadata fragment: muted label, mono value, optional copy action.
-  Widget _meta(
-    BuildContext context, {
-    String? label,
-    required String value,
-    String? copyValue,
-    String? copyLabel,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (label != null) ...[
-          Text(label, style: AppTextStyles.of(context).rowSecondary),
-          const SizedBox(width: 6),
-        ],
-        Text(value, style: AppTextStyles.of(context).monoValue),
-        if (copyValue != null) ...[
-          const SizedBox(width: 4),
-          CopyIconButton(value: copyValue, label: copyLabel ?? 'Value'),
-        ],
-      ],
-    );
-  }
-}
-
-class _ChannelSection extends StatelessWidget {
-  const _ChannelSection({required this.current, required this.browsing});
-
-  /// The channel the SDK is actually on right now.
-  final String current;
-
-  /// The channel currently being browsed (drives the version list).
-  final String browsing;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    final cubit = context.read<FlutterSdkCubit>();
-    final pendingSwitch = browsing != current;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final channel in kFlutterChannels)
-              _ChannelChoice(
-                channel: channel,
-                selected: channel == browsing,
-                onTap: () => cubit.browseChannel(channel),
-              ),
-          ],
-        ),
-        if (pendingSwitch) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(FluentIcons.info, size: 13, color: palette.textMuted),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Browsing "$browsing". Your SDK is still on '
-                  '"$current". Switch to apply.',
-                  style: AppTextStyles.of(context).caption,
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedActionButton(
-                icon: FluentIcons.switch_widget,
-                label: 'Switch to $browsing',
-                onPressed: () => _switch(context, browsing),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Future<void> _switch(BuildContext context, String channel) async {
-    final cubit = context.read<FlutterSdkCubit>();
-    final ok = await showConfirmDialog(
-      context,
-      title: 'Switch to $channel channel?',
-      message:
-          'This changes the active Flutter channel. Run Upgrade afterwards '
-          'to download its latest build.',
-      confirmLabel: 'Switch',
-      destructive: false,
-    );
-    if (!ok || !context.mounted) return;
-    final stash = await _resolveLocalChanges(context);
-    if (stash == null || !context.mounted) return;
-    final done = await showCommandProgressDialog(
-      context,
-      title: 'Switching to $channel',
-      start: () => cubit.switchChannel(channel, stashLocalChanges: stash),
-    );
-    if (done) cubit.load();
-  }
-}
-
-/// A compact channel chip. The selected one carries the app's only accent.
-class _ChannelChoice extends StatelessWidget {
-  const _ChannelChoice({
-    required this.channel,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String channel;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: selected ? palette.accentBgTint : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppShape.radiusControl),
-            border: Border.all(
-              color: selected ? palette.accent : palette.border,
-              width: AppShape.hairline,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ChannelChoiceDot(selected: selected),
-              const SizedBox(width: 9),
-              Text(
-                channel,
-                style: selected
-                    ? AppTextStyles.of(context).rowTitle
-                    : AppTextStyles.of(context).navItem,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Filled accent dot when selected, hollow muted ring when not.
-class _ChannelChoiceDot extends StatelessWidget {
-  const _ChannelChoiceDot({required this.selected});
-
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    if (selected) return StatusDot(color: palette.accent);
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: palette.textMuted, width: AppShape.hairline),
-      ),
-    );
-  }
-}
-
-class _VersionsSection extends StatefulWidget {
-  const _VersionsSection({required this.state});
-
-  final FlutterSdkState state;
-
-  @override
-  State<_VersionsSection> createState() => _VersionsSectionState();
-}
-
-class _VersionsSectionState extends State<_VersionsSection> {
-  final _scroll = ScrollController();
-  String _query = '';
-
-  @override
-  void didUpdateWidget(covariant _VersionsSection old) {
-    super.didUpdateWidget(old);
-    // A different channel is a different list — start it at the top.
-    if (old.state.browsingChannel != widget.state.browsingChannel &&
-        _scroll.hasClients) {
-      _scroll.jumpTo(0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = widget.state;
-
-    if (!state.canSwitchVersion) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: InfoBar(
-          title: Text('Version switching unavailable'),
-          content: Text(
-            'This Flutter SDK is not a git checkout, so specific versions '
-            'cannot be selected. Use channels above.',
-          ),
-          severity: InfoBarSeverity.info,
-          isLong: true,
-        ),
-      );
-    }
-
-    final channel = state.browsingChannel ?? '';
-    // master is a rolling branch: the release index publishes no versioned
-    // entries for it, so there is nothing to list.
-    if (channel == 'master') {
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionLabel('Versions'),
-            SizedBox(height: 6),
-            Text(
-              'master is a rolling branch with no versioned releases. Switch '
-              'to it above, then use Upgrade to move to its tip.',
-              style: AppTextStyles.of(context).caption,
-            ),
-          ],
-        ),
-      );
-    }
-    final query = _query.trim();
-    // Every release the official index publishes is listed — for stable that
-    // reaches back to v1.0.0, same as the archive on the Flutter site. The list
-    // is lazy, so length costs nothing.
-    final shown = query.isEmpty
-        ? state.releases
-        : state.releases
-              .where((r) => r.displayVersion.contains(query))
-              .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  SectionLabel('Versions', meta: '${shown.length} available'),
-                  const SizedBox(width: 10),
-                  if (state.versionsLoading)
-                    AppLoader(size: AppLoaderSize.small),
-                  const Spacer(),
-                  CompactField(
-                    width: 200,
-                    placeholder: 'Filter versions',
-                    onChanged: (v) => setState(() => _query = v),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _sourceCaption(state),
-                style: AppTextStyles.of(context).caption,
-              ),
-              if (state.isUnlistedCommit) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Local SDK is on an unlisted commit ${state.shortHeadHash} — '
-                  'no row is marked current.',
-                  style: AppTextStyles.of(context).caption,
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: shown.isEmpty
-                ? Align(
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      query.isNotEmpty
-                          ? 'No versions match "$query".'
-                          : state.versionsLoading
-                          ? 'Loading releases…'
-                          : 'No releases found for the "$channel" channel.',
-                      style: AppTextStyles.of(context).caption,
-                    ),
-                  )
-                : GroupedListView(
-                    controller: _scroll,
-                    itemCount: shown.length,
-                    itemBuilder: (context, i) => _VersionTile(
-                      // Keyed by release identity so a row's expanded state and
-                      // loaded changelog follow the release, not its position —
-                      // otherwise switching channel leaves whatever row sat at
-                      // that index expanded.
-                      key: ValueKey(
-                        '${shown[i].channel}/${shown[i].version}/'
-                        '${shown[i].hash}',
-                      ),
-                      release: shown[i],
-                      isCurrent: _isCurrent(state, shown[i]),
-                      onSwitch: () => _switch(context, shown[i]),
-                      loadChangelog: () => context
-                          .read<FlutterSdkCubit>()
-                          .changelog(shown[i].gitTag, _previousOf(i, shown)),
-                      onOpenGitHub: () => context
-                          .read<FlutterSdkCubit>()
-                          .openReleasePage(shown[i].gitTag),
-                    ),
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// The current row is decided by commit, not version string — a re-released
-  /// version shares its number with an older build.
-  ///
-  /// The git-tag fallback list knows no hashes, so those rows fall back to the
-  /// version `flutter --version` reports.
-  static bool _isCurrent(FlutterSdkState state, FlutterRelease release) {
-    final head = state.headHash;
-    if (release.hash.isEmpty || head == null || head.isEmpty) {
-      final installed = state.info?.version;
-      return installed != null && installed == release.displayVersion;
-    }
-    return release.hash == head;
-  }
-
-  static String _sourceCaption(FlutterSdkState state) =>
-      switch (state.versionSource) {
-        VersionSource.releaseIndex =>
-          'Official Flutter releases. Switching checks the release tag out '
-              'onto its channel branch, so the SDK stays on stable or beta.',
-        VersionSource.staleCache =>
-          'Offline — showing the cached release list. Press Refresh to retry.',
-        VersionSource.gitTags =>
-          'Offline — showing release tags from the local git checkout.',
-      };
-
-  /// The next-older release in the list, used as the changelog baseline.
-  String? _previousOf(int index, List<FlutterRelease> all) =>
-      index + 1 < all.length ? all[index + 1].gitTag : null;
 
   /// Switches the SDK to [release], on the channel branch the release index
   /// says it belongs to.
@@ -1043,178 +718,247 @@ class _VersionsSectionState extends State<_VersionsSection> {
   }
 }
 
-class _VersionTile extends StatefulWidget {
-  const _VersionTile({
-    super.key,
-    required this.release,
-    required this.isCurrent,
-    required this.onSwitch,
-    required this.loadChangelog,
-    required this.onOpenGitHub,
+/// Channel tabs on the left, how many versions they hold and a filter on the
+/// right, with the "you are browsing another channel" note underneath.
+class _ChannelRow extends StatelessWidget {
+  const _ChannelRow({
+    required this.current,
+    required this.browsing,
+    required this.count,
+    required this.loading,
+    required this.onQueryChanged,
   });
 
-  final FlutterRelease release;
-  final bool isCurrent;
-  final VoidCallback onSwitch;
-  final Future<List<String>> Function() loadChangelog;
-  final VoidCallback onOpenGitHub;
+  /// The channel the SDK is actually on right now.
+  final String current;
 
-  @override
-  State<_VersionTile> createState() => _VersionTileState();
-}
+  /// The channel currently being browsed (drives the version list).
+  final String browsing;
 
-class _VersionTileState extends State<_VersionTile> {
-  bool _expanded = false;
-  bool _loading = false;
-  List<String>? _lines;
-
-  Future<void> _toggle() async {
-    setState(() => _expanded = !_expanded);
-    if (_expanded && _lines == null && !_loading) {
-      setState(() => _loading = true);
-      try {
-        final lines = await widget.loadChangelog();
-        if (mounted) setState(() => _lines = lines);
-      } catch (_) {
-        if (mounted) setState(() => _lines = const []);
-      } finally {
-        if (mounted) setState(() => _loading = false);
-      }
-    }
-  }
+  final int count;
+  final bool loading;
+  final ValueChanged<String> onQueryChanged;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return GroupedListRow(
-      statusColor: widget.isCurrent ? palette.statusOk : null,
-      showStatusSlot: true,
-      onTap: _toggle,
-      titleWidget: Row(
-        children: [
-          Text(
-            widget.release.displayVersion,
-            style: widget.isCurrent
-                ? AppTextStyles.of(context).monoRowActive
-                : AppTextStyles.of(context).monoRow,
-          ),
-          if (widget.isCurrent) ...[
-            const SizedBox(width: 8),
-            Text('current', style: AppTextStyles.of(context).inlineNote),
-          ],
-          if (widget.release.displayDartVersion != null) ...[
-            const SizedBox(width: 8),
-            Text(
-              '· Dart ${widget.release.displayDartVersion}',
-              style: AppTextStyles.of(context).rowSecondary,
+    final text = AppTextStyles.of(context);
+    final cubit = context.read<FlutterSdkCubit>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            ChannelTabs(
+              channels: kFlutterChannels,
+              selected: browsing,
+              onChanged: cubit.browseChannel,
+            ),
+            const SizedBox(width: 10),
+            if (loading) AppLoader(size: AppLoaderSize.small),
+            const Spacer(),
+            Text('$count versions', style: text.caption),
+            const SizedBox(width: 10),
+            CompactField(
+              width: 200,
+              placeholder: 'Filter versions',
+              onChanged: onQueryChanged,
             ),
           ],
+        ),
+        if (browsing != current) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(FluentIcons.info, size: 13, color: palette.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Browsing "$browsing". Your SDK is still on "$current". '
+                  'Switch to apply.',
+                  style: text.caption,
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedActionButton(
+                icon: FluentIcons.switch_widget,
+                label: 'Switch to $browsing',
+                dense: true,
+                onPressed: () => _switchChannel(context, browsing),
+              ),
+            ],
+          ),
         ],
+      ],
+    );
+  }
+
+  Future<void> _switchChannel(BuildContext context, String channel) async {
+    final cubit = context.read<FlutterSdkCubit>();
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Switch to $channel channel?',
+      message:
+          'This changes the active Flutter channel. Run Upgrade afterwards '
+          'to download its latest build.',
+      confirmLabel: 'Switch',
+      destructive: false,
+    );
+    if (!ok || !context.mounted) return;
+    final stash = await _resolveLocalChanges(context);
+    if (stash == null || !context.mounted) return;
+    final done = await showCommandProgressDialog(
+      context,
+      title: 'Switching to $channel',
+      start: () => cubit.switchChannel(channel, stashLocalChanges: stash),
+    );
+    if (done) cubit.load();
+  }
+}
+
+/// The list's own footer link.
+class _FooterLink extends StatefulWidget {
+  const _FooterLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_FooterLink> createState() => _FooterLinkState();
+}
+
+class _FooterLinkState extends State<_FooterLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Text(
+            widget.label,
+            style: AppTextStyles.of(context).caption.copyWith(
+              fontSize: 11.5,
+              color: palette.accent,
+              decoration: _hovered ? TextDecoration.underline : null,
+              decorationColor: palette.accent,
+            ),
+          ),
+        ),
       ),
-      hoverActions: [
-        OutlinedActionButton(
-          icon: FluentIcons.globe,
-          dense: true,
-          tooltip: 'Open release notes on GitHub',
-          onPressed: widget.onOpenGitHub,
-        ),
-        if (!widget.isCurrent)
-          OutlinedActionButton(
-            icon: FluentIcons.switch_widget,
-            label: 'Switch',
-            dense: true,
-            onPressed: widget.onSwitch,
+    );
+  }
+}
+
+/// Page-header actions: Refresh, Upgrade (primary) and an overflow menu holding
+/// the rarely-used (and destructive) commands.
+class _HeaderActions extends StatefulWidget {
+  const _HeaderActions({required this.state});
+
+  final FlutterSdkState state;
+
+  @override
+  State<_HeaderActions> createState() => _HeaderActionsState();
+}
+
+class _HeaderActionsState extends State<_HeaderActions> {
+  final _overflow = FlyoutController();
+
+  @override
+  void dispose() {
+    _overflow.dispose();
+    super.dispose();
+  }
+
+  void _showOverflow(BuildContext context) {
+    final info = widget.state.info;
+    _overflow.showFlyout(
+      builder: (flyoutContext) => MenuFlyout(
+        items: [
+          if (info != null)
+            MenuFlyoutItem(
+              text: Text(
+                'Git repo: ${info.isGitRepo ? 'yes' : 'no'}',
+                style: AppTextStyles.of(context).inlineNote,
+              ),
+              // Diagnostic only — kept out of the panel, not actionable here.
+              onPressed: null,
+            ),
+          const MenuFlyoutSeparator(),
+          MenuFlyoutItem(
+            leading: Icon(
+              FluentIcons.delete,
+              size: 14,
+              color: AppPalette.of(context).statusError,
+            ),
+            text: Text(
+              'Uninstall this SDK',
+              style: TextStyle(color: AppPalette.of(context).statusError),
+            ),
+            onPressed: info?.sdkPath == null
+                ? null
+                : () {
+                    Navigator.of(flyoutContext).pop();
+                    _FlutterSdkViewState._uninstall(
+                      context,
+                      info!.sdkPath!,
+                      info.version,
+                    );
+                  },
           ),
-      ],
-      trailing: [
-        if (widget.release.releaseDate != null)
-          Text(
-            _formatDate(widget.release.releaseDate!),
-            style: AppTextStyles.of(context).caption,
-          ),
-        AnimatedRotation(
-          turns: _expanded ? 0.5 : 0,
-          duration: const Duration(milliseconds: 160),
-          child: Icon(
-            FluentIcons.chevron_down,
-            size: 13,
-            color: palette.textMuted,
-          ),
-        ),
-      ],
-      below: AnimatedSize(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        alignment: Alignment.topCenter,
-        child: _expanded
-            ? Padding(
-                padding: const EdgeInsets.only(top: 10, left: 16),
-                child: _changelog(palette),
-              )
-            : const SizedBox(width: double.infinity),
+        ],
       ),
     );
   }
 
-  static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _formatDate(DateTime date) {
-    final local = date.toLocal();
-    return '${_months[local.month - 1]} ${local.day}, ${local.year}';
-  }
-
-  Widget _changelog(AppPalette palette) {
-    if (_loading) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 6),
-          child: AppLoader(size: AppLoaderSize.small),
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<FlutterSdkCubit>();
+    final state = widget.state;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedActionButton(
+          icon: FluentIcons.refresh,
+          label: 'Refresh',
+          busy: state.isLoading,
+          // Refresh always re-downloads the release index.
+          onPressed: () => cubit.load(forceRefresh: true),
         ),
-      );
-    }
-    final lines = _lines ?? const [];
-    if (lines.isEmpty) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'No changelog available from the local git history. Use the GitHub '
-          'link for full release notes.',
-          style: AppTextStyles.of(context).caption,
-        ),
-      );
-    }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(left: 10),
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: palette.border, width: 2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${lines.length} commits since previous version',
-            style: AppTextStyles.of(context).rowSecondary,
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: state.info == null
+              ? null
+              : () => _FlutterSdkViewState._run(
+                  context,
+                  'Upgrading Flutter (${state.info!.channel})',
+                  (stash) => cubit.upgrade(stashLocalChanges: stash),
+                ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(FluentIcons.up, size: 12),
+              SizedBox(width: 7),
+              Text('Upgrade'),
+            ],
           ),
-          const SizedBox(height: 4),
-          for (final line in lines.take(200))
-            Text(line, style: AppTextStyles.of(context).monoBody),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        FlyoutTarget(
+          controller: _overflow,
+          child: OutlinedActionButton(
+            icon: FluentIcons.more,
+            tooltip: 'More actions',
+            onPressed: () => _showOverflow(context),
+          ),
+        ),
+      ],
     );
   }
 }

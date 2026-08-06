@@ -21,6 +21,7 @@ class OutlinedActionButton extends StatefulWidget {
     this.hoverLabel,
     this.hoverIcon,
     this.danger = false,
+    this.warning = false,
   });
 
   final IconData icon;
@@ -45,6 +46,10 @@ class OutlinedActionButton extends StatefulWidget {
   /// actions that take something away — always pair with a confirmation.
   final bool danger;
 
+  /// Attention styling: warn-tinted fill, warn border and label. For actions
+  /// that fix something that is currently wrong. [danger] wins if both are set.
+  final bool warning;
+
   @override
   State<OutlinedActionButton> createState() => _OutlinedActionButtonState();
 }
@@ -60,17 +65,24 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
         widget.onPressed != null && (!widget.busy || widget.hoverLabel != null);
     final label = _hovered ? (widget.hoverLabel ?? widget.label) : widget.label;
     final icon = _hovered ? (widget.hoverIcon ?? widget.icon) : widget.icon;
-    final foreground = !enabled
-        ? palette.textMuted
+    // The semantic hue this button is tinted with, or null for the plain
+    // outline. Danger wins over warning: the louder signal is the safer one.
+    final accent = !enabled
+        ? null
         : widget.danger
         ? palette.statusError
-        : palette.textTertiary;
-    final border = widget.danger && enabled
-        ? palette.statusError
-        : palette.borderStrong;
-    final fill = widget.danger && enabled
+        : widget.warning
+        ? palette.statusWarn
+        : null;
+    final foreground = !enabled
+        ? palette.textMuted
+        : accent ?? palette.textTertiary;
+    final border = accent ?? palette.borderStrong;
+    final fill = accent == null
+        ? Colors.transparent
+        : widget.danger
         ? palette.dangerSurface
-        : Colors.transparent;
+        : palette.warnSurface;
 
     Widget button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
@@ -84,13 +96,13 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton> {
               : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: _hovered && enabled
-                ? (widget.danger
+                ? (accent == null
+                      ? palette.surfaceRaised
                       // Hover deepens the wash rather than switching hue.
-                      ? Color.alphaBlend(
-                          palette.statusError.withValues(alpha: 0.14),
+                      : Color.alphaBlend(
+                          accent.withValues(alpha: 0.14),
                           fill,
-                        )
-                      : palette.surfaceRaised)
+                        ))
                 : fill,
             border: Border.all(color: border, width: AppShape.hairline),
             borderRadius: BorderRadius.circular(AppShape.radiusControl),

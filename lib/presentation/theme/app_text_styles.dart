@@ -71,6 +71,26 @@ class AppTextStyles {
     color: _palette.textPrimary,
   );
 
+  /// The one number a screen exists to report — the active SDK version on the
+  /// Flutter SDK panel. Mono, because it is a version and versions are read
+  /// digit by digit.
+  TextStyle get heroVersion => TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w500,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    color: _palette.textPrimary,
+  );
+
+  /// Mono metadata sitting under a heading: Dart version, revision, path.
+  TextStyle get monoMeta => TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    color: _palette.textMuted,
+  );
+
   /// Outline pill text (channel badge).
   TextStyle get badge => TextStyle(
     fontSize: 11,

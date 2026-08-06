@@ -45,6 +45,61 @@ String shellQuote(String value) => value
 String exportLine(String name, String value) =>
     'export $name="${shellQuote(value)}"';
 
+/// Whether [pathValue] — the raw contents of a PATH variable — already lists
+/// [directory].
+///
+/// Entry-wise rather than a substring test: `C:\dev\flutter\bin` must not read
+/// as a hit for `C:\dev\flutter\bin2`, while a quoted entry or a trailing
+/// separator names the same directory. Windows splits on `;` and compares
+/// case-insensitively; every other platform splits on `:` and does not.
+bool pathListContains(
+  String pathValue,
+  String directory, {
+  required bool windows,
+}) {
+  String normalise(String raw) {
+    var value = raw.trim();
+    if (value.length > 1 && value.startsWith('"') && value.endsWith('"')) {
+      value = value.substring(1, value.length - 1).trim();
+    }
+    if (windows) value = value.replaceAll('/', r'\');
+    while (value.length > 1 &&
+        (value.endsWith(r'\') || value.endsWith('/'))) {
+      value = value.substring(0, value.length - 1);
+    }
+    return windows ? value.toLowerCase() : value;
+  }
+
+  final wanted = normalise(directory);
+  if (wanted.isEmpty) return false;
+  return pathValue
+      .split(windows ? ';' : ':')
+      .any((entry) => normalise(entry) == wanted);
+}
+
+/// The directories this app's `env.sh` appends to PATH, in file order.
+///
+/// Only the lines the app writes itself are read — a hand-edited export with a
+/// different shape is left to the shell, not guessed at.
+List<String> parseExportedPathEntries(String script) {
+  final pattern = RegExp(r'^\s*export\s+PATH="\$PATH:(.*)"\s*$');
+  final entries = <String>[];
+  for (final line in script.split('\n')) {
+    final match = pattern.firstMatch(line);
+    if (match == null) continue;
+    final value = shellUnquote(match.group(1)!);
+    if (value.isNotEmpty) entries.add(value);
+  }
+  return entries;
+}
+
+/// The inverse of [shellQuote].
+String shellUnquote(String value) => value
+    .replaceAll(r'\"', '"')
+    .replaceAll(r'\`', '`')
+    .replaceAll(r'\$', r'$')
+    .replaceAll(r'\\', r'\');
+
 /// The contents of `env.sh` with [name] set to [value].
 ///
 /// Rewrites the variable in place when it is already there, so the file holds

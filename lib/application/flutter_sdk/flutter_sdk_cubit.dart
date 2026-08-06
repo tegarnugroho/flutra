@@ -55,6 +55,9 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
         clearReleaseMatches: true,
         versionSource: _source,
       ));
+      // Shells out to read the live user PATH, so it trails the first paint
+      // rather than holding the whole screen back.
+      await checkPath();
     } on ExecutableNotFoundFailure {
       // No Flutter on PATH — offer to install (or restore a recent one).
       if (!isClosed) {
@@ -81,7 +84,29 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
     }
   }
 
-  Future<void> addToPath(String sdkDir) => _repository.addSdkToPath(sdkDir);
+  /// Re-reads whether the SDK's `bin` is on PATH.
+  ///
+  /// A failure leaves the status [SdkPathStatus.unknown] rather than claiming
+  /// it is missing — the screen offers to fix PATH, and offering that against a
+  /// failed read would be worse than saying nothing.
+  Future<void> checkPath() async {
+    final sdkPath = state.info?.sdkPath;
+    if (sdkPath == null) return;
+    try {
+      final present = await _repository.isSdkOnPath(sdkPath);
+      if (isClosed) return;
+      emit(state.copyWith(
+        pathStatus: present ? SdkPathStatus.present : SdkPathStatus.absent,
+      ));
+    } catch (_) {
+      if (!isClosed) emit(state.copyWith(pathStatus: SdkPathStatus.unknown));
+    }
+  }
+
+  Future<void> addToPath(String sdkDir) async {
+    await _repository.addSdkToPath(sdkDir);
+    await checkPath();
+  }
 
   Future<void> uninstall() async {
     final path = state.info?.sdkPath;
@@ -212,6 +237,9 @@ class FlutterSdkCubit extends Cubit<FlutterSdkState> {
 
   Future<void> openReleasePage(String version) =>
       _repository.openReleasePage(version);
+
+  Future<void> openPullRequest(int number) =>
+      _repository.openPullRequest(number);
 
   void _fail(String message) {
     if (isClosed) return;

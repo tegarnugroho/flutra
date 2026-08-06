@@ -12,6 +12,7 @@ import '../../domain/entities/device.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
+import '../../core/platform/env_persistence.dart';
 import '../../core/platform/platform_service.dart';
 import '../../core/platform/system_actions.dart';
 import '../sdk/flutter_locator.dart';
@@ -839,6 +840,20 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
+  Future<bool> isSdkOnPath(String sdkDir) async {
+    final bin = p.join(sdkDir, 'bin');
+    final windows = _platform.operatingSystem == 'windows';
+    // Two PATHs matter and neither alone is enough: the process one is what
+    // this app inherited at launch (so it misses an entry added since), the
+    // user one is what a new terminal will see (so it misses entries the
+    // machine or the session put there). Either counts.
+    final inherited = Platform.environment['PATH'] ?? '';
+    if (pathListContains(inherited, bin, windows: windows)) return true;
+    final user = await _actions.readUserPath();
+    return pathListContains(user, bin, windows: windows);
+  }
+
+  @override
   Future<void> uninstallSdk(String sdkPath) async {
     final dir = Directory(sdkPath);
     if (!dir.existsSync()) {
@@ -868,5 +883,10 @@ class FlutterRepositoryImpl implements FlutterRepository {
     await _links.open(
       'https://github.com/flutter/flutter/releases/tag/$version',
     );
+  }
+
+  @override
+  Future<void> openPullRequest(int number) async {
+    await _links.open('https://github.com/flutter/flutter/pull/$number');
   }
 }

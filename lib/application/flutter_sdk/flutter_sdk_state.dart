@@ -15,6 +15,14 @@ enum VersionSource {
   gitTags,
 }
 
+/// Whether the SDK's `bin` folder is on PATH.
+enum SdkPathStatus {
+  /// Not looked at yet, or the check failed — the UI says nothing either way.
+  unknown,
+  present,
+  absent,
+}
+
 /// Immutable state for the Flutter SDK screen.
 class FlutterSdkState extends Equatable {
   const FlutterSdkState({
@@ -29,6 +37,7 @@ class FlutterSdkState extends Equatable {
     this.installedRelease,
     this.latestRelease,
     this.versionSource = VersionSource.releaseIndex,
+    this.pathStatus = SdkPathStatus.unknown,
   });
 
   final FlutterSdkStatus status;
@@ -57,6 +66,9 @@ class FlutterSdkState extends Equatable {
   final FlutterRelease? latestRelease;
 
   final VersionSource versionSource;
+
+  /// Whether `<sdkPath>/bin` is on PATH, re-read after adding it.
+  final SdkPathStatus pathStatus;
 
   bool get isLoading => status == FlutterSdkStatus.loading;
 
@@ -101,6 +113,7 @@ class FlutterSdkState extends Equatable {
     FlutterRelease? latestRelease,
     bool clearReleaseMatches = false,
     VersionSource? versionSource,
+    SdkPathStatus? pathStatus,
   }) {
     return FlutterSdkState(
       status: status ?? this.status,
@@ -117,6 +130,7 @@ class FlutterSdkState extends Equatable {
       latestRelease:
           clearReleaseMatches ? latestRelease : (latestRelease ?? this.latestRelease),
       versionSource: versionSource ?? this.versionSource,
+      pathStatus: pathStatus ?? this.pathStatus,
     );
   }
 
@@ -133,5 +147,6 @@ class FlutterSdkState extends Equatable {
         installedRelease,
         latestRelease,
         versionSource,
+        pathStatus,
       ];
 }

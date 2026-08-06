@@ -106,6 +106,11 @@ class AppColors {
   /// button reads as dangerous without shouting.
   static const dangerSurface = Color(0xFF2A1719);
 
+  /// The same treatment for the other two semantic hues: a wash behind a
+  /// warning control, and behind a success pill.
+  static const warnSurface = Color(0xFF2A2317);
+  static const okSurface = Color(0xFF16251B);
+
   /// The one accent in the app. Reserved for the selected channel chip on the
   /// Flutter SDK screen — do not spend it anywhere else.
   static const accent = Color(0xFF4B7BEC);
@@ -166,6 +171,8 @@ class AppColors {
   static const statusWarnLight = Color(0xFF8A6100);
   static const statusErrorLight = Color(0xFFC8232C);
   static const dangerSurfaceLight = Color(0xFFFDECEC);
+  static const warnSurfaceLight = Color(0xFFFBF3E0);
+  static const okSurfaceLight = Color(0xFFE9F6ED);
   static const logTraceLight = Color(0xFF3E63A8);
   static const accentLight = Color(0xFF2F5FD1);
   static const accentBgTintLight = Color(0xFFEDF2FD);
@@ -248,6 +255,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.statusWarn,
     required this.statusError,
     required this.dangerSurface,
+    required this.warnSurface,
+    required this.okSurface,
     required this.logTrace,
     required this.jsonKey,
     required this.jsonString,
@@ -279,6 +288,11 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Fill behind destructive controls. The border and label stay
   /// [statusError] — this is only the wash behind them.
   final Color dangerSurface;
+
+  /// The same wash for [statusWarn] and [statusOk]: behind a warning-styled
+  /// control, and behind a success pill.
+  final Color warnSurface;
+  final Color okSurface;
 
   /// FINE/DEBUG log lines.
   final Color logTrace;
@@ -323,6 +337,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusWarn: AppColors.statusWarn,
     statusError: AppColors.statusError,
     dangerSurface: AppColors.dangerSurface,
+    warnSurface: AppColors.warnSurface,
+    okSurface: AppColors.okSurface,
     logTrace: AppColors.logTrace,
     jsonKey: AppColors.jsonKey,
     jsonString: AppColors.jsonString,
@@ -349,6 +365,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     statusWarn: AppColors.statusWarnLight,
     statusError: AppColors.statusErrorLight,
     dangerSurface: AppColors.dangerSurfaceLight,
+    warnSurface: AppColors.warnSurfaceLight,
+    okSurface: AppColors.okSurfaceLight,
     logTrace: AppColors.logTraceLight,
     jsonKey: AppColors.jsonKeyLight,
     jsonString: AppColors.jsonStringLight,
@@ -381,6 +399,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? statusWarn,
     Color? statusError,
     Color? dangerSurface,
+    Color? warnSurface,
+    Color? okSurface,
     Color? logTrace,
     Color? jsonKey,
     Color? jsonString,
@@ -406,6 +426,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusWarn: statusWarn ?? this.statusWarn,
       statusError: statusError ?? this.statusError,
       dangerSurface: dangerSurface ?? this.dangerSurface,
+      warnSurface: warnSurface ?? this.warnSurface,
+      okSurface: okSurface ?? this.okSurface,
       logTrace: logTrace ?? this.logTrace,
       jsonKey: jsonKey ?? this.jsonKey,
       jsonString: jsonString ?? this.jsonString,
@@ -439,6 +461,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       statusWarn: c(statusWarn, other.statusWarn),
       statusError: c(statusError, other.statusError),
       dangerSurface: c(dangerSurface, other.dangerSurface),
+      warnSurface: c(warnSurface, other.warnSurface),
+      okSurface: c(okSurface, other.okSurface),
       logTrace: c(logTrace, other.logTrace),
       jsonKey: c(jsonKey, other.jsonKey),
       jsonString: c(jsonString, other.jsonString),

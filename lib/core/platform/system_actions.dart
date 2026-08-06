@@ -29,6 +29,13 @@ abstract class SystemActions {
   /// Appends [directory] to the user's PATH, if it is not already on it.
   Future<EnvPersistResult> appendToUserPath(String directory);
 
+  /// The user-level PATH as it stands right now, in the platform's own format.
+  ///
+  /// Read live rather than from [Platform.environment], which is the snapshot
+  /// this process inherited at launch — it never shows what [appendToUserPath]
+  /// just wrote. Empty when it cannot be read.
+  Future<String> readUserPath();
+
   /// Shows [path] in the system file manager.
   Future<void> revealInFileManager(String path);
 
@@ -100,6 +107,25 @@ class WindowsSystemActions implements SystemActions {
       note: 'PATH updated. New terminals — and this app after a restart — will '
           'find it.',
     );
+  }
+
+  @override
+  Future<String> readUserPath() async {
+    try {
+      final result = await _runner.run(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          "[Environment]::GetEnvironmentVariable('Path','User')",
+        ],
+        timeout: const Duration(seconds: 20),
+      );
+      return result.isSuccess ? result.stdout.trim() : '';
+    } catch (e) {
+      _log.fine('could not read the user PATH: $e');
+      return '';
+    }
   }
 
   @override
@@ -222,6 +248,24 @@ abstract class _UnixSystemActions implements SystemActions {
     }
     return EnvPersistResult(success: true, restartRequired: true,
         note: persistNote);
+  }
+
+  /// The directories the app's own `env.sh` puts on PATH.
+  ///
+  /// Only this app's exports count: the rest of the user's PATH comes from
+  /// files it does not own, and the process environment already covers those.
+  @override
+  Future<String> readUserPath() async {
+    final script = envScriptPath;
+    if (script == null) return '';
+    final file = File(script);
+    if (!file.existsSync()) return '';
+    try {
+      return parseExportedPathEntries(await file.readAsString()).join(':');
+    } catch (e) {
+      _log.fine('could not read $script: $e');
+      return '';
+    }
   }
 
   /// Makes every rc file source the script, exactly once.

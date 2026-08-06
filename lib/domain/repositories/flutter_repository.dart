@@ -74,6 +74,9 @@ abstract class FlutterRepository {
   /// Opens the GitHub release page for [version] in the default browser.
   Future<void> openReleasePage(String version);
 
+  /// Opens pull request [number] of flutter/flutter in the default browser.
+  Future<void> openPullRequest(int number);
+
   /// Clones the Flutter SDK into [directory] at [ref] (a channel name like
   /// "stable" or a version tag like "3.24.0"). Streaming handle. Used when no
   /// Flutter SDK is installed yet.
@@ -86,6 +89,10 @@ abstract class FlutterRepository {
   /// Appends `<sdkDir>/bin` to the user's PATH (Windows). Requires an app
   /// restart to take effect.
   Future<void> addSdkToPath(String sdkDir);
+
+  /// Whether `<sdkDir>/bin` is already on PATH — either the one this process
+  /// inherited, or the user-level one a new terminal would see.
+  Future<bool> isSdkOnPath(String sdkDir);
 
   /// Permanently deletes the Flutter SDK at [sdkPath].
   Future<void> uninstallSdk(String sdkPath);
