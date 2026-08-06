@@ -1,5 +1,5 @@
+import 'package:flutra/presentation/common/log_body_format.dart';
 import 'package:flutra/presentation/settings/dev_logs_page.dart';
-import 'package:flutra/presentation/settings/log_body_format.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The text of every span of [kind], in order.

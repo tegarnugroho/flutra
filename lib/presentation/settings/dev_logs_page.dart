@@ -10,10 +10,11 @@ import '../../infrastructure/logging/dev_log_service.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
 import '../common/outlined_action_button.dart';
+import '../common/log_body_format.dart';
+import '../common/log_body_text.dart';
 import '../common/task_window_title_bar.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import 'log_body_format.dart';
 
 /// Developer request-log viewer.
 ///
@@ -426,15 +427,6 @@ class _LogRowState extends State<_LogRow> {
   LogBody get _shown =>
       widget.expanded ? _body : _body.take(widget.collapseAfterLines);
 
-  Color _spanColor(AppPalette palette, LogSpanKind kind) => switch (kind) {
-    LogSpanKind.plain => palette.textSecondary,
-    LogSpanKind.punctuation => palette.textMuted,
-    LogSpanKind.key => palette.jsonKey,
-    LogSpanKind.string => palette.jsonString,
-    LogSpanKind.number => palette.jsonNumber,
-    LogSpanKind.literal => palette.jsonLiteral,
-  };
-
   Color _levelColor(AppPalette palette) {
     final level = widget.record.level;
     if (level >= Level.SEVERE) return palette.statusError;
@@ -482,13 +474,11 @@ class _LogRowState extends State<_LogRow> {
                       text: '${widget.record.logger}: ',
                       style: text.monoLog.copyWith(color: palette.textMuted),
                     ),
-                    for (final span in _shown.spans)
-                      TextSpan(
-                        text: span.text,
-                        style: text.monoLog.copyWith(
-                          color: _spanColor(palette, span.kind),
-                        ),
-                      ),
+                    ...logBodySpans(
+                      _shown,
+                      base: text.monoLog,
+                      palette: palette,
+                    ),
                     if (_isLong)
                       TextSpan(
                         text: widget.expanded ? '  collapse' : '  … expand',

@@ -3,6 +3,8 @@ import 'package:fluent_ui/fluent_ui.dart';
 import '../../domain/entities/log_line.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'log_body_format.dart';
+import 'log_body_text.dart';
 import 'outlined_action_button.dart';
 
 /// A terminal-style, auto-scrolling, colorized view of streamed log lines.
@@ -74,13 +76,17 @@ class _LiveLogViewState extends State<LiveLogView> {
               ),
             )
           else
-            Scrollbar(
-              controller: _scroll,
-              child: ListView.builder(
+            // One selection over the whole list rather than one per row —
+            // otherwise a drag can only ever take a single line with it.
+            SelectionArea(
+              child: Scrollbar(
                 controller: _scroll,
-                padding: const EdgeInsets.all(10),
-                itemCount: widget.lines.length,
-                itemBuilder: (context, i) => _LogRow(line: widget.lines[i]),
+                child: ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(10),
+                  itemCount: widget.lines.length,
+                  itemBuilder: (context, i) => _LogRow(line: widget.lines[i]),
+                ),
               ),
             ),
           if (!_stickToBottom)
@@ -122,10 +128,15 @@ class _LogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return SelectableText(
-      line.raw,
-      style: AppTextStyles.of(context).monoLog.copyWith(
-        color: _colorFor(line.priority, line.isError, palette),
+    final base = AppTextStyles.of(context).monoLog.copyWith(
+      color: _colorFor(line.priority, line.isError, palette),
+    );
+    // A logcat message is often a one-line JSON blob; re-indenting and touring
+    // it makes the payload readable without leaving the stream.
+    final body = LogBodyFormat.parse(line.raw);
+    return Text.rich(
+      TextSpan(
+        children: logBodySpans(body, base: base, palette: palette),
       ),
     );
   }
