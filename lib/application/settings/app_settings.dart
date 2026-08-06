@@ -15,7 +15,6 @@ class AppSettings extends Equatable {
     this.windowY,
     this.windowWidth,
     this.windowHeight,
-    this.apiBaseUrl,
     this.doctorTimings = const {},
   });
 
@@ -46,9 +45,6 @@ class AppSettings extends Equatable {
   final double? windowY;
   final double? windowWidth;
   final double? windowHeight;
-
-  /// Base URL for the settings API (e.g. addresses), without trailing slash.
-  final String? apiBaseUrl;
 
   /// How long each `flutter doctor` check took on the last successful run, in
   /// milliseconds, keyed by check name. Drives the time-weighted progress bar.
@@ -89,7 +85,6 @@ class AppSettings extends Equatable {
       windowY: (json['windowY'] as num?)?.toDouble(),
       windowWidth: (json['windowWidth'] as num?)?.toDouble(),
       windowHeight: (json['windowHeight'] as num?)?.toDouble(),
-      apiBaseUrl: _str(json['apiBaseUrl']),
       doctorTimings: _timings(json['doctorTimings']),
     );
   }
@@ -110,7 +105,6 @@ class AppSettings extends Equatable {
         'windowY': windowY,
         'windowWidth': windowWidth,
         'windowHeight': windowHeight,
-        'apiBaseUrl': apiBaseUrl,
         'doctorTimings': doctorTimings,
       };
 
@@ -128,8 +122,6 @@ class AppSettings extends Equatable {
     double? windowY,
     double? windowWidth,
     double? windowHeight,
-    String? apiBaseUrl,
-    bool clearApiBaseUrl = false,
     Map<String, int>? doctorTimings,
   }) {
     return AppSettings(
@@ -148,7 +140,6 @@ class AppSettings extends Equatable {
       windowY: windowY ?? this.windowY,
       windowWidth: windowWidth ?? this.windowWidth,
       windowHeight: windowHeight ?? this.windowHeight,
-      apiBaseUrl: clearApiBaseUrl ? null : (apiBaseUrl ?? this.apiBaseUrl),
       doctorTimings: doctorTimings ?? this.doctorTimings,
     );
   }
@@ -166,7 +157,6 @@ class AppSettings extends Equatable {
         windowY,
         windowWidth,
         windowHeight,
-        apiBaseUrl,
         doctorTimings,
       ];
 }

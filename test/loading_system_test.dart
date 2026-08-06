@@ -34,7 +34,6 @@ const _skeletons = <String, Widget>{
   'flutter sdk': FlutterSdkSkeleton(),
   'flutter doctor': DoctorSkeleton(),
   'logcat': LogcatSkeleton(),
-  'settings addresses': AddressListSkeleton(),
 };
 
 void main() {

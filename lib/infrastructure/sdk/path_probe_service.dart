@@ -98,24 +98,4 @@ class PathProbeService {
       return null;
     }
   }
-
-  /// Unlike the folder probes this one is a veto: a malformed URL cannot be
-  /// saved, because nothing downstream could use it.
-  PathProbe probeBaseUrl(String value) {
-    final raw = value.trim();
-    if (raw.isEmpty) {
-      return const PathProbe(valid: true, message: 'Cleared — API disabled');
-    }
-    final uri = Uri.tryParse(raw);
-    if (uri == null ||
-        !uri.hasScheme ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
-      return const PathProbe(
-        valid: false,
-        message: 'Enter a full http(s) URL, e.g. https://api.example.com',
-      );
-    }
-    return const PathProbe(valid: true, message: 'Looks like a valid URL');
-  }
 }

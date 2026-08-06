@@ -9,7 +9,6 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:flutra/application/address/address_cubit.dart' as _i773;
 import 'package:flutra/application/dashboard/dashboard_cubit.dart' as _i352;
 import 'package:flutra/application/device/device_manager_cubit.dart' as _i4;
 import 'package:flutra/application/doctor/doctor_fix_cubit.dart' as _i698;
@@ -33,7 +32,6 @@ import 'package:flutra/core/command/sdk_operation_lock.dart' as _i29;
 import 'package:flutra/core/command/session_environment.dart' as _i282;
 import 'package:flutra/core/platform/platform_service.dart' as _i427;
 import 'package:flutra/core/platform/system_actions.dart' as _i964;
-import 'package:flutra/domain/repositories/address_repository.dart' as _i570;
 import 'package:flutra/domain/repositories/device_repository.dart' as _i804;
 import 'package:flutra/domain/repositories/emulator_repository.dart' as _i932;
 import 'package:flutra/domain/repositories/environment_repository.dart'
@@ -47,8 +45,6 @@ import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
 import 'package:flutra/infrastructure/flutter/flutter_update_service.dart'
     as _i483;
 import 'package:flutra/infrastructure/logging/dev_log_service.dart' as _i730;
-import 'package:flutra/infrastructure/repositories/address_repository_impl.dart'
-    as _i352;
 import 'package:flutra/infrastructure/repositories/device_repository_impl.dart'
     as _i580;
 import 'package:flutra/infrastructure/repositories/emulator_repository_impl.dart'
@@ -108,9 +104,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i730.DevLogService>(() => _i730.DevLogService());
     gh.lazySingleton<_i503.SdkScanService>(() => _i503.SdkScanService());
     gh.lazySingleton<_i562.SettingsService>(() => _i562.SettingsService());
-    gh.lazySingleton<_i570.AddressRepository>(
-      () => _i352.AddressRepositoryImpl(gh<_i562.SettingsService>()),
-    );
     gh.lazySingleton<_i989.CommandRunner>(
       () => _i989.CommandRunner(gh<_i282.SessionEnvironment>()),
     );
@@ -153,9 +146,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i706.SdkLocator>(),
         gh<_i427.PlatformService>(),
       ),
-    );
-    gh.factory<_i773.AddressCubit>(
-      () => _i773.AddressCubit(gh<_i570.AddressRepository>()),
     );
     gh.factory<_i497.EmulatorListCubit>(
       () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),

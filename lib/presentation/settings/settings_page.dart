@@ -5,25 +5,20 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../application/address/address_cubit.dart';
 import '../../application/settings/app_settings.dart';
 import '../../application/settings/detected_paths_cubit.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../application/settings/theme_cubit.dart';
 import '../../core/di/injection.dart';
-import '../../domain/entities/address.dart';
 import '../../infrastructure/sdk/sdk_scan_service.dart';
 import '../../infrastructure/system/process_service.dart';
 import '../../main.dart' show kDevLogsWindow;
-import '../common/app_badge.dart';
-import '../common/app_loader.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
 import '../common/grouped_list.dart';
 import '../common/outlined_action_button.dart';
 import '../common/page_scaffold.dart';
-import '../common/skeleton/skeleton_layouts.dart';
 import '../common/segmented_control.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -150,20 +145,6 @@ class _SettingsViewState extends State<_SettingsView> {
                             path: detected.java,
                             loading: detected.isLoading,
                           ),
-                          const SizedBox(height: 8),
-                          PathSettingRow(
-                            label: 'API base URL',
-                            description:
-                                'Addresses come from '
-                                '"<base>/api/settings/addresses".',
-                            kind: PathKind.url,
-                            overridePath: settings.apiBaseUrl,
-                            detected: null,
-                            onApply: cubit.setApiBaseUrl,
-                            editing: _editing == PathKind.url,
-                            onBeginEdit: () => _beginEdit(PathKind.url),
-                            onEndEdit: _endEdit,
-                          ),
                         ],
                       );
                     },
@@ -249,10 +230,6 @@ class _SettingsViewState extends State<_SettingsView> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  const SectionLabel('Addresses'),
-                  const SizedBox(height: 8),
-                  _AddressesSection(hasBaseUrl: settings.apiBaseUrl != null),
                 ],
               ),
             ),
@@ -293,96 +270,6 @@ Future<void> _stopProcesses(BuildContext context) async {
       );
     },
   );
-}
-
-/// Fetches and lists addresses from the settings API.
-class _AddressesSection extends StatelessWidget {
-  const _AddressesSection({required this.hasBaseUrl});
-
-  final bool hasBaseUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<AddressCubit>(),
-      child: Builder(
-        builder: (context) {
-          final cubit = context.read<AddressCubit>();
-          return BlocBuilder<AddressCubit, AddressState>(
-            builder: (context, state) {
-              return GroupedList(
-                children: [
-                  GroupedListRow(
-                    icon: FluentIcons.location,
-                    title: 'Saved addresses',
-                    subtitle: hasBaseUrl
-                        ? 'Fetched from the settings API.'
-                        : 'Set the API base URL above first.',
-                    trailing: [
-                      if (state.isLoading)
-                        AppLoader(size: AppLoaderSize.small)
-                      else
-                        OutlinedActionButton(
-                          icon: FluentIcons.download,
-                          label: 'Load',
-                          dense: true,
-                          onPressed: hasBaseUrl ? cubit.load : null,
-                        ),
-                    ],
-                  ),
-                  if (state.status == AddressStatus.failure)
-                    GroupedListRow(
-                      statusColor: AppPalette.of(context).statusError,
-                      showStatusSlot: true,
-                      title: 'Could not load addresses',
-                      subtitle: state.errorMessage ?? 'Unknown error.',
-                    )
-                  else if (state.isLoading && state.addresses.isEmpty)
-                    const AddressListSkeleton()
-                  else if (state.addresses.isEmpty &&
-                      state.status == AddressStatus.ready)
-                    const GroupedListRow(title: 'No addresses')
-                  else
-                    for (final a in state.addresses) _AddressRow(address: a),
-                ],
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _AddressRow extends StatelessWidget {
-  const _AddressRow({required this.address});
-
-  final Address address;
-
-  @override
-  Widget build(BuildContext context) {
-    return GroupedListRow(
-      titleWidget: Row(
-        children: [
-          Flexible(
-            child: Text(
-              address.label,
-              style: AppTextStyles.of(context).rowTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          AppBadge(address.type),
-          if (address.isDefault) ...[
-            const SizedBox(width: 6),
-            const AppBadge('default'),
-          ],
-        ],
-      ),
-      subtitle: address.formatted,
-    );
-  }
 }
 
 /// Opens the Developer Logs as a separate OS window.

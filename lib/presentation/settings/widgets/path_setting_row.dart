@@ -15,7 +15,7 @@ import 'path_candidate_dialog.dart';
 
 /// What a path row is probing for, which decides how it validates and whether
 /// it can offer a folder picker.
-enum PathKind { androidSdk, flutterSdk, url }
+enum PathKind { androidSdk, flutterSdk }
 
 /// A settings row that shows one effective value, and edits it in place.
 ///
@@ -64,7 +64,7 @@ class PathSettingRow extends StatefulWidget {
   final bool loading;
 
   /// Searches the disk for installs of this kind. Null for rows that have
-  /// nothing to scan for, such as the API URL.
+  /// nothing to scan for.
   final Future<List<String>> Function()? onScan;
 
   /// True while any scan is walking the disk.
@@ -116,10 +116,6 @@ class _PathSettingRowState extends State<PathSettingRow> {
   Future<void> _revalidate() async {
     final value = _controller.text;
     final probes = getIt<PathProbeService>();
-    if (widget.kind == PathKind.url) {
-      setState(() => _probe = probes.probeBaseUrl(value));
-      return;
-    }
     setState(() => _probing = true);
     final probe = widget.kind == PathKind.androidSdk
         ? await probes.probeAndroidSdk(value)
@@ -143,13 +139,7 @@ class _PathSettingRowState extends State<PathSettingRow> {
     await _revalidate();
   }
 
-  /// Blocking only for URLs — a folder the app doesn't recognise may still be
-  /// the right one, so its warning never stops a save.
-  bool get _canSave =>
-      widget.kind != PathKind.url || (_probe?.valid ?? true);
-
   void _save() {
-    if (!_canSave) return;
     widget.onApply(_controller.text.trim());
     widget.onEndEdit();
   }
@@ -254,29 +244,24 @@ class _PathSettingRowState extends State<PathSettingRow> {
                   controller: _controller,
                   focusNode: _focus,
                   icon: null,
-                  placeholder: widget.kind == PathKind.url
-                      ? 'https://api.example.com'
-                      : r'C:\path\to\sdk',
+                  placeholder: r'C:\path\to\sdk',
                   onChanged: _onChanged,
                   onSubmitted: (_) => _save(),
                 ),
               ),
-              if (widget.kind != PathKind.url) ...[
-                const SizedBox(width: 8),
-                OutlinedActionButton(
-                  icon: FluentIcons.folder_open,
-                  label: 'Browse…',
-                  dense: true,
-                  onPressed: _browse,
-                ),
-              ],
+              const SizedBox(width: 8),
+              OutlinedActionButton(
+                icon: FluentIcons.folder_open,
+                label: 'Browse…',
+                dense: true,
+                onPressed: _browse,
+              ),
               const SizedBox(width: 8),
               OutlinedActionButton(
                 icon: FluentIcons.check_mark,
                 label: 'Save',
                 dense: true,
-                onPressed: _canSave ? _save : null,
-                tooltip: _canSave ? null : 'Fix the value first',
+                onPressed: _save,
               ),
               const SizedBox(width: 4),
               _TextAction(label: 'Cancel', onTap: widget.onEndEdit),
@@ -304,14 +289,9 @@ class _PathSettingRowState extends State<PathSettingRow> {
     }
     final probe = _probe;
     if (probe == null) return const SizedBox.shrink();
-    // A failed folder probe is a warning; a failed URL is an error, because
-    // nothing downstream could use it.
-    final blocking = widget.kind == PathKind.url && !probe.valid;
-    final color = probe.valid
-        ? palette.statusOk
-        : blocking
-        ? palette.statusError
-        : palette.statusWarn;
+    // A failed folder probe is only a warning — a folder the app doesn't
+    // recognise may still be the right one, so it never stops a save.
+    final color = probe.valid ? palette.statusOk : palette.statusWarn;
     return Row(
       children: [
         Icon(
