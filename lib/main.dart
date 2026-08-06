@@ -19,6 +19,7 @@ import 'presentation/window/about_window.dart';
 import 'presentation/window/create_emulator_window.dart';
 import 'presentation/window/dev_logs_window.dart';
 import 'presentation/window/emulator_console_window.dart';
+import 'presentation/theme/app_colors.dart';
 import 'presentation/window/window_placement.dart';
 
 /// Business id marking the standalone Create-Emulator window.
@@ -68,8 +69,8 @@ const Set<String> _hiddenAtLaunch = {
 };
 
 /// Set by [_placeTaskWindow] and awaited by [_revealWindow], so a hidden window
-/// still never appears wearing the native caption.
-Future<void> _captionHidden = Future<void>.value();
+/// still never appears wearing the native caption, and never appears white.
+Future<void> _windowChrome = Future<void>.value();
 
 Future<void> main(List<String> args) async {
   _setupLogging();
@@ -103,8 +104,14 @@ Future<void> main(List<String> args) async {
   // that are visible from the start still pay it up front, or the native bar
   // would flash.
   if (!_hiddenAtLaunch.contains(businessId)) {
-    await _hideNativeTitleBar();
-    _boot.mark('caption');
+    // The main window's theme is not known until its settings load, so it only
+    // loses the caption here; a sub-window carries its theme in its arguments.
+    if (businessId == null) {
+      await _hideNativeTitleBar();
+    } else {
+      await _applyWindowChrome(dark: decoded?['dark'] == true);
+    }
+    _boot.mark('chrome');
   }
   if (businessId == null) {
     // Below this the two-pane pages (SDK manager) start to overflow.
@@ -240,7 +247,22 @@ Future<void> _placeTaskWindow(
   // this, so the ~110ms it costs runs alongside the widget build instead of
   // before it. Kicked off after the bounds above, never alongside them — two
   // window calls in flight at once is not worth the milliseconds.
-  _captionHidden = _hideNativeTitleBar();
+  _windowChrome = _applyWindowChrome(dark: args['dark'] == true);
+}
+
+/// Hides the native caption and paints the window the app's own background.
+///
+/// The background matters for the gap between `show()` and the first raster
+/// reaching the screen: a hidden window does not rasterise, so those pixels
+/// come from the native brush, which is white by default. On a big window —
+/// the log viewer — that gap is long enough to read as a white flash.
+Future<void> _applyWindowChrome({required bool dark}) async {
+  await _tryWindow(
+    () => windowManager.setBackgroundColor(
+      dark ? AppColors.windowBg : AppColors.windowBgLight,
+    ),
+  );
+  await _hideNativeTitleBar();
 }
 
 /// Reveals a window created hidden, once its first frame has been rasterised.
@@ -251,9 +273,10 @@ Future<void> _placeTaskWindow(
 /// frame is actually on the surface.
 void _revealWindow() {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    // The caption swap must have landed before anything is visible.
-    await _captionHidden;
-    _boot.mark('caption');
+    // The caption swap and the background must have landed before anything is
+    // visible.
+    await _windowChrome;
+    _boot.mark('chrome');
     await _tryWindow(() => windowManager.show());
     _boot.shown();
   });
