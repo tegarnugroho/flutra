@@ -397,50 +397,85 @@ class UpdatesSkeleton extends StatelessWidget {
 // Flutter SDK
 // ---------------------------------------------------------------------------
 
-/// The current-SDK card followed by the versions group.
+/// The identity panel, the channel row, then the version tiles.
+///
+/// Mirrors the real page's shape rather than the old card-and-group one: the
+/// tiles are separate boxes with a gap, so a skeleton drawn as one group would
+/// resolve into a different layout the moment data arrives.
 class FlutterSdkSkeleton extends StatelessWidget {
   const FlutterSdkSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return _SkeletonPage(
       children: [
         GroupedBox(
           padding: const EdgeInsets.all(16),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              SkeletonLine(width: 168, height: 15),
-              SizedBox(height: 12),
-              SkeletonLine(width: 300, height: 12),
-              SizedBox(height: 8),
-              SkeletonLine(width: 236, height: 12),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  SkeletonBox(width: 118, height: 26),
-                  SizedBox(width: 8),
-                  SkeletonBox(width: 96, height: 26),
-                ],
+              SkeletonBox(width: 40, height: 40, radius: 8),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonLine(width: 132, height: 20),
+                    SizedBox(height: 12),
+                    SkeletonLine(width: 320, height: 12),
+                  ],
+                ),
               ),
+              SizedBox(width: 16),
+              SkeletonBox(width: 118, height: 26),
             ],
           ),
         ),
         const SizedBox(height: 18),
-        const _SectionLabelSkeleton(width: 74),
-        const SizedBox(height: 8),
-        _SkeletonGroup(
-          rows: [
-            for (final width in const [96.0, 112.0, 88.0, 104.0])
-              _SkeletonRow(
-                children: [
-                  SkeletonLine(width: width, height: 12),
-                  const Spacer(),
-                  const SkeletonBox(width: 66, height: 20),
-                ],
-              ),
+        const Row(
+          children: [
+            SkeletonBox(width: 190, height: 30),
+            Spacer(),
+            SkeletonLine(width: 70, height: 11),
+            SizedBox(width: 10),
+            SkeletonBox(width: 200, height: 30),
           ],
         ),
+        const SizedBox(height: 16),
+        for (final width in const [96.0, 112.0, 88.0, 104.0])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: palette.border,
+                  width: AppShape.hairline,
+                ),
+                borderRadius: BorderRadius.circular(AppShape.radiusGroup + 2),
+              ),
+              child: Row(
+                children: [
+                  const SkeletonBox(width: 8, height: 8, radius: 4),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonLine(width: width, height: 13),
+                      const SizedBox(height: 5),
+                      SkeletonLine(width: width + 96, height: 11),
+                    ],
+                  ),
+                  const Spacer(),
+                  const SkeletonBox(width: 12, height: 12, radius: 3),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }

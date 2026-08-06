@@ -82,7 +82,8 @@ class _FlutterSdkView extends StatefulWidget {
   State<_FlutterSdkView> createState() => _FlutterSdkViewState();
 }
 
-class _FlutterSdkViewState extends State<_FlutterSdkView> {
+class _FlutterSdkViewState extends State<_FlutterSdkView>
+    with WidgetsBindingObserver {
   /// Tiles shown before the "older versions" footer takes over. The index
   /// reaches back to v1.0.0; nobody scrolls that on purpose.
   static const _initialVersionCount = 20;
@@ -108,10 +109,27 @@ class _FlutterSdkViewState extends State<_FlutterSdkView> {
   bool _showOlder = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _highlightTimer?.cancel();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// PATH can be edited outside the app — in the Windows environment dialog,
+  /// or a shell profile — so coming back to the window re-reads it rather than
+  /// trusting what was true when the page opened.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<FlutterSdkCubit>().checkPath();
+    }
   }
 
   /// Keyed by release identity rather than index, so an open tile survives a
@@ -219,6 +237,8 @@ class _FlutterSdkViewState extends State<_FlutterSdkView> {
               SdkIdentityPanel(
                 info: info,
                 updateAvailable: state.updateAvailable,
+                latestKnown:
+                    state.headHash != null && state.latestRelease != null,
                 latestVersion: state.latestRelease?.displayVersion,
                 pathStatus: state.pathStatus,
                 onAddToPath: info.sdkPath == null

@@ -129,5 +129,113 @@ void main() {
       expect(shellQuote(r'/opt/$HOME'), r'/opt/\$HOME');
       expect(shellQuote(r'/opt/back\slash'), r'/opt/back\\slash');
     });
+
+    test('unquoting is the inverse of quoting', () {
+      for (final value in [
+        r'/opt/we"ird',
+        r'/opt/$HOME',
+        r'/opt/back\slash',
+        '/plain/path',
+      ]) {
+        expect(shellUnquote(shellQuote(value)), value);
+      }
+    });
+  });
+
+  group('pathListContains', () {
+    const windowsPath =
+        r'C:\Windows\system32;C:\Dev\SDK\flutter\bin;C:\Program Files\Git\cmd';
+
+    test('finds an entry that is on the Windows PATH', () {
+      expect(
+        pathListContains(windowsPath, r'C:\Dev\SDK\flutter\bin', windows: true),
+        isTrue,
+      );
+    });
+
+    test('ignores case and trailing separators on Windows', () {
+      expect(
+        pathListContains(
+          windowsPath,
+          r'c:\dev\sdk\flutter\bin\',
+          windows: true,
+        ),
+        isTrue,
+      );
+      expect(
+        pathListContains(windowsPath, 'C:/Dev/SDK/flutter/bin', windows: true),
+        isTrue,
+      );
+    });
+
+    test('a longer sibling directory is not a match', () {
+      expect(
+        pathListContains(
+          windowsPath,
+          r'C:\Dev\SDK\flutter\bin2',
+          windows: true,
+        ),
+        isFalse,
+      );
+      expect(
+        pathListContains(windowsPath, r'C:\Dev\SDK\flutter', windows: true),
+        isFalse,
+      );
+    });
+
+    test('a quoted entry names the same directory', () {
+      expect(
+        pathListContains(
+          r'C:\Windows;"C:\Dev\SDK\flutter\bin"',
+          r'C:\Dev\SDK\flutter\bin',
+          windows: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('POSIX splits on colons and keeps its case', () {
+      const path = '/usr/bin:/home/me/flutter/bin:/usr/local/bin';
+      expect(
+        pathListContains(path, '/home/me/flutter/bin', windows: false),
+        isTrue,
+      );
+      expect(
+        pathListContains(path, '/home/me/Flutter/bin', windows: false),
+        isFalse,
+      );
+    });
+
+    test('an empty PATH or an empty directory is never a match', () {
+      expect(pathListContains('', r'C:\x\bin', windows: true), isFalse);
+      expect(pathListContains(windowsPath, '  ', windows: true), isFalse);
+    });
+  });
+
+  group('parseExportedPathEntries', () {
+    test('reads back the directories appendToUserPath wrote', () {
+      const script = '''
+export JAVA_HOME="/opt/jdk"
+export PATH="\$PATH:/home/me/flutter/bin"
+export PATH="\$PATH:/home/me/Android/Sdk/platform-tools"
+''';
+
+      expect(parseExportedPathEntries(script), [
+        '/home/me/flutter/bin',
+        '/home/me/Android/Sdk/platform-tools',
+      ]);
+    });
+
+    test('unescapes what shellQuote escaped', () {
+      final script = 'export PATH="\$PATH:${shellQuote(r'/opt/we"ird/bin')}"';
+
+      expect(parseExportedPathEntries(script), [r'/opt/we"ird/bin']);
+    });
+
+    test('leaves exports it did not write alone', () {
+      const script = 'PATH=/usr/bin\nexport PATH="/replaced/entirely"';
+
+      expect(parseExportedPathEntries(script), isEmpty);
+    });
   });
 }

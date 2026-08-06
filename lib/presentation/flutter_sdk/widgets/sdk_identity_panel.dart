@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../application/flutter_sdk/flutter_sdk_cubit.dart';
 import '../../../domain/entities/flutter_sdk_info.dart';
+import '../../common/app_badge.dart';
 import '../../common/copy_icon_button.dart';
 import '../../common/outlined_action_button.dart';
 import '../../theme/app_colors.dart';
@@ -19,6 +20,7 @@ class SdkIdentityPanel extends StatelessWidget {
     super.key,
     required this.info,
     required this.updateAvailable,
+    required this.latestKnown,
     required this.latestVersion,
     required this.pathStatus,
     required this.onAddToPath,
@@ -32,6 +34,11 @@ class SdkIdentityPanel extends StatelessWidget {
 
   /// True when the channel has published something newer than HEAD.
   final bool updateAvailable;
+
+  /// Whether the comparison could be made at all. False for a checkout with no
+  /// HEAD to compare, or a channel whose index entry is missing — "latest" is
+  /// then a claim the app cannot support, so it says the channel and stops.
+  final bool latestKnown;
 
   /// The newest version on the channel, for the update pill's tooltip.
   final String? latestVersion;
@@ -100,20 +107,25 @@ class SdkIdentityPanel extends StatelessWidget {
                   onTap: onRevealLatest,
                 ),
               )
-            else
+            else if (latestKnown)
               StatusPill(
                 label: '${info.channel} · latest',
                 foreground: palette.statusOk,
                 background: palette.okSurface,
-              ),
+              )
+            else
+              AppBadge(info.channel),
           ],
         ),
         const SizedBox(height: 10),
         Wrap(
-          spacing: 16,
+          spacing: 10,
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
+          children: _separated(context, [
+            // The channel is only in the pill while the SDK is up to date, and
+            // it is the first thing to check when it is not.
+            if (updateAvailable) _meta(context, value: info.channel),
             if (info.dartVersion != null)
               _meta(context, value: 'Dart ${info.dartVersion}'),
             if (revision != null)
@@ -132,10 +144,22 @@ class SdkIdentityPanel extends StatelessWidget {
                 copyValue: info.sdkPath!,
                 copyLabel: 'SDK path',
               ),
-          ],
+          ]),
         ),
       ],
     );
+  }
+
+  /// Interleaves the fragments with a middle dot. Part of the [Wrap]'s run, so
+  /// a separator wraps with the fragment it belongs to rather than dangling.
+  List<Widget> _separated(BuildContext context, List<Widget> fragments) {
+    final style = AppTextStyles.of(context).monoMeta;
+    return [
+      for (var i = 0; i < fragments.length; i++) ...[
+        if (i > 0) Text('·', style: style),
+        fragments[i],
+      ],
+    ];
   }
 
   /// One metadata fragment: mono value, optional copy action.
