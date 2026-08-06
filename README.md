@@ -89,6 +89,10 @@ an unsigned macOS `.dmg` on pushes to `main` and tags. The Linux job runs on
 `ubuntu-22.04`, so the AppImage needs glibc 2.35 or newer — old enough for
 current distributions, not for 20.04-era ones.
 
+> **After a rename or any change to `BINARY_NAME`, run `flutter clean` first.**
+> CMake caches `CMAKE_INSTALL_PREFIX` as `$<TARGET_FILE_DIR:<old name>>`, and a
+> stale build directory then fails to configure with "No target ...".
+
 On Windows, use the build script rather than `flutter build` directly:
 
 ```powershell
