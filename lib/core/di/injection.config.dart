@@ -31,6 +31,7 @@ import 'package:android_sdk_manager/application/flutter_sdk/flutter_update_cubit
     as _i839;
 import 'package:android_sdk_manager/application/log/logcat_devices_cubit.dart'
     as _i643;
+import 'package:android_sdk_manager/application/sdk/reclaim_cubit.dart' as _i26;
 import 'package:android_sdk_manager/application/sdk/sdk_manager_cubit.dart'
     as _i740;
 import 'package:android_sdk_manager/application/settings/detected_paths_cubit.dart'
@@ -42,6 +43,8 @@ import 'package:android_sdk_manager/application/settings/theme_cubit.dart'
 import 'package:android_sdk_manager/application/shell/shell_navigator.dart'
     as _i684;
 import 'package:android_sdk_manager/core/command/command_runner.dart' as _i144;
+import 'package:android_sdk_manager/core/command/sdk_operation_lock.dart'
+    as _i328;
 import 'package:android_sdk_manager/core/command/session_environment.dart'
     as _i771;
 import 'package:android_sdk_manager/domain/repositories/address_repository.dart'
@@ -82,6 +85,10 @@ import 'package:android_sdk_manager/infrastructure/sdk/flutter_locator.dart'
     as _i1034;
 import 'package:android_sdk_manager/infrastructure/sdk/path_probe_service.dart'
     as _i220;
+import 'package:android_sdk_manager/infrastructure/sdk/reclaim_executor.dart'
+    as _i164;
+import 'package:android_sdk_manager/infrastructure/sdk/reclaim_scanner.dart'
+    as _i821;
 import 'package:android_sdk_manager/infrastructure/sdk/sdk_locator.dart'
     as _i839;
 import 'package:android_sdk_manager/infrastructure/sdk/sdk_scan_service.dart'
@@ -119,6 +126,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i684.ShellNavigator(),
       dispose: (i) => i.dispose(),
     );
+    gh.lazySingleton<_i328.SdkOperationLock>(() => _i328.SdkOperationLock());
     gh.lazySingleton<_i771.SessionEnvironment>(
       () => _i771.SessionEnvironment(),
     );
@@ -148,15 +156,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i839.SdkLocator>(),
       ),
     );
-    gh.lazySingleton<_i374.SdkRepository>(
-      () => _i77.SdkRepositoryImpl(
-        gh<_i144.CommandRunner>(),
-        gh<_i839.SdkLocator>(),
-      ),
-    );
-    gh.factory<_i740.SdkManagerCubit>(
-      () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
-    );
     gh.lazySingleton<_i927.StorageAnalysisService>(
       () => _i927.StorageAnalysisService(
         gh<_i839.SdkLocator>(),
@@ -180,6 +179,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i404.SdkScanService>(),
       ),
     );
+    gh.lazySingleton<_i374.SdkRepository>(
+      () => _i77.SdkRepositoryImpl(
+        gh<_i144.CommandRunner>(),
+        gh<_i839.SdkLocator>(),
+        gh<_i328.SdkOperationLock>(),
+      ),
+    );
     gh.lazySingleton<_i706.DoctorRunner>(
       () => _i706.DoctorRunner(gh<_i144.CommandRunner>()),
     );
@@ -200,6 +206,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i95.TrashService>(
       () => _i95.TrashService(gh<_i144.CommandRunner>()),
+    );
+    gh.lazySingleton<_i164.ReclaimExecutor>(
+      () => _i164.ReclaimExecutor(
+        gh<_i374.SdkRepository>(),
+        gh<_i95.TrashService>(),
+      ),
     );
     gh.lazySingleton<_i606.FlutterRepository>(
       () => _i483.FlutterRepositoryImpl(
@@ -241,6 +253,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i606.FlutterRepository>(),
       ),
     );
+    gh.lazySingleton<_i821.ReclaimScanner>(
+      () => _i821.ReclaimScanner(
+        gh<_i374.SdkRepository>(),
+        gh<_i839.SdkLocator>(),
+      ),
+    );
+    gh.factory<_i740.SdkManagerCubit>(
+      () => _i740.SdkManagerCubit(gh<_i374.SdkRepository>()),
+    );
     gh.factory<_i502.FlutterSdkCubit>(
       () => _i502.FlutterSdkCubit(
         gh<_i606.FlutterRepository>(),
@@ -262,6 +283,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i144.CommandRunner>(),
         gh<_i839.SdkLocator>(),
         gh<_i147.FlutterUpdateService>(),
+      ),
+    );
+    gh.factory<_i26.ReclaimCubit>(
+      () => _i26.ReclaimCubit(
+        gh<_i821.ReclaimScanner>(),
+        gh<_i164.ReclaimExecutor>(),
+        gh<_i328.SdkOperationLock>(),
       ),
     );
     gh.factory<_i915.FlutterDoctorCubit>(

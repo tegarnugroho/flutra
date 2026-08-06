@@ -17,6 +17,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../../domain/entities/storage_report.dart';
 import '../window/task_windows.dart';
+import 'widgets/reclaim_dialog.dart';
 import 'widgets/stat_cards.dart';
 import 'widgets/storage_panel.dart';
 import 'widgets/toolchain_list.dart';
@@ -92,16 +93,24 @@ class _DashboardContent extends StatelessWidget {
   final DashboardState state;
   final DateTime? lastUpdated;
 
-  /// The dashboard surfaces findings; the screen that owns the delete does the
-  /// deleting. This only routes.
-  // TODO(filter): the destination could pre-filter to `finding.target` once
-  // the SDK manager and AVD list accept an incoming query.
-  void _review(BuildContext context, ReclaimableFinding finding) {
-    getIt<ShellNavigator>().go(switch (finding.kind) {
-      ReclaimableKind.unusedSystemImage ||
-      ReclaimableKind.oldBuildTools => ShellDestination.sdkManager,
-      ReclaimableKind.staleAvd => ShellDestination.virtualDevices,
-    });
+  /// Opens the review flow for what the scan flagged.
+  ///
+  /// Superseded packages are removed here, in the reclaim dialog. A stale AVD
+  /// is not an sdkmanager package and never was — deleting one belongs to the
+  /// screen that owns AVDs, so a banner made only of those still routes there.
+  Future<void> _review(BuildContext context) async {
+    final findings = state.storage?.findings ?? const <ReclaimableFinding>[];
+    final onlyAvds = findings.isNotEmpty &&
+        findings.every((f) => f.kind == ReclaimableKind.staleAvd);
+    if (onlyAvds) {
+      getIt<ShellNavigator>().go(ShellDestination.virtualDevices);
+      return;
+    }
+
+    final cubit = context.read<DashboardCubit>();
+    final freed = await showReclaimDialog(context);
+    // The figures on this page are now wrong by exactly what was removed.
+    if (freed) await cubit.analyzeStorage();
   }
 
   @override
@@ -123,7 +132,7 @@ class _DashboardContent extends StatelessWidget {
             report: state.storage,
             scanning: state.scanning,
             onAnalyze: () => context.read<DashboardCubit>().analyzeStorage(),
-            onReview: (finding) => _review(context, finding),
+            onReview: () => _review(context),
           ),
           const SizedBox(height: 14),
           _QuickActions(state: state),

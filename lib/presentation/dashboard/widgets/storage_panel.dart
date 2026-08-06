@@ -44,9 +44,9 @@ class StoragePanel extends StatefulWidget {
   final bool scanning;
   final VoidCallback onAnalyze;
 
-  /// Routes a finding to the screen that owns its cleanup. The dashboard never
-  /// deletes anything itself.
-  final void Function(ReclaimableFinding) onReview;
+  /// Opens the review flow for everything the scan flagged. The panel does not
+  /// decide what happens to a finding — it only asks for the review.
+  final VoidCallback onReview;
 
   @override
   State<StoragePanel> createState() => _StoragePanelState();
@@ -411,7 +411,7 @@ class _ReclaimBanner extends StatelessWidget {
   const _ReclaimBanner({required this.findings, required this.onReview});
 
   final List<ReclaimableFinding> findings;
-  final void Function(ReclaimableFinding) onReview;
+  final VoidCallback onReview;
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +448,7 @@ class _ReclaimBanner extends StatelessWidget {
           _TextAction(
             label: 'Review',
             color: palette.statusWarn,
-            onTap: () => onReview(findings.first),
+            onTap: onReview,
           ),
         ],
       ),

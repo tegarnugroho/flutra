@@ -147,7 +147,7 @@ StorageReport _scan(_ScanRequest request) {
     for (final child in Directory(sdkRoot).listSync().whereType<Directory>()) {
       final name = p.basename(child.path);
       final category = known[name] ?? StorageCategory.other;
-      final bytes = _dirSize(child.path);
+      final bytes = directorySizeSync(child.path);
       totals.update(category, (v) => v + bytes, ifAbsent: () => bytes);
 
       // Grandchildren are the useful unit: one system image, one platform —
@@ -159,7 +159,7 @@ StorageReport _scan(_ScanRequest request) {
                 .whereType<Directory>()
                 .map((d) => StorageEntry(
                   name: '$name/${p.basename(d.path)}',
-                  bytes: _dirSize(d.path),
+                  bytes: directorySizeSync(d.path),
                   path: d.path,
                 ))
                 .toList();
@@ -192,14 +192,14 @@ StorageReport _scan(_ScanRequest request) {
     slices.add(
       StorageSlice(
         category: StorageCategory.flutterSdk,
-        bytes: _dirSize(flutterRoot),
+        bytes: directorySizeSync(flutterRoot),
         entries: _topEntries(
           Directory(flutterRoot)
               .listSync()
               .whereType<Directory>()
               .map((d) => StorageEntry(
                 name: p.basename(d.path),
-                bytes: _dirSize(d.path),
+                bytes: directorySizeSync(d.path),
                 path: d.path,
               ))
               .toList(),
@@ -222,7 +222,7 @@ StorageReport _scan(_ScanRequest request) {
     final entries = avdDirs
         .map((d) => StorageEntry(
           name: p.basenameWithoutExtension(d.path),
-          bytes: _dirSize(d.path),
+          bytes: directorySizeSync(d.path),
           path: d.path,
         ))
         .toList();
@@ -256,7 +256,7 @@ List<StorageEntry> _imageEntries(String root) {
           StorageEntry(
             name: 'system-images;${p.basename(platform.path)};'
                 '${p.basename(tag.path)};${p.basename(abi.path)}',
-            bytes: _dirSize(abi.path),
+            bytes: directorySizeSync(abi.path),
             path: abi.path,
           ),
         );
@@ -275,7 +275,10 @@ List<StorageEntry> _topEntries(List<StorageEntry> entries) {
 
 /// Recursive size in bytes. Unreadable subtrees are skipped rather than
 /// aborting the whole scan — a locked emulator file must not cost a report.
-int _dirSize(String path) {
+///
+/// Public because the reclaim scanner measures the very same folders and must
+/// not answer differently about them.
+int directorySizeSync(String path) {
   var total = 0;
   try {
     for (final entity in Directory(path).listSync(recursive: true)) {
@@ -348,7 +351,7 @@ List<ReclaimableFinding> _findings(
           kind: ReclaimableKind.staleAvd,
           summary: '"${p.basenameWithoutExtension(dir.path)}" not booted in '
               '${age.inDays} days',
-          bytes: _dirSize(dir.path),
+          bytes: directorySizeSync(dir.path),
           target: p.basenameWithoutExtension(dir.path),
         ),
       );
@@ -366,7 +369,7 @@ List<ReclaimableFinding> _findings(
             ReclaimableFinding(
               kind: ReclaimableKind.oldBuildTools,
               summary: 'build-tools ${p.basename(old.path)} superseded',
-              bytes: _dirSize(old.path),
+              bytes: directorySizeSync(old.path),
               target: 'build-tools;${p.basename(old.path)}',
             ),
           );

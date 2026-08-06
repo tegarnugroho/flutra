@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
+import '../../core/command/sdk_operation_lock.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/sdk_package.dart';
 import '../../domain/repositories/sdk_repository.dart';
@@ -14,10 +15,11 @@ import '../sdk/sdk_locator.dart';
 /// [SdkRepository] backed by the real `sdkmanager` command-line tool.
 @LazySingleton(as: SdkRepository)
 class SdkRepositoryImpl implements SdkRepository {
-  SdkRepositoryImpl(this._runner, this._locator);
+  SdkRepositoryImpl(this._runner, this._locator, this._lock);
 
   final CommandRunner _runner;
   final SdkLocator _locator;
+  final SdkOperationLock _lock;
 
   static final RegExp _promptPattern =
       RegExp(r'\(y/N\)|Accept\? ', caseSensitive: false);
@@ -58,23 +60,57 @@ class SdkRepositoryImpl implements SdkRepository {
   }
 
   @override
-  Future<RunningCommand> install(String path) =>
-      _startWithAutoYes([path, ..._rootArg],
-          fromCopy: _isCmdlineTools(path));
+  Future<RunningCommand> install(String path) => _locked(
+        'An install',
+        () => _startWithAutoYes([path, ..._rootArg],
+            fromCopy: _isCmdlineTools(path)),
+      );
 
   @override
-  Future<RunningCommand> uninstall(String path) =>
-      _startWithAutoYes(['--uninstall', path, ..._rootArg],
-          fromCopy: _isCmdlineTools(path));
+  Future<RunningCommand> uninstall(String path) => _locked(
+        'An uninstall',
+        () => _startWithAutoYes(['--uninstall', path, ..._rootArg],
+            fromCopy: _isCmdlineTools(path)),
+      );
 
   @override
-  Future<RunningCommand> acceptAllLicenses() =>
-      _startWithAutoYes(['--licenses', ..._rootArg]);
+  Future<RunningCommand> acceptAllLicenses() => _locked(
+        'The licence prompt',
+        () => _startWithAutoYes(['--licenses', ..._rootArg]),
+      );
 
   @override
   Future<RunningCommand> updateAll({bool includesCmdlineTools = false}) =>
-      _startWithAutoYes(['--update', ..._rootArg],
-          fromCopy: includesCmdlineTools);
+      _locked(
+        'An update',
+        () => _startWithAutoYes(['--update', ..._rootArg],
+            fromCopy: includesCmdlineTools),
+      );
+
+  /// Runs [start] under the shared SDK lock, holding it until the process
+  /// exits — sdkmanager locks its own repository, so two of these at once fail
+  /// in ways that are hard to read.
+  Future<RunningCommand> _locked(
+    String operation,
+    Future<RunningCommand> Function() start,
+  ) async {
+    if (!_lock.claim(operation)) {
+      throw UnknownFailure(
+        '${_lock.busyLabel} is already running on this SDK.',
+        cause: null,
+      );
+    }
+    try {
+      final command = await start();
+      command.result
+          .then<void>((_) {}, onError: (Object _) {})
+          .whenComplete(_lock.release);
+      return command;
+    } catch (_) {
+      _lock.release();
+      rethrow;
+    }
+  }
 
   /// True for the packages that hold sdkmanager itself — the modern
   /// `cmdline-tools` and the legacy `tools`.
