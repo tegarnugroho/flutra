@@ -102,6 +102,14 @@ abstract class FlutterRepository {
   /// command fails.
   Future<void> setJdkDir(String path);
 
+  /// Whether `flutter config` has `enable-windows-desktop` on. Null when the
+  /// setting is absent, which means Flutter's own default applies.
+  Future<bool?> isWindowsDesktopEnabled();
+
+  /// Turns the Windows desktop target on or off. Throws a [Failure] when the
+  /// command fails.
+  Future<void> setWindowsDesktopEnabled(bool enabled);
+
   /// Permanently deletes the Flutter SDK at [sdkPath].
   Future<void> uninstallSdk(String sdkPath);
 }

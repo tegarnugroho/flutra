@@ -138,12 +138,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
       ),
     );
-    gh.lazySingleton<_i608.WindowsToolchainService>(
-      () => _i608.WindowsToolchainService(
-        gh<_i989.CommandRunner>(),
-        gh<_i427.PlatformService>(),
-      ),
-    );
     gh.lazySingleton<_i712.JdkCatalogService>(
       () => _i712.JdkCatalogService(gh<_i427.PlatformService>()),
     );
@@ -162,9 +156,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i706.SdkLocator>(),
         gh<_i427.PlatformService>(),
       ),
-    );
-    gh.factory<_i745.WindowsCubit>(
-      () => _i745.WindowsCubit(gh<_i608.WindowsToolchainService>()),
     );
     gh.factory<_i497.EmulatorListCubit>(
       () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
@@ -268,6 +259,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i483.FlutterUpdateService>(),
       ),
     );
+    gh.lazySingleton<_i608.WindowsToolchainService>(
+      () => _i608.WindowsToolchainService(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+        gh<_i151.FlutterRepository>(),
+      ),
+    );
     gh.factory<_i276.SdkManagerCubit>(
       () => _i276.SdkManagerCubit(gh<_i541.SdkRepository>()),
     );
@@ -347,6 +345,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
         gh<_i964.SystemActions>(),
       ),
+    );
+    gh.factory<_i745.WindowsCubit>(
+      () => _i745.WindowsCubit(gh<_i608.WindowsToolchainService>()),
     );
     gh.factory<_i698.DoctorFixCubit>(
       () => _i698.DoctorFixCubit(gh<_i327.DoctorFixService>()),

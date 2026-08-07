@@ -10,27 +10,37 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/windows_toolchain.dart';
+import '../../domain/repositories/flutter_repository.dart';
 
-/// What the toolchain installer is doing, for the progress line.
+/// What an installer run is doing, for the progress line.
 enum WindowsSetupStage {
   downloading,
+
+  /// Handed to Windows; the UAC prompt is up.
   launching,
 
-  /// The Microsoft installer is running in its own window.
+  /// Microsoft's installer is running in its own window.
   installing,
   done,
+
+  /// Succeeded, but Windows wants a restart before the toolchain is whole.
+  restartRequired,
   failed;
 
   String get label => switch (this) {
     WindowsSetupStage.downloading => 'Downloading installer…',
     WindowsSetupStage.launching => 'Waiting for permission…',
-    WindowsSetupStage.installing => 'Installer running…',
+    WindowsSetupStage.installing => 'Installing via VS Installer…',
     WindowsSetupStage.done => 'Finished',
+    WindowsSetupStage.restartRequired => 'Finished — restart recommended',
     WindowsSetupStage.failed => 'Failed',
   };
+
+  bool get isTerminal =>
+      this == done || this == restartRequired || this == failed;
 }
 
-/// One step of a setup run.
+/// One step of an installer run.
 class WindowsSetupEvent {
   const WindowsSetupEvent({required this.stage, this.progress, this.error});
 
@@ -46,62 +56,66 @@ class WindowsSetupEvent {
 /// Finds and repairs the toolchain a Flutter Windows build needs.
 ///
 /// Detection is unelevated and complete: `vswhere` for the compiler, the
-/// registry for the Windows SDK. Installing is not — every Microsoft installer
-/// here requires admin, and an elevated child cannot hand its output back to a
-/// process that is not. So a setup run downloads the bootstrapper, asks Windows
-/// for elevation, and then waits: Microsoft's installer shows its own progress
-/// in its own window, and this re-scans once it exits.
+/// registry for the SDK and Developer Mode, `flutter config` for the target.
+///
+/// Repair is not Flutra's work to do. Every install, modify and update goes
+/// through Microsoft's own installer with the documented arguments — this
+/// never extracts components by hand and never writes a registry key to fake
+/// an install. What it does own is the invocation, the wait, and the re-check.
 @lazySingleton
 class WindowsToolchainService {
-  WindowsToolchainService(this._runner, this._platform);
+  WindowsToolchainService(this._runner, this._platform, this._flutter);
 
   final CommandRunner _runner;
   final PlatformService _platform;
+  final FlutterRepository _flutter;
 
   static final Logger _log = Logger('WindowsToolchainService');
 
-  /// The official Build Tools bootstrapper — a ~4 MB stub that downloads the
-  /// rest itself.
-  static const bootstrapperUrl =
-      'https://aka.ms/vs/17/release/vs_BuildTools.exe';
-
-  /// Where `vswhere` lives. Its path is fixed by the installer and does not
-  /// move between Visual Studio versions.
-  static String get vsWherePath => p.join(
+  /// `vswhere` and `setup.exe` live at a fixed path that does not move between
+  /// Visual Studio versions.
+  static String get _installerDir => p.join(
     Platform.environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)',
     'Microsoft Visual Studio',
     'Installer',
-    'vswhere.exe',
   );
 
-  static String get vsSetupPath => p.join(
-    Platform.environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)',
-    'Microsoft Visual Studio',
-    'Installer',
-    'setup.exe',
-  );
+  static String get vsWherePath => p.join(_installerDir, 'vswhere.exe');
+  static String get vsSetupPath => p.join(_installerDir, 'setup.exe');
 
   WindowsToolchain? _cache;
 
   void refresh() => _cache = null;
 
   /// Reads the machine's toolchain.
+  ///
+  /// Every step is independent: a failure to read one thing leaves that one
+  /// unknown rather than emptying the page.
   Future<WindowsToolchain> detect({bool force = false}) async {
     if (_cache != null && !force) return _cache!;
     if (!_platform.isWindows) return const WindowsToolchain();
 
     final installs = await _visualStudioInstalls();
     final sdks = await _windowsSdks();
-    return _cache = WindowsToolchain(installs: installs, sdks: sdks);
+    final developerMode = await _developerMode();
+    final windowsDesktop = await _windowsDesktopEnabled();
+
+    return _cache = WindowsToolchain(
+      installs: installs,
+      sdks: sdks,
+      developerMode: developerMode,
+      windowsDesktopEnabled: windowsDesktop,
+    );
   }
 
-  // ---- detection -----------------------------------------------------------
+  // ---- 1a. Visual Studio ---------------------------------------------------
 
   Future<List<VisualStudioInstall>> _visualStudioInstalls() async {
     if (!File(vsWherePath).existsSync()) return const [];
 
-    // Two calls: the JSON has no component list, so the second one asks which
-    // installs carry the MSVC toolset and the paths are matched up.
+    // Two calls. The JSON carries no component list, so the second asks which
+    // installs have the MSVC toolset and the paths are matched up — that is
+    // also how an install *missing* the workload stays visible.
     final all = await _vsWhere([
       '-products',
       '*',
@@ -124,9 +138,8 @@ class WindowsToolchainService {
 
     return parseVsWhere(
       all,
-      withCppTools: withCpp == null
-          ? const {}
-          : parseVsWherePaths(withCpp).toSet(),
+      withCppTools:
+          withCpp == null ? const {} : parseVsWherePaths(withCpp).toSet(),
     );
   }
 
@@ -144,59 +157,111 @@ class WindowsToolchainService {
     }
   }
 
-  /// The kit root from the registry, then the version folders under it.
+  // ---- 1b. Windows SDK -----------------------------------------------------
+
+  /// The SDK root, from either registry key Microsoft has used for it, then
+  /// the version folders under it.
   Future<List<WindowsSdk>> _windowsSdks() async {
-    try {
-      final result = await _runner.run(
-        'reg',
-        [
-          'query',
-          r'HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots',
-          '/v',
-          'KitsRoot10',
-        ],
-        timeout: const Duration(seconds: 15),
-      );
-      if (!result.isSuccess) return const [];
-
-      final root = parseKitsRoot(result.stdout);
-      if (root == null) return const [];
-
+    for (final (key, value) in const [
+      (
+        r'HKLM\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0',
+        'InstallationFolder',
+      ),
+      // Older layouts only have the kits key; both point at the same tree.
+      (r'HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots', 'KitsRoot10'),
+    ]) {
+      final root = await _registryValue(key, value);
+      if (root == null) continue;
       final include = Directory(p.join(root, 'Include'));
-      if (!include.existsSync()) return const [];
+      if (!include.existsSync()) continue;
+      try {
+        return parseSdkVersions(
+          include.listSync().whereType<Directory>().map(
+            (d) => p.basename(d.path),
+          ),
+          kitRoot: root,
+        );
+      } catch (e) {
+        _log.fine('could not list $include: $e');
+      }
+    }
+    return const [];
+  }
 
-      return parseSdkVersions(
-        include.listSync().whereType<Directory>().map(
-          (d) => p.basename(d.path),
-        ),
-        kitRoot: root,
-      );
-    } catch (e) {
-      _log.fine('could not read the Windows Kits registry: $e');
-      return const [];
+  // ---- 1c. Developer Mode --------------------------------------------------
+
+  /// Read-only, always. The key lives in HKLM and writing it needs admin —
+  /// which is why the tile sends people to Settings instead.
+  Future<DeveloperModeState> _developerMode() async {
+    final output = await _registryQuery(
+      r'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock',
+      'AllowDevelopmentWithoutDevLicense',
+    );
+    return output == null
+        ? DeveloperModeState.unknown
+        : parseDeveloperMode(output);
+  }
+
+  // ---- 1d. Flutter config --------------------------------------------------
+
+  Future<bool?> _windowsDesktopEnabled() async {
+    try {
+      return await _flutter.isWindowsDesktopEnabled();
+    } on Failure {
+      return null;
     }
   }
 
-  // ---- setup ---------------------------------------------------------------
+  /// Turns the Windows desktop target on, then clears the cache so the next
+  /// detect sees it.
+  Future<void> enableWindowsDesktop() async {
+    await _flutter.setWindowsDesktopEnabled(true);
+    refresh();
+  }
 
-  /// Installs Build Tools from scratch, with the C++ workload.
-  Stream<WindowsSetupEvent> installBuildTools() async* {
-    File? bootstrapper;
+  /// Opens the Settings page that owns Developer Mode.
+  Future<void> openDeveloperModeSettings() async {
     try {
-      yield const WindowsSetupEvent(
-        stage: WindowsSetupStage.downloading,
-        progress: 0,
+      await _runner.run(
+        'cmd',
+        ['/c', 'start', '', kDeveloperModeSettingsUri],
+        timeout: const Duration(seconds: 15),
       );
-      bootstrapper = await _downloadBootstrapper((progress) {});
+    } catch (e) {
+      _log.warning('could not open $kDeveloperModeSettingsUri: $e');
+    }
+  }
 
-      yield* _runElevated(bootstrapper.path, [
-        '--passive',
-        '--wait',
-        '--norestart',
+  // ---- registry helpers ----------------------------------------------------
+
+  Future<String?> _registryQuery(String key, String value) async {
+    try {
+      final result = await _runner.run(
+        'reg',
+        ['query', key, '/v', value],
+        timeout: const Duration(seconds: 15),
+      );
+      return result.isSuccess ? result.stdout : null;
+    } catch (e) {
+      _log.fine('reg query $key failed: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _registryValue(String key, String value) async {
+    final output = await _registryQuery(key, value);
+    return output == null ? null : parseRegistryValue(output, value);
+  }
+
+  // ---- 3. Install / modify / update ----------------------------------------
+
+  /// Installs Build Tools with the C++ workload, from nothing.
+  Stream<WindowsSetupEvent> installBuildTools() async* {
+    try {
+      final bootstrapper = await _bootstrapper();
+      yield* _runInstaller(bootstrapper.path, [
         '--add',
         kBuildToolsWorkload,
-        '--add',
-        kVcToolsComponent,
         '--includeRecommended',
       ]);
     } on Failure catch (e) {
@@ -206,48 +271,36 @@ class WindowsToolchainService {
       );
     } catch (e) {
       yield WindowsSetupEvent(stage: WindowsSetupStage.failed, error: '$e');
-    } finally {
-      try {
-        if (bootstrapper != null && bootstrapper.existsSync()) {
-          bootstrapper.deleteSync();
-        }
-      } catch (_) {}
     }
   }
 
   /// Adds the C++ workload to an install that has everything else.
-  Stream<WindowsSetupEvent> addCppTools(VisualStudioInstall install) =>
-      _modify(install, [
-        'modify',
-        '--installPath',
-        install.installPath,
-        '--add',
-        install.cppWorkload,
-        '--add',
-        kVcToolsComponent,
-        '--includeRecommended',
-      ]);
+  Stream<WindowsSetupEvent> addCppWorkload(VisualStudioInstall install) =>
+      _modify(install, ['--add', install.cppWorkload, '--includeRecommended']);
 
-  /// Updates an install to the newest build Microsoft ships.
-  Stream<WindowsSetupEvent> update(VisualStudioInstall install) =>
-      _modify(install, [
-        'update',
-        '--installPath',
-        install.installPath,
-      ]);
+  /// Adds the Windows SDK component to an existing install.
+  Stream<WindowsSetupEvent> addWindowsSdk(VisualStudioInstall install) =>
+      _modify(install, ['--add', kWindowsSdkComponent]);
 
   /// Finishes an install that was interrupted.
   Stream<WindowsSetupEvent> repair(VisualStudioInstall install) =>
-      _modify(install, [
-        'repair',
-        '--installPath',
-        install.installPath,
-      ]);
+      _setup(['repair', '--installPath', install.installPath]);
+
+  /// Updates an install to the newest build Microsoft ships.
+  Stream<WindowsSetupEvent> update(VisualStudioInstall install) =>
+      _setup(['update', '--installPath', install.installPath]);
 
   Stream<WindowsSetupEvent> _modify(
     VisualStudioInstall install,
-    List<String> arguments,
-  ) async* {
+    List<String> components,
+  ) => _setup([
+    'modify',
+    '--installPath',
+    install.installPath,
+    ...components,
+  ]);
+
+  Stream<WindowsSetupEvent> _setup(List<String> arguments) async* {
     if (!File(vsSetupPath).existsSync()) {
       yield const WindowsSetupEvent(
         stage: WindowsSetupStage.failed,
@@ -255,71 +308,108 @@ class WindowsToolchainService {
       );
       return;
     }
-    yield* _runElevated(vsSetupPath, [
-      ...arguments,
-      '--passive',
-      '--wait',
-      '--norestart',
-    ]);
+    yield* _runInstaller(vsSetupPath, arguments);
   }
 
-  /// Asks Windows for elevation, then waits for the installer to exit.
+  /// The one place an installer is launched, waited on and read.
   ///
-  /// `Start-Process -Verb RunAs -Wait` is what makes the wait possible: the
-  /// elevated child's output is unreachable, but its exit is not.
-  Stream<WindowsSetupEvent> _runElevated(
+  /// `--passive` and never `--quiet`: quiet hides Microsoft's licence
+  /// acceptance and its own elevation prompt, both of which the user is
+  /// entitled to see. `--norestart` because deciding to reboot is theirs too.
+  Stream<WindowsSetupEvent> _runInstaller(
     String executable,
     List<String> arguments,
   ) async* {
     yield const WindowsSetupEvent(stage: WindowsSetupStage.launching);
 
-    final quoted = arguments.map((a) => "'${a.replaceAll("'", "''")}'").join(',');
-    final script =
-        "\$p = Start-Process -FilePath '${executable.replaceAll("'", "''")}' "
-        '-Verb RunAs -Wait -PassThru -ArgumentList $quoted; '
-        r'exit $p.ExitCode';
-
+    final all = [...arguments, '--passive', '--norestart', '--wait'];
     yield const WindowsSetupEvent(stage: WindowsSetupStage.installing);
-    final result = await _runner.run(
-      'powershell',
-      ['-NoProfile', '-Command', script],
-      // Installing the C++ workload pulls gigabytes; it is slow on any line.
-      timeout: const Duration(hours: 2),
-    );
 
-    if (result.isSuccess) {
-      yield const WindowsSetupEvent(stage: WindowsSetupStage.done);
-      return;
-    }
-
-    // 3010 is "success, reboot required" — the install did land.
-    if (result.exitCode == 3010) {
-      yield const WindowsSetupEvent(
-        stage: WindowsSetupStage.done,
-        error: 'Windows asked for a restart to finish the install.',
+    final CommandResultLike result;
+    try {
+      final run = await _runner.run(
+        executable,
+        all,
+        // Installing the C++ workload pulls gigabytes; slow on any line.
+        timeout: const Duration(hours: 2),
       );
+      result = (exitCode: run.exitCode, output: run.combinedOutput);
+    } catch (e) {
+      yield WindowsSetupEvent(stage: WindowsSetupStage.failed, error: '$e');
       return;
     }
 
-    yield WindowsSetupEvent(
-      stage: WindowsSetupStage.failed,
-      error: result.exitCode == 1602 || result.exitCode == 1223
-          // 1223 is a declined UAC prompt, 1602 a cancelled installer.
-          ? 'The installer was cancelled.'
-          : 'The installer exited with code ${result.exitCode}.',
-    );
+    // The installer's own exit codes: 0 done, 3010 done-but-reboot, 1602
+    // cancelled, 1223 the UAC prompt was declined.
+    switch (result.exitCode) {
+      case 0:
+        yield const WindowsSetupEvent(stage: WindowsSetupStage.done);
+      case 3010:
+        yield const WindowsSetupEvent(
+          stage: WindowsSetupStage.restartRequired,
+        );
+      case 1602 || 1223:
+        yield const WindowsSetupEvent(
+          stage: WindowsSetupStage.failed,
+          error: 'The installer was cancelled.',
+        );
+      default:
+        _log.warning('installer exited ${result.exitCode}: ${result.output}');
+        yield WindowsSetupEvent(
+          stage: WindowsSetupStage.failed,
+          error: 'The installer exited with code ${result.exitCode}.',
+        );
+    }
   }
 
-  Future<File> _downloadBootstrapper(void Function(double) onProgress) async {
+  /// The cached bootstrapper, downloaded only when it is not already there.
+  ///
+  /// A stub that fails its signature check is not one to run: it is deleted
+  /// and fetched again.
+  Future<File> _bootstrapper() async {
     final support = await getApplicationSupportDirectory();
     final target = File(p.join(support.path, 'vs_BuildTools.exe'));
-    await Dio().download(
-      bootstrapperUrl,
-      target.path,
-      onReceiveProgress: (received, total) {
-        if (total > 0) onProgress(received / total);
-      },
-    );
+
+    if (target.existsSync() && await _isSigned(target)) return target;
+    if (target.existsSync()) {
+      _log.warning('cached bootstrapper failed its signature check');
+      try {
+        target.deleteSync();
+      } catch (_) {}
+    }
+
+    await Dio().download(kBuildToolsBootstrapperUrl, target.path);
+    if (!await _isSigned(target)) {
+      try {
+        target.deleteSync();
+      } catch (_) {}
+      throw const NetworkFailure(
+        'The downloaded installer failed its signature check.',
+        suggestion: 'Try again, or download Build Tools from microsoft.com.',
+      );
+    }
     return target;
   }
+
+  Future<bool> _isSigned(File file) async {
+    try {
+      final result = await _runner.run(
+        'powershell',
+        [
+          '-NoProfile',
+          '-Command',
+          '(Get-AuthenticodeSignature -LiteralPath '
+              "'${file.path.replaceAll("'", "''")}').Status",
+        ],
+        timeout: const Duration(seconds: 30),
+      );
+      return result.isSuccess && result.stdout.trim() == 'Valid';
+    } catch (e) {
+      _log.fine('signature check failed: $e');
+      return false;
+    }
+  }
 }
+
+/// Just the two fields the exit-code switch reads.
+typedef CommandResultLike = ({int exitCode, String output});

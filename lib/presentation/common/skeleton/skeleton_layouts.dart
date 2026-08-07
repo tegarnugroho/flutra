@@ -480,7 +480,8 @@ class WindowsSkeleton extends StatelessWidget {
         const SizedBox(height: 18),
         const _SectionLabelSkeleton(width: 74),
         const SizedBox(height: 8),
-        for (final width in const [176.0, 148.0])
+        // Four tiles, because the requirement list is a fixed four.
+        for (final width in const [176.0, 118.0, 132.0, 164.0])
           Padding(
             padding: const EdgeInsets.only(bottom: TileBox.gap),
             child: Container(

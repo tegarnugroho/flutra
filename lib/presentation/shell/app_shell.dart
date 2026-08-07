@@ -18,6 +18,7 @@ import '../../application/settings/app_settings.dart';
 import '../../application/shell/shell_navigator.dart';
 import '../../application/settings/settings_cubit.dart';
 import '../../core/di/injection.dart';
+import '../../core/platform/platform_service.dart';
 import '../dashboard/dashboard_page.dart';
 import '../device/device_manager_page.dart';
 import '../doctor/flutter_doctor_page.dart';
@@ -50,6 +51,7 @@ class _Destination {
     required this.body,
     this.group,
     this.inFooter = false,
+    this.windowsOnly = false,
   });
 
   /// Stable name other screens navigate by, so the pane's index space stays
@@ -62,6 +64,12 @@ class _Destination {
 
   /// Section label drawn immediately above this item in the pane.
   final String? group;
+
+  /// Dropped from the pane entirely off Windows.
+  ///
+  /// Not disabled — absent: a nav item for a toolchain the host cannot have is
+  /// a dead end dressed up as a feature.
+  final bool windowsOnly;
 
   /// Rendered in the pane footer instead of the main list.
   final bool inFooter;
@@ -83,7 +91,15 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  static const _destinations = <_Destination>[
+  /// The pane's index space, with the platform-specific entries this host
+  /// cannot use already removed.
+  static final List<_Destination> _destinations = [
+    for (final destination in _allDestinations)
+      if (!destination.windowsOnly || getIt<PlatformService>().isWindows)
+        destination,
+  ];
+
+  static const _allDestinations = <_Destination>[
     _Destination(
       id: ShellDestination.dashboard,
       icon: sys.FluentIcons.grid_24_regular,
@@ -143,8 +159,9 @@ class _AppShellState extends State<AppShell> {
     _Destination(
       id: ShellDestination.windows,
       icon: sys.FluentIcons.window_dev_tools_24_regular,
-      label: 'Windows',
-      body: WindowsPage(),
+      label: 'Windows toolchain',
+      body: WindowsToolchainPage(),
+      windowsOnly: true,
     ),
     _Destination(
       id: ShellDestination.devices,

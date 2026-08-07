@@ -11,6 +11,7 @@ import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/flutter_sdk_info.dart';
 import '../../domain/entities/jdk.dart';
+import '../../domain/entities/windows_toolchain.dart';
 import '../../domain/entities/version_switch.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../core/platform/env_persistence.dart';
@@ -916,6 +917,42 @@ class FlutterRepositoryImpl implements FlutterRepository {
       exitCode: result.exitCode,
       output: result.combinedOutput.trim(),
       suggestion: 'Check that "$path" is a JDK root, not its bin folder.',
+    );
+  }
+
+  @override
+  Future<bool?> isWindowsDesktopEnabled() async {
+    try {
+      final result = await _runner.run(
+        _flutter,
+        ['config', '--list'],
+        timeout: const Duration(minutes: 1),
+      );
+      if (!result.isSuccess) return null;
+      return parseFlutterConfigFlag(
+        result.combinedOutput,
+        'enable-windows-desktop',
+      );
+    } on Failure {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> setWindowsDesktopEnabled(bool enabled) async {
+    final flag = enabled
+        ? '--enable-windows-desktop'
+        : '--no-enable-windows-desktop';
+    final result = await _runner.run(
+      _flutter,
+      ['config', flag],
+      timeout: const Duration(minutes: 2),
+    );
+    if (result.isSuccess) return;
+    throw ProcessFailure(
+      'Flutter refused to change the Windows desktop setting.',
+      exitCode: result.exitCode,
+      output: result.combinedOutput.trim(),
     );
   }
 
