@@ -95,10 +95,29 @@ class WindowsToolchainService {
     if (_cache != null && !force) return _cache!;
     if (!_platform.isWindows) return const WindowsToolchain();
 
-    final installs = await _visualStudioInstalls();
-    final sdks = await _windowsSdks();
-    final developerMode = await _developerMode();
-    final windowsDesktop = await _windowsDesktopEnabled();
+    // Each step is fenced off. A surprise in one tool's output — vswhere has
+    // spelled a boolean two ways in one document before — must cost that one
+    // answer, not the whole page.
+    final installs = await _guard<List<VisualStudioInstall>>(
+      'vswhere',
+      _visualStudioInstalls,
+      const [],
+    );
+    final sdks = await _guard<List<WindowsSdk>>(
+      'windows sdk',
+      _windowsSdks,
+      const [],
+    );
+    final developerMode = await _guard(
+      'developer mode',
+      _developerMode,
+      DeveloperModeState.unknown,
+    );
+    final windowsDesktop = await _guard<bool?>(
+      'flutter config',
+      _windowsDesktopEnabled,
+      null,
+    );
 
     return _cache = WindowsToolchain(
       installs: installs,
@@ -106,6 +125,20 @@ class WindowsToolchainService {
       developerMode: developerMode,
       windowsDesktopEnabled: windowsDesktop,
     );
+  }
+
+  /// Runs one detection step, falling back to [orElse] when it throws.
+  Future<T> _guard<T>(
+    String what,
+    Future<T> Function() step,
+    T orElse,
+  ) async {
+    try {
+      return await step();
+    } catch (e, stack) {
+      _log.warning('$what detection failed: $e', e, stack);
+      return orElse;
+    }
   }
 
   // ---- 1a. Visual Studio ---------------------------------------------------

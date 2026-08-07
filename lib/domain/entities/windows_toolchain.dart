@@ -405,18 +405,24 @@ List<VisualStudioInstall> parseVsWhere(
 
   final installs = <VisualStudioInstall>[];
   for (final entry in decoded.whereType<Map<String, dynamic>>()) {
-    final path = entry['installationPath'] as String?;
+    final path = _asString(entry['installationPath']);
     if (path == null || path.isEmpty) continue;
     final catalog = entry['catalog'];
     installs.add(VisualStudioInstall(
-      displayName: entry['displayName'] as String? ?? 'Visual Studio',
-      version: entry['installationVersion'] as String? ?? '',
+      displayName: _asString(entry['displayName']) ?? 'Visual Studio',
+      version: _asString(entry['installationVersion']) ?? '',
       installPath: path,
-      productId: entry['productId'] as String? ?? '',
-      isComplete: entry['isComplete'] as bool? ?? true,
-      isPrerelease: catalog is Map<String, dynamic>
-          ? (catalog['productMilestoneIsPreRelease'] as bool? ?? false)
-          : false,
+      productId: _asString(entry['productId']) ?? '',
+      // Absent means installed, not broken: older vswhere builds omit it.
+      isComplete: _asBool(entry['isComplete']) ?? true,
+      // The top-level flag is a real boolean. Its counterpart inside `catalog`
+      // is the string "False", which is why nothing here trusts a JSON type.
+      isPrerelease:
+          _asBool(entry['isPrerelease']) ??
+          (catalog is Map<String, dynamic>
+              ? _asBool(catalog['productMilestoneIsPreRelease'])
+              : null) ??
+          false,
       hasCppTools: normalised.contains(_normalise(path)),
     ));
   }
@@ -501,6 +507,23 @@ int compareWindowsVersions(String a, String b) {
   }
   return 0;
 }
+
+/// Reads a JSON value that may be a bool or the *word* for one.
+///
+/// `vswhere` spells the same idea both ways in one document, and a hard cast
+/// on the wrong one took the whole scan down with it.
+bool? _asBool(Object? value) {
+  if (value is bool) return value;
+  if (value is String) {
+    final text = value.trim().toLowerCase();
+    if (text == 'true' || text == '1') return true;
+    if (text == 'false' || text == '0') return false;
+  }
+  if (value is num) return value != 0;
+  return null;
+}
+
+String? _asString(Object? value) => value is String ? value : null;
 
 String _normalise(String path) {
   var value = path.trim().replaceAll('/', r'\');

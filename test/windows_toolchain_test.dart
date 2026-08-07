@@ -2,6 +2,10 @@ import 'package:flutra/domain/entities/windows_toolchain.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Trimmed from a real `vswhere -products * -format json` answer.
+///
+/// `isPrerelease` is a JSON boolean while `catalog.productMilestoneIsPreRelease`
+/// is the *string* "False" — copied verbatim, because a hard cast on the second
+/// one used to abort the whole scan.
 const _vsWhereJson = r'''
 [
   {
@@ -11,7 +15,11 @@ const _vsWhereJson = r'''
     "installationPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
     "productId": "Microsoft.VisualStudio.Product.BuildTools",
     "isComplete": true,
-    "catalog": { "productMilestoneIsPreRelease": false }
+    "isPrerelease": false,
+    "catalog": {
+      "productMilestoneIsPreRelease": "False",
+      "productPreReleaseMilestoneSuffix": "1.0"
+    }
   },
   {
     "instanceId": "d4e5f6",
@@ -20,7 +28,8 @@ const _vsWhereJson = r'''
     "installationPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community",
     "productId": "Microsoft.VisualStudio.Product.Community",
     "isComplete": false,
-    "catalog": { "productMilestoneIsPreRelease": false }
+    "isPrerelease": false,
+    "catalog": { "productMilestoneIsPreRelease": "False" }
   }
 ]
 ''';
@@ -81,6 +90,39 @@ void main() {
       expect(parseVsWhere(''), isEmpty);
       expect(parseVsWhere('vswhere is not recognised'), isEmpty);
       expect(parseVsWhere('[{"displayName": "no path"}]'), isEmpty);
+    });
+
+    test('a boolean spelled as a word does not abort the scan', () {
+      // vswhere writes `isPrerelease: false` and, in the same document,
+      // `catalog.productMilestoneIsPreRelease: "False"`. Casting the second
+      // one to bool threw, and the page reported an empty machine.
+      final installs = parseVsWhere(_vsWhereJson);
+
+      expect(installs, hasLength(2));
+      expect(installs.first.isPrerelease, isFalse);
+    });
+
+    test('a prerelease is read from either spelling', () {
+      const boolean = r'''
+[{"installationPath": "C:\\A", "isPrerelease": true}]
+''';
+      const word = r'''
+[{"installationPath": "C:\\B",
+  "catalog": {"productMilestoneIsPreRelease": "True"}}]
+''';
+
+      expect(parseVsWhere(boolean).single.isPrerelease, isTrue);
+      expect(parseVsWhere(word).single.isPrerelease, isTrue);
+    });
+
+    test('a field of the wrong type falls back instead of throwing', () {
+      const odd = r'''
+[{"installationPath": "C:\\A", "displayName": 42, "isComplete": "false"}]
+''';
+      final install = parseVsWhere(odd).single;
+
+      expect(install.displayName, 'Visual Studio');
+      expect(install.isComplete, isFalse);
     });
   });
 
