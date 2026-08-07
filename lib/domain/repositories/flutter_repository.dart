@@ -1,6 +1,7 @@
 import '../../core/command/command_runner.dart';
 import '../entities/device.dart';
 import '../entities/flutter_sdk_info.dart';
+import '../entities/windows_toolchain.dart';
 import '../entities/version_switch.dart';
 
 /// Runs Flutter tooling commands.
@@ -102,9 +103,8 @@ abstract class FlutterRepository {
   /// command fails.
   Future<void> setJdkDir(String path);
 
-  /// Whether `flutter config` has `enable-windows-desktop` on. Null when the
-  /// setting is absent, which means Flutter's own default applies.
-  Future<bool?> isWindowsDesktopEnabled();
+  /// What `flutter config` says about `enable-windows-desktop`.
+  Future<FlutterFlagState> windowsDesktopFlag();
 
   /// Turns the Windows desktop target on or off. Throws a [Failure] when the
   /// command fails.

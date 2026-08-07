@@ -30,12 +30,12 @@ WindowsToolchain _toolchain({
   List<VisualStudioInstall> installs = const [_install],
   List<WindowsSdk> sdks = const [_sdk],
   DeveloperModeState developerMode = DeveloperModeState.on,
-  bool? windowsDesktop = true,
+  FlutterFlagState windowsDesktop = FlutterFlagState.on,
 }) => WindowsToolchain(
   installs: installs,
   sdks: sdks,
   developerMode: developerMode,
-  windowsDesktopEnabled: windowsDesktop,
+  windowsDesktop: windowsDesktop,
 );
 
 void main() {
@@ -105,7 +105,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           WindowsIdentityPanel(
-            toolchain: _toolchain(windowsDesktop: false),
+            toolchain: _toolchain(windowsDesktop: FlutterFlagState.off),
             busy: false,
             onInstall: () {},
             onFixIssues: () {},
@@ -121,7 +121,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           WindowsIdentityPanel(
-            toolchain: _toolchain(windowsDesktop: false),
+            toolchain: _toolchain(windowsDesktop: FlutterFlagState.off),
             busy: true,
             onInstall: () {},
             onFixIssues: () => fixes++,
@@ -191,7 +191,7 @@ void main() {
         _host(
           RequirementTile(
             requirement: requirementOf(
-              _toolchain(windowsDesktop: false),
+              _toolchain(windowsDesktop: FlutterFlagState.off),
               WindowsRequirementKind.flutterConfig,
             ),
             busy: true,

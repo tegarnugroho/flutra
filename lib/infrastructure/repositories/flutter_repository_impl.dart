@@ -921,20 +921,20 @@ class FlutterRepositoryImpl implements FlutterRepository {
   }
 
   @override
-  Future<bool?> isWindowsDesktopEnabled() async {
+  Future<FlutterFlagState> windowsDesktopFlag() async {
     try {
       final result = await _runner.run(
         _flutter,
         ['config', '--list'],
         timeout: const Duration(minutes: 1),
       );
-      if (!result.isSuccess) return null;
+      if (!result.isSuccess) return FlutterFlagState.unknown;
       return parseFlutterConfigFlag(
         result.combinedOutput,
         'enable-windows-desktop',
       );
     } on Failure {
-      return null;
+      return FlutterFlagState.unknown;
     }
   }
 

@@ -200,13 +200,29 @@ class WindowsRequirement extends Equatable {
 /// which is not the same as off, and must not be reported as a problem.
 enum DeveloperModeState { on, off, unknown }
 
+/// What `flutter config --list` says about a flag.
+///
+/// Four states, not two: Flutter prints `(Not set)` for a flag nobody has
+/// touched, and its own default then applies — which for windows-desktop means
+/// enabled. Reading that as "off" would send people to fix what is not broken.
+enum FlutterFlagState {
+  on,
+  off,
+
+  /// Present in the list as `(Not set)`.
+  notSet,
+
+  /// Flutter could not be asked, or does not know this flag.
+  unknown,
+}
+
 /// Everything the Windows toolchain page knows about this machine.
 class WindowsToolchain extends Equatable {
   const WindowsToolchain({
     this.installs = const [],
     this.sdks = const [],
     this.developerMode = DeveloperModeState.unknown,
-    this.windowsDesktopEnabled,
+    this.windowsDesktop = FlutterFlagState.unknown,
   });
 
   final List<VisualStudioInstall> installs;
@@ -216,9 +232,8 @@ class WindowsToolchain extends Equatable {
 
   final DeveloperModeState developerMode;
 
-  /// `flutter config --list` → `enable-windows-desktop`. Null when Flutter
-  /// could not be asked, which is not a failure of this machine's toolchain.
-  final bool? windowsDesktopEnabled;
+  /// `flutter config --list` → `enable-windows-desktop`.
+  final FlutterFlagState windowsDesktop;
 
   /// The install a build would use: the newest complete one with C++ tools,
   /// or the newest of whatever is there.
@@ -353,35 +368,38 @@ class WindowsToolchain extends Equatable {
     };
   }
 
-  WindowsRequirement _flutterConfigRequirement() {
-    if (windowsDesktopEnabled == null) {
-      return const WindowsRequirement(
-        kind: WindowsRequirementKind.flutterConfig,
-        satisfied: true,
-        detail: 'Flutter could not be asked',
-      );
-    }
-    if (windowsDesktopEnabled!) {
-      return const WindowsRequirement(
-        kind: WindowsRequirementKind.flutterConfig,
-        satisfied: true,
-        detail: 'enable-windows-desktop: true',
-      );
-    }
-    return const WindowsRequirement(
+  WindowsRequirement _flutterConfigRequirement() => switch (windowsDesktop) {
+    FlutterFlagState.on => const WindowsRequirement(
+      kind: WindowsRequirementKind.flutterConfig,
+      satisfied: true,
+      detail: 'enable-windows-desktop: true',
+    ),
+    // Untouched, so Flutter's own default applies — which is on. Offering to
+    // "enable" it would be offering to fix nothing.
+    FlutterFlagState.notSet => const WindowsRequirement(
+      kind: WindowsRequirementKind.flutterConfig,
+      satisfied: true,
+      detail: 'enable-windows-desktop: (not set) — Flutter\'s default applies',
+    ),
+    FlutterFlagState.unknown => const WindowsRequirement(
+      kind: WindowsRequirementKind.flutterConfig,
+      satisfied: true,
+      detail: 'Flutter could not be asked',
+    ),
+    FlutterFlagState.off => const WindowsRequirement(
       kind: WindowsRequirementKind.flutterConfig,
       satisfied: false,
       detail: 'enable-windows-desktop: false',
       action: WindowsRequirementAction.enableWindowsDesktop,
-    );
-  }
+    ),
+  };
 
   @override
   List<Object?> get props => [
     installs,
     sdks,
     developerMode,
-    windowsDesktopEnabled,
+    windowsDesktop,
   ];
 }
 
@@ -481,19 +499,21 @@ List<WindowsSdk> parseSdkVersions(
 
 /// Reads a boolean setting out of `flutter config --list`.
 ///
-/// Unset settings are printed as `(Not set)`, which is not false — Flutter
-/// enables desktop by default on recent versions, so an absent line means
-/// "whatever the default is", not "off".
-bool? parseFlutterConfigFlag(String output, String setting) {
+/// `(Not set)` is its own answer, not false: Flutter's default then applies,
+/// and for the desktop targets that default is on. Some entries also carry a
+/// trailing `(Unavailable)`, which is about the platform, not the value.
+FlutterFlagState parseFlutterConfigFlag(String output, String setting) {
   for (final line in output.split('\n')) {
     final trimmed = line.trim();
     if (!trimmed.startsWith('$setting:')) continue;
     final value = trimmed.substring(setting.length + 1).trim().toLowerCase();
-    if (value == 'true') return true;
-    if (value == 'false') return false;
-    return null;
+    if (value.startsWith('true')) return FlutterFlagState.on;
+    if (value.startsWith('false')) return FlutterFlagState.off;
+    if (value.startsWith('(not set)')) return FlutterFlagState.notSet;
+    return FlutterFlagState.unknown;
   }
-  return null;
+  // Absent from the list: this Flutter has never heard of the flag.
+  return FlutterFlagState.unknown;
 }
 
 /// Compares dotted version strings numerically: -1, 0 or 1.

@@ -81,7 +81,18 @@ class WindowsToolchainService {
   );
 
   static String get vsWherePath => p.join(_installerDir, 'vswhere.exe');
-  static String get vsSetupPath => p.join(_installerDir, 'setup.exe');
+
+  /// What runs `modify`, `update` and `repair`.
+  ///
+  /// `vs_installer.exe` is the entry point Microsoft documents for those
+  /// verbs; `setup.exe` beside it is the older name and is kept as a fallback
+  /// for installs that predate it.
+  static String get vsInstallerPath {
+    final installer = File(p.join(_installerDir, 'vs_installer.exe'));
+    return installer.existsSync()
+        ? installer.path
+        : p.join(_installerDir, 'setup.exe');
+  }
 
   WindowsToolchain? _cache;
 
@@ -113,17 +124,17 @@ class WindowsToolchainService {
       _developerMode,
       DeveloperModeState.unknown,
     );
-    final windowsDesktop = await _guard<bool?>(
+    final windowsDesktop = await _guard(
       'flutter config',
-      _windowsDesktopEnabled,
-      null,
+      _windowsDesktopFlag,
+      FlutterFlagState.unknown,
     );
 
     return _cache = WindowsToolchain(
       installs: installs,
       sdks: sdks,
       developerMode: developerMode,
-      windowsDesktopEnabled: windowsDesktop,
+      windowsDesktop: windowsDesktop,
     );
   }
 
@@ -237,11 +248,11 @@ class WindowsToolchainService {
 
   // ---- 1d. Flutter config --------------------------------------------------
 
-  Future<bool?> _windowsDesktopEnabled() async {
+  Future<FlutterFlagState> _windowsDesktopFlag() async {
     try {
-      return await _flutter.isWindowsDesktopEnabled();
+      return await _flutter.windowsDesktopFlag();
     } on Failure {
-      return null;
+      return FlutterFlagState.unknown;
     }
   }
 
@@ -334,14 +345,15 @@ class WindowsToolchainService {
   ]);
 
   Stream<WindowsSetupEvent> _setup(List<String> arguments) async* {
-    if (!File(vsSetupPath).existsSync()) {
+    final installer = vsInstallerPath;
+    if (!File(installer).existsSync()) {
       yield const WindowsSetupEvent(
         stage: WindowsSetupStage.failed,
         error: 'The Visual Studio Installer is not on this machine.',
       );
       return;
     }
-    yield* _runInstaller(vsSetupPath, arguments);
+    yield* _runInstaller(installer, arguments);
   }
 
   /// The one place an installer is launched, waited on and read.
@@ -349,6 +361,11 @@ class WindowsToolchainService {
   /// `--passive` and never `--quiet`: quiet hides Microsoft's licence
   /// acceptance and its own elevation prompt, both of which the user is
   /// entitled to see. `--norestart` because deciding to reboot is theirs too.
+  ///
+  /// Launched through `Start-Process -Verb RunAs` rather than directly: every
+  /// one of these verbs needs admin, and the installer started `--passive`
+  /// from an unelevated process does not raise its own prompt — it exits 1.
+  /// The elevated child's output is unreachable, but its exit code is not.
   Stream<WindowsSetupEvent> _runInstaller(
     String executable,
     List<String> arguments,
@@ -356,44 +373,76 @@ class WindowsToolchainService {
     yield const WindowsSetupEvent(stage: WindowsSetupStage.launching);
 
     final all = [...arguments, '--passive', '--norestart', '--wait'];
+    final script =
+        "\$p = Start-Process -FilePath '${_psQuote(executable)}' "
+        '-Verb RunAs -Wait -PassThru '
+        '-ArgumentList ${all.map((a) => "'${_psQuote(a)}'").join(',')}; '
+        r'exit $p.ExitCode';
+
     yield const WindowsSetupEvent(stage: WindowsSetupStage.installing);
 
-    final CommandResultLike result;
+    final int exitCode;
+    final String output;
     try {
       final run = await _runner.run(
-        executable,
-        all,
+        'powershell',
+        ['-NoProfile', '-Command', script],
         // Installing the C++ workload pulls gigabytes; slow on any line.
         timeout: const Duration(hours: 2),
       );
-      result = (exitCode: run.exitCode, output: run.combinedOutput);
+      exitCode = run.exitCode;
+      output = run.combinedOutput.trim();
     } catch (e) {
       yield WindowsSetupEvent(stage: WindowsSetupStage.failed, error: '$e');
       return;
     }
 
-    // The installer's own exit codes: 0 done, 3010 done-but-reboot, 1602
-    // cancelled, 1223 the UAC prompt was declined.
-    switch (result.exitCode) {
+    switch (exitCode) {
       case 0:
         yield const WindowsSetupEvent(stage: WindowsSetupStage.done);
       case 3010:
-        yield const WindowsSetupEvent(
-          stage: WindowsSetupStage.restartRequired,
-        );
+        yield const WindowsSetupEvent(stage: WindowsSetupStage.restartRequired);
+      // A declined UAC prompt makes Start-Process throw, which PowerShell
+      // reports as 1223 or as its own failure with that text.
       case 1602 || 1223:
         yield const WindowsSetupEvent(
           stage: WindowsSetupStage.failed,
           error: 'The installer was cancelled.',
         );
+      case 1618:
+        yield const WindowsSetupEvent(
+          stage: WindowsSetupStage.failed,
+          error:
+              'Another installation is already running. Finish or close the '
+              'Visual Studio Installer, then try again.',
+        );
+      case 5007:
+        yield const WindowsSetupEvent(
+          stage: WindowsSetupStage.failed,
+          error: 'The Visual Studio Installer refused the operation.',
+        );
       default:
-        _log.warning('installer exited ${result.exitCode}: ${result.output}');
+        _log.warning('installer exited $exitCode: $output');
+        if (output.toLowerCase().contains('cancelled by the user')) {
+          yield const WindowsSetupEvent(
+            stage: WindowsSetupStage.failed,
+            error: 'The permission prompt was declined.',
+          );
+          return;
+        }
         yield WindowsSetupEvent(
           stage: WindowsSetupStage.failed,
-          error: 'The installer exited with code ${result.exitCode}.',
+          // The code alone says nothing; whatever the installer printed is
+          // the only thing that makes the next attempt informed.
+          error: output.isEmpty
+              ? 'The installer exited with code $exitCode.'
+              : 'The installer exited with code $exitCode.\n$output',
         );
     }
   }
+
+  /// Escapes a value for a single-quoted PowerShell string.
+  static String _psQuote(String value) => value.replaceAll("'", "''");
 
   /// The cached bootstrapper, downloaded only when it is not already there.
   ///
@@ -444,5 +493,3 @@ class WindowsToolchainService {
   }
 }
 
-/// Just the two fields the exit-code switch reads.
-typedef CommandResultLike = ({int exitCode, String output});

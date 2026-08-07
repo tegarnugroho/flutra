@@ -200,25 +200,54 @@ HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock
   });
 
   group('parseFlutterConfigFlag', () {
+    /// Copied from a real `flutter config --list`, including the shapes that
+    /// are not a plain true/false.
     const output = '''
-Settings:
-  enable-windows-desktop: true
-  enable-web: false
-  jdk-dir: C:\\Java\\jdk-17
+All Settings:
+  enable-web: true
+  enable-linux-desktop: (Not set)
+  enable-windows-desktop: (Not set)
+  enable-fuchsia: (Not set) (Unavailable)
+  enable-ios: false
+  jdk-dir: C:\\Program Files\\Microsoft\\jdk-17.0.20.8-hotspot
 ''';
 
-    test('reads a boolean setting', () {
+    test('reads a flag that was set', () {
       expect(
-        parseFlutterConfigFlag(output, 'enable-windows-desktop'),
-        isTrue,
+        parseFlutterConfigFlag(output, 'enable-web'),
+        FlutterFlagState.on,
       );
-      expect(parseFlutterConfigFlag(output, 'enable-web'), isFalse);
+      expect(
+        parseFlutterConfigFlag(output, 'enable-ios'),
+        FlutterFlagState.off,
+      );
     });
 
-    test('an absent setting is null, because Flutter has its own default', () {
-      expect(parseFlutterConfigFlag(output, 'enable-linux-desktop'), isNull);
-      expect(parseFlutterConfigFlag('  enable-web: (Not set)', 'enable-web'),
-          isNull);
+    test('"(Not set)" is its own answer, not off and not a failure', () {
+      // Reading this as off sent people to enable what Flutter already
+      // defaults to on.
+      expect(
+        parseFlutterConfigFlag(output, 'enable-windows-desktop'),
+        FlutterFlagState.notSet,
+      );
+    });
+
+    test('a trailing "(Unavailable)" is about the platform, not the value', () {
+      expect(
+        parseFlutterConfigFlag(output, 'enable-fuchsia'),
+        FlutterFlagState.notSet,
+      );
+    });
+
+    test('a flag this Flutter never heard of is unknown', () {
+      expect(
+        parseFlutterConfigFlag(output, 'enable-something-else'),
+        FlutterFlagState.unknown,
+      );
+      expect(
+        parseFlutterConfigFlag('flutter: command not found', 'enable-web'),
+        FlutterFlagState.unknown,
+      );
     });
   });
 
@@ -247,12 +276,12 @@ Settings:
       List<VisualStudioInstall>? installs,
       List<WindowsSdk>? sdks,
       DeveloperModeState developerMode = DeveloperModeState.on,
-      bool? windowsDesktop = true,
+      FlutterFlagState windowsDesktop = FlutterFlagState.on,
     }) => WindowsToolchain(
       installs: installs ?? [_install()],
       sdks: sdks ?? const [sdk],
       developerMode: developerMode,
-      windowsDesktopEnabled: windowsDesktop,
+      windowsDesktop: windowsDesktop,
     );
 
     test('a healthy machine has nothing to fix', () {
@@ -357,7 +386,7 @@ Settings:
     });
 
     test('windows-desktop off is one flutter config away', () {
-      final toolchain = healthy(windowsDesktop: false);
+      final toolchain = healthy(windowsDesktop: FlutterFlagState.off);
       final requirement = of(toolchain, WindowsRequirementKind.flutterConfig);
 
       expect(requirement.satisfied, isFalse);
@@ -367,8 +396,19 @@ Settings:
       );
     });
 
+    test('an untouched flag is not a problem — Flutter defaults it on', () {
+      final toolchain = healthy(windowsDesktop: FlutterFlagState.notSet);
+      final requirement = of(toolchain, WindowsRequirementKind.flutterConfig);
+
+      // `(Not set)` used to read as "could not be asked", which said the app
+      // had failed at something it had in fact read correctly.
+      expect(requirement.satisfied, isTrue);
+      expect(requirement.action, WindowsRequirementAction.none);
+      expect(requirement.detail, contains('default applies'));
+    });
+
     test('no Flutter to ask is not a failure of this machine', () {
-      final toolchain = healthy(windowsDesktop: null);
+      final toolchain = healthy(windowsDesktop: FlutterFlagState.unknown);
 
       expect(
         of(toolchain, WindowsRequirementKind.flutterConfig).satisfied,
@@ -381,7 +421,7 @@ Settings:
         installs: [_install(cpp: false)],
         sdks: const [],
         developerMode: DeveloperModeState.off,
-        windowsDesktop: false,
+        windowsDesktop: FlutterFlagState.off,
       );
 
       expect(toolchain.unmet, hasLength(4));
