@@ -19,6 +19,29 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Points the window at the icon the install rules drop next to the bundle's
+// data directory, so shells that read the window's own icon (task lists, alt-
+// tab, the Wayland fallback) show the app icon instead of a generic square.
+// Shells that key off the .desktop file still need APPLICATION_ID to match it.
+static void set_window_icon(GtkWindow* window) {
+  g_autofree gchar* executable = g_file_read_link("/proc/self/exe", nullptr);
+  if (executable == nullptr) {
+    // Not fatal; the app just keeps the default icon.
+    g_warning("Failed to resolve /proc/self/exe; window icon not set");
+    return;
+  }
+
+  g_autofree gchar* bundle_dir = g_path_get_dirname(executable);
+  g_autofree gchar* icon_path =
+      g_build_filename(bundle_dir, "data", "app_icon.png", nullptr);
+
+  g_autoptr(GError) error = nullptr;
+  if (!gtk_window_set_icon_from_file(window, icon_path, &error)) {
+    g_warning("Failed to load window icon from %s: %s", icon_path,
+              error != nullptr ? error->message : "unknown error");
+  }
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -53,6 +76,7 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  set_window_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
