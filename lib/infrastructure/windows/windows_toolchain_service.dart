@@ -303,11 +303,12 @@ class WindowsToolchainService {
   Stream<WindowsSetupEvent> installBuildTools() async* {
     try {
       final bootstrapper = await _bootstrapper();
-      yield* _runInstaller(bootstrapper.path, [
-        '--add',
-        kBuildToolsWorkload,
-        '--includeRecommended',
-      ]);
+      yield* _runInstaller(
+        bootstrapper.path,
+        ['--add', kBuildToolsWorkload, '--includeRecommended'],
+        // Only the bootstrapper takes `--wait`.
+        supportsWaitFlag: true,
+      );
     } on Failure catch (e) {
       yield WindowsSetupEvent(
         stage: WindowsSetupStage.failed,
@@ -353,6 +354,9 @@ class WindowsToolchainService {
       );
       return;
     }
+    // No `--wait` here. It is a bootstrapper flag; `vs_installer.exe` rejects
+    // unknown arguments and exits 1 the moment it starts — which looks exactly
+    // like a failed install to anyone who just approved the elevation prompt.
     yield* _runInstaller(installer, arguments);
   }
 
@@ -368,11 +372,17 @@ class WindowsToolchainService {
   /// The elevated child's output is unreachable, but its exit code is not.
   Stream<WindowsSetupEvent> _runInstaller(
     String executable,
-    List<String> arguments,
-  ) async* {
+    List<String> arguments, {
+    bool supportsWaitFlag = false,
+  }) async* {
     yield const WindowsSetupEvent(stage: WindowsSetupStage.launching);
 
-    final all = [...arguments, '--passive', '--norestart', '--wait'];
+    final all = [
+      ...arguments,
+      '--passive',
+      '--norestart',
+      if (supportsWaitFlag) '--wait',
+    ];
     final script =
         "\$p = Start-Process -FilePath '${_psQuote(executable)}' "
         '-Verb RunAs -Wait -PassThru '
@@ -432,11 +442,14 @@ class WindowsToolchainService {
         }
         yield WindowsSetupEvent(
           stage: WindowsSetupStage.failed,
-          // The code alone says nothing; whatever the installer printed is
-          // the only thing that makes the next attempt informed.
-          error: output.isEmpty
-              ? 'The installer exited with code $exitCode.'
-              : 'The installer exited with code $exitCode.\n$output',
+          // The code alone says nothing. Whatever the launcher printed, plus
+          // where Microsoft's own log is, is what makes a second attempt
+          // informed rather than a repeat.
+          error: [
+            'The installer exited with code $exitCode.',
+            if (output.isNotEmpty) output,
+            r'Its own log is in %TEMP%\dd_*.log.',
+          ].join('\n'),
         );
     }
   }
