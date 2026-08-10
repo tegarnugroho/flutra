@@ -45,6 +45,19 @@ class _FakeEmulatorRepository implements EmulatorRepository {
   }
 
   @override
+  Future<String> renameAvd(String source, String newName) async {
+    calls.add('rename:$source→$newName');
+    // The real one sanitises, and the cubit has to follow the name it gets
+    // back rather than the one it asked for.
+    final target = newName.replaceAll(' ', '_');
+    avds = [
+      for (final avd in avds)
+        if (avd.name == source) Avd(name: target) else avd,
+    ];
+    return target;
+  }
+
+  @override
   Future<RunningCommand> launch(String name, LaunchOptions options) =>
       throw UnimplementedError();
 
@@ -132,6 +145,24 @@ void main() {
       // Sorted by name it would be first; it stays out of the way until the
       // next refresh.
       expect(_names(cubit), ['alpha', 'beta', 'aaa_copy']);
+      await cubit.close();
+    });
+
+    test('a renamed device keeps its place in the list', () async {
+      final repo = _FakeEmulatorRepository(const [
+        Avd(name: 'alpha'),
+        Avd(name: 'beta'),
+        Avd(name: 'gamma'),
+      ]);
+      final cubit = EmulatorListCubit(repo);
+      await cubit.load();
+
+      // Sanitised to "zulu_one", which sorts last — the row still must not
+      // move out from under the pointer that just opened its menu.
+      await cubit.rename(const Avd(name: 'beta'), 'zulu one');
+
+      expect(repo.calls, contains('rename:beta→zulu one'));
+      expect(_names(cubit), ['alpha', 'zulu_one', 'gamma']);
       await cubit.close();
     });
 

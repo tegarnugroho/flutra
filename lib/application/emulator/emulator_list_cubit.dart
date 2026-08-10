@@ -110,6 +110,24 @@ class EmulatorListCubit extends Cubit<EmulatorListState> {
     () => _repository.duplicateAvd(avd.name, newName),
   );
 
+  /// Renames [avd], keeping the tile where it is.
+  ///
+  /// The renamed AVD would otherwise read as a new one and sort onto the end,
+  /// so its place in the display order is renamed along with it — the row a
+  /// user just acted on should not move out from under the pointer.
+  Future<void> rename(Avd avd, String newName) async {
+    _task(avd.name, AvdTask.renaming);
+    try {
+      final finalName = await _repository.renameAvd(avd.name, newName);
+      _order = [for (final name in _order) name == avd.name ? finalName : name];
+      await load(resort: false);
+    } catch (e) {
+      _report(e);
+    } finally {
+      _task(avd.name, null);
+    }
+  }
+
   Future<void> _run(
     String name,
     AvdTask task,
@@ -119,12 +137,21 @@ class EmulatorListCubit extends Cubit<EmulatorListState> {
     try {
       await action();
       await load(resort: false);
-    } on Failure catch (e) {
-      _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
     } catch (e) {
-      _fail('$e');
+      _report(e);
     } finally {
       _task(name, null);
+    }
+  }
+
+  /// A failure carries a suggestion worth showing; anything else is reported
+  /// as it comes.
+  void _report(Object error) {
+    if (error is Failure) {
+      final suggestion = error.suggestion;
+      _fail('${error.message}${suggestion == null ? '' : '\n$suggestion'}');
+    } else {
+      _fail('$error');
     }
   }
 

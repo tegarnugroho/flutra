@@ -9,7 +9,8 @@ enum AvdTask {
   stopping,
   wiping,
   deleting,
-  duplicating;
+  duplicating,
+  renaming;
 
   /// Present tense, for the in-flight button label.
   String get label => switch (this) {
@@ -18,6 +19,7 @@ enum AvdTask {
     AvdTask.wiping => 'Wiping…',
     AvdTask.deleting => 'Deleting…',
     AvdTask.duplicating => 'Duplicating…',
+    AvdTask.renaming => 'Renaming…',
   };
 }
 

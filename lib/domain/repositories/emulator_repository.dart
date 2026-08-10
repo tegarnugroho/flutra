@@ -27,6 +27,11 @@ abstract class EmulatorRepository {
   /// Duplicates an existing AVD under a new [newName].
   Future<void> duplicateAvd(String source, String newName);
 
+  /// Renames an existing AVD, returning the name it actually took — [newName]
+  /// with the characters avdmanager rejects replaced, which is what the list
+  /// has to be keyed on afterwards.
+  Future<String> renameAvd(String source, String newName);
+
   /// Launches the emulator for [name], returning the live process handle so the
   /// UI can stream console output and stop it.
   Future<RunningCommand> launch(String name, LaunchOptions options);

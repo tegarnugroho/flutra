@@ -61,7 +61,9 @@ from the same source; see the caveats below.
   - **Windows 10+ (x64)** — Visual Studio with the "Desktop development with
     C++" workload. Flutter's Windows toolchain, not optional.
   - **Linux** — `clang cmake ninja-build pkg-config libgtk-3-dev`. These are
-    the same packages the app's own Flutter Doctor fix offers to install.
+    the same packages the app's own Flutter Doctor fix offers to install. Plus
+    `libayatana-appindicator3-dev`, which the tray icon needs and which the
+    doctor fix does not cover — without it the build stops at CMake.
   - **macOS** — Xcode plus its command-line tools (`xcode-select --install`),
     and CocoaPods.
 

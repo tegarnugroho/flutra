@@ -339,7 +339,7 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
 
   @override
   Future<void> duplicateAvd(String source, String newName) async {
-    final target = newName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final target = _sanitisedName(newName);
     final srcDir = Directory(p.join(_avdHome, '$source.avd'));
     final srcIni = File(p.join(_avdHome, '$source.ini'));
     if (!srcDir.existsSync() || !srcIni.existsSync()) {
@@ -382,25 +382,86 @@ class EmulatorRepositoryImpl implements EmulatorRepository {
       }
     }
 
-    // Rewrite the top-level <name>.ini to point at the new directory.
-    final iniContent = (await srcIni.readAsString())
-        .replaceAll('$source.avd', '$target.avd');
-    await dstIni.writeAsString(iniContent);
+    await srcIni.copy(dstIni.path);
+    await _reidentify(source, target);
+  }
 
-    // Update AvdId / display name inside config.ini.
-    final config = File(p.join(dstDir.path, 'config.ini'));
-    if (config.existsSync()) {
-      final updated = (await config.readAsLines())
-          .map((line) {
-            if (line.startsWith('AvdId=')) return 'AvdId=$target';
-            if (line.startsWith('avd.ini.displayname=')) {
-              return 'avd.ini.displayname=$target';
-            }
-            return line;
-          })
-          .join('\n');
-      await config.writeAsString('$updated\n');
+  @override
+  Future<String> renameAvd(String source, String newName) async {
+    final target = _sanitisedName(newName);
+    if (target.isEmpty) {
+      throw const FileSystemFailure('An AVD needs a name.');
     }
+    if (target == source) return source;
+
+    final srcDir = Directory(p.join(_avdHome, '$source.avd'));
+    final srcIni = File(p.join(_avdHome, '$source.ini'));
+    if (!srcDir.existsSync() || !srcIni.existsSync()) {
+      throw FileSystemFailure('Source AVD "$source" was not found.');
+    }
+    final dstDir = Directory(p.join(_avdHome, '$target.avd'));
+    final dstIni = File(p.join(_avdHome, '$target.ini'));
+    if (dstDir.existsSync() || dstIni.existsSync()) {
+      throw FileSystemFailure('An AVD named "$target" already exists.');
+    }
+
+    // The directory moves first: it is the half that fails while an emulator
+    // holds its files open, and failing before anything has moved leaves the
+    // AVD exactly as it was.
+    try {
+      await srcDir.rename(dstDir.path);
+    } on FileSystemException catch (e) {
+      throw FileSystemFailure(
+        'Could not rename "$source".',
+        suggestion: 'Stop the device first — a running emulator keeps its '
+            'files open, and Windows will not move them.',
+        cause: e,
+      );
+    }
+    try {
+      await srcIni.rename(dstIni.path);
+    } on FileSystemException catch (e) {
+      // Put the directory back: an .avd folder with no .ini beside it is an
+      // AVD none of the tools can see.
+      _log.warning('rename: rolling back "$target.avd" (${e.osError})');
+      await dstDir.rename(srcDir.path);
+      throw FileSystemFailure('Could not rename "$source".', cause: e);
+    }
+
+    await _reidentify(source, target);
+    return target;
+  }
+
+  /// [name] with the characters avdmanager rejects replaced.
+  static String _sanitisedName(String name) =>
+      name.trim().replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+
+  /// Points a `<target>.avd` at its own name: the paths in `<target>.ini`, and
+  /// AvdId / display name inside its config.ini.
+  ///
+  /// Duplicate and rename both leave a directory whose files still name the AVD
+  /// they came from, so both finish here.
+  Future<void> _reidentify(String source, String target) async {
+    final ini = File(p.join(_avdHome, '$target.ini'));
+    if (ini.existsSync()) {
+      final content = await ini.readAsString();
+      await ini.writeAsString(content.replaceAll('$source.avd', '$target.avd'));
+    }
+
+    final config = File(p.join(_avdHome, '$target.avd', 'config.ini'));
+    if (!config.existsSync()) return;
+    final updated = (await config.readAsLines())
+        .map((line) {
+          if (line.startsWith('AvdId=')) return 'AvdId=$target';
+          if (line.startsWith('avd.ini.displayname=')) {
+            return 'avd.ini.displayname=$target';
+          }
+          // An sd card or snapshot line can hold an absolute path into the old
+          // directory, which a rename would otherwise leave dangling.
+          return line.replaceAll('$source.avd', '$target.avd');
+        })
+        .join('\n');
+    await config.writeAsString('$updated\n');
   }
 
   // ---- Launch / stop -------------------------------------------------------

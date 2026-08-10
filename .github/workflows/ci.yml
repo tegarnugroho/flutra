@@ -63,12 +63,15 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
 
-      # The same packages the app's own `linux_deps_missing` doctor fix
-      # installs — if this list changes, change it there too.
+      # The first line is what Flutter itself needs, and is the same list the
+      # app's own `linux_deps_missing` doctor fix installs — if it changes,
+      # change it there too. The second is this app's own: tray_manager's
+      # CMakeLists fails configuration outright without ayatana-appindicator3.
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+          sudo apt-get install -y libayatana-appindicator3-dev
 
       - run: flutter pub get
       - run: flutter build linux --release
@@ -157,3 +160,56 @@ jobs:
         with:
           name: macos-dmg
           path: build/Flutra.dmg
+
+  # Publishes what the three build jobs already produced. Run artifacts expire
+  # and need a GitHub login to download; a release is the copy that does not.
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [windows, linux, macos]
+    permissions:
+      # The default token is read-only, and creating a release is a write.
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Name the downloads after the tag
+        run: |
+          set -eux
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          # Windows ships as a folder of loose files; the other two are already
+          # single files and only need the version in their name.
+          (cd artifacts/windows-release &&
+           zip -qr "$GITHUB_WORKSPACE/dist/Flutra-$VERSION-windows-x64.zip" .)
+          mv artifacts/linux-appimage/Flutra-x86_64.AppImage \
+             "dist/Flutra-$VERSION-x86_64.AppImage"
+          mv artifacts/macos-dmg/Flutra.dmg "dist/Flutra-$VERSION-macos.dmg"
+          ls -l dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          # A half-populated release reads as a complete one; better to fail.
+          fail_on_unmatched_files: true
+          # The commits and pull requests since the previous tag, written by
+          # GitHub and appended below this body.
+          generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | Platform | File |
+            | --- | --- |
+            | Windows 10+ (x64) | `Flutra-*-windows-x64.zip` — unzip and run `flutra.exe` |
+            | Linux (x86_64) | `Flutra-*-x86_64.AppImage` — `chmod +x`, then run |
+            | macOS | `Flutra-*-macos.dmg` |
+
+            Nothing here is code-signed. Windows SmartScreen needs
+            *More info → Run anyway*, and macOS Gatekeeper needs right-click →
+            *Open*, or `xattr -dr com.apple.quarantine /Applications/Flutra.app`.
+
+            The Linux build is packaged by CI but has not been run by a
+            maintainer.

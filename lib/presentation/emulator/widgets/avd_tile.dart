@@ -23,6 +23,7 @@ class AvdTile extends StatefulWidget {
     required this.onStop,
     required this.onWipe,
     required this.onDelete,
+    required this.onRename,
     required this.onDuplicate,
     required this.onConsole,
     required this.onShowInFolder,
@@ -38,6 +39,7 @@ class AvdTile extends StatefulWidget {
   final VoidCallback onStop;
   final VoidCallback onWipe;
   final VoidCallback onDelete;
+  final VoidCallback onRename;
   final VoidCallback onDuplicate;
   final VoidCallback onConsole;
 
@@ -187,6 +189,18 @@ class _AvdTileState extends State<AvdTile> {
                 onPressed: _busy ? null : () => run(widget.onColdBoot),
               ),
             const MenuFlyoutSeparator(),
+            MenuFlyoutItem(
+              leading: const Icon(FluentIcons.rename, size: 14),
+              // A rename moves the AVD's own directory, which the running
+              // emulator holds open — so this waits for a stopped device.
+              text: Tooltip(
+                message: avd.isRunning ? 'Stop the device first' : '',
+                child: const Text('Rename'),
+              ),
+              onPressed: avd.isRunning || _busy
+                  ? null
+                  : () => run(widget.onRename),
+            ),
             MenuFlyoutItem(
               leading: const Icon(FluentIcons.copy, size: 14),
               text: const Text('Duplicate'),

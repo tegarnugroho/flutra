@@ -196,6 +196,7 @@ class _EmulatorManagerView extends StatelessWidget {
           onStop: () => cubit.stop(avd),
           onWipe: () => _confirmWipe(context, cubit, avd),
           onDelete: () => _confirmDelete(context, cubit, avd),
+          onRename: () => _promptRename(context, cubit, avd),
           onDuplicate: () => _promptDuplicate(context, cubit, avd),
           onConsole: () => onConsole(avd),
           onShowInFolder: path == null
@@ -237,6 +238,25 @@ class _EmulatorManagerView extends StatelessWidget {
       confirmLabel: 'Delete device',
     );
     if (ok) cubit.delete(avd);
+  }
+
+  Future<void> _promptRename(
+    BuildContext context,
+    EmulatorListCubit cubit,
+    Avd avd,
+  ) async {
+    final name = await showTextPromptDialog(
+      context,
+      title: 'Rename "${avd.name}"',
+      label: 'New AVD name',
+      initialValue: avd.name,
+      confirmLabel: 'Rename',
+    );
+    // An unchanged name is the dialog being dismissed by another route; there
+    // is nothing to do and no error worth raising.
+    if (name != null && name.trim().isNotEmpty && name != avd.name) {
+      cubit.rename(avd, name);
+    }
   }
 
   Future<void> _promptDuplicate(

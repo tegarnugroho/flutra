@@ -33,6 +33,7 @@ Widget _tile(
   VoidCallback? onStart,
   VoidCallback? onStop,
   VoidCallback? onDelete,
+  VoidCallback? onRename,
   bool showInFolder = true,
 }) => AvdTile(
   avd: avd,
@@ -42,6 +43,7 @@ Widget _tile(
   onStop: onStop ?? () {},
   onWipe: () {},
   onDelete: onDelete ?? () {},
+  onRename: onRename ?? () {},
   onDuplicate: () {},
   onConsole: () {},
   onShowInFolder: showInFolder ? () {} : null,
@@ -177,6 +179,7 @@ void main() {
 
       expect(find.text('Cold boot'), findsOneWidget);
       expect(find.text('Emulator console'), findsNothing);
+      expect(find.text('Rename'), findsOneWidget);
       expect(find.text('Duplicate'), findsOneWidget);
       expect(find.text('Show in folder'), findsOneWidget);
       expect(find.text('Wipe data'), findsOneWidget);
@@ -185,7 +188,8 @@ void main() {
       // Run variant, then management, then the two destructive ones last —
       // the grouping is the point, so it is the order that is asserted.
       double y(String label) => tester.getTopLeft(find.text(label)).dy;
-      expect(y('Cold boot'), lessThan(y('Duplicate')));
+      expect(y('Cold boot'), lessThan(y('Rename')));
+      expect(y('Rename'), lessThan(y('Duplicate')));
       expect(y('Duplicate'), lessThan(y('Show in folder')));
       expect(y('Show in folder'), lessThan(y('Wipe data')));
       expect(y('Wipe data'), lessThan(y('Delete')));
@@ -225,6 +229,45 @@ void main() {
         ),
       );
       expect(tooltip.message, 'Stop the device first');
+    });
+
+    testWidgets('Rename is refused while the device is up', (tester) async {
+      var renamed = 0;
+      await tester.pumpWidget(
+        _host(
+          _tile(
+            _pixel.copyWith(isRunning: true),
+            onRename: () => renamed++,
+          ),
+        ),
+      );
+      await tester.tap(find.byIcon(FluentIcons.more));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+      expect(renamed, 0, reason: 'the running emulator holds its files open');
+
+      final tooltip = tester.widget<Tooltip>(
+        find.ancestor(
+          of: find.text('Rename'),
+          matching: find.byType(Tooltip),
+        ),
+      );
+      expect(tooltip.message, 'Stop the device first');
+    });
+
+    testWidgets('a stopped device can be renamed', (tester) async {
+      var renamed = 0;
+      await tester.pumpWidget(
+        _host(_tile(_pixel, onRename: () => renamed++)),
+      );
+      await tester.tap(find.byIcon(FluentIcons.more));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+      expect(renamed, 1);
     });
 
     testWidgets('an AVD with no directory has no Show in folder',
