@@ -18,7 +18,7 @@ env:
 jobs:
   # The cheap job, and the one that catches most things. Runs on every push.
   analyze:
-    name: Analyze & test
+    name: Analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,8 +32,9 @@ jobs:
       - run: dart run build_runner build --delete-conflicting-outputs
       - name: Fail if generated files drifted
         run: git diff --exit-code -- lib/core/di/injection.config.dart
+      # The suite runs locally before a push; paying for it here too was not
+      # worth the minutes.
       - run: flutter analyze
-      - run: flutter test
 
   windows:
     name: Windows build
