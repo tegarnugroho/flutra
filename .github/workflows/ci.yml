@@ -46,12 +46,35 @@ jobs:
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
-      - run: flutter pub get
-      - run: flutter build windows --release
+      # The runner images ship Inno Setup, but that is not a promise — install
+      # it when it is missing rather than failing at the packaging step.
+      - name: Ensure Inno Setup is present
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc) -and
+              -not (Get-Command ISCC.exe -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+          }
+
+      # The same script that cuts a local release, so CI and a desk build
+      # produce the same thing: it bakes the version, channel, toolchain and
+      # commit into the binary through --dart-define, then runs Inno Setup over
+      # the output. It runs pub get itself, and never bumps the version
+      # unattended. The MSIX is skipped — that one needs the signing
+      # certificate.
+      - name: Build and package
+        shell: pwsh
+        run: ./tool/build.ps1 -NoBump -SkipMsix
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: build/windows/x64/runner/Release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: build/installer/*.exe
 
   linux:
     name: Linux AppImage
@@ -189,6 +212,11 @@ jobs:
           mv artifacts/linux-appimage/Flutra-x86_64.AppImage \
              "dist/Flutra-$VERSION-x86_64.AppImage"
           mv artifacts/macos-dmg/Flutra.dmg "dist/Flutra-$VERSION-macos.dmg"
+          # The installer keeps the name Inno Setup gave it: that name carries
+          # the version from pubspec.yaml, which is the version the installer
+          # writes into Add/Remove Programs. Renaming it after the tag would
+          # only hide a disagreement between the two.
+          mv artifacts/windows-installer/*.exe dist/
           ls -l dist
 
       - uses: softprops/action-gh-release@v2
@@ -204,7 +232,8 @@ jobs:
 
             | Platform | File |
             | --- | --- |
-            | Windows 10+ (x64) | `Flutra-*-windows-x64.zip` — unzip and run `flutra.exe` |
+            | Windows 10+ (x64) | `Flutra-Setup-*.exe` — installer, per-user, no admin prompt |
+            | Windows, portable | `Flutra-*-windows-x64.zip` — unzip and run `flutra.exe` |
             | Linux (x86_64) | `Flutra-*-x86_64.AppImage` — `chmod +x`, then run |
             | macOS | `Flutra-*-macos.dmg` |
 
