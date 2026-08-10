@@ -61,6 +61,11 @@ class SdkScanService {
 
   /// Where a scan starts: every drive root, plus the places installers and
   /// package managers use.
+  ///
+  /// Every point here is a Windows path — drive letters, `ProgramFiles`,
+  /// chocolatey — so the joins use the Windows context rather than the host's.
+  /// Off Windows the paths do not exist and the list comes back empty, which is
+  /// what it did before; the context only stops the separators from being mixed.
   static List<String> startPoints({
     Map<String, String>? environment,
     bool Function(String)? exists,
@@ -68,10 +73,11 @@ class SdkScanService {
     final env = environment ?? Platform.environment;
     final dirExists = exists ?? (path) => Directory(path).existsSync();
     final points = <String>[];
+    final win = p.windows;
 
     void add(String? path) {
       if (path == null || path.trim().isEmpty) return;
-      final normalized = p.normalize(path.trim());
+      final normalized = win.normalize(path.trim());
       if (!points.contains(normalized) && dirExists(normalized)) {
         points.add(normalized);
       }
@@ -87,11 +93,11 @@ class SdkScanService {
     final localAppData = env['LOCALAPPDATA'];
     add(userProfile);
     add(localAppData);
-    if (localAppData != null) add(p.join(localAppData, 'Android'));
+    if (localAppData != null) add(win.join(localAppData, 'Android'));
     if (userProfile != null) {
-      add(p.join(userProfile, 'scoop', 'apps'));
-      add(p.join(userProfile, 'Android'));
-      add(p.join(userProfile, 'Development'));
+      add(win.join(userProfile, 'scoop', 'apps'));
+      add(win.join(userProfile, 'Android'));
+      add(win.join(userProfile, 'Development'));
     }
     add(env['ProgramFiles']);
     add(env['ProgramFiles(x86)']);

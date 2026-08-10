@@ -1,7 +1,14 @@
+import 'dart:io';
+
 import 'package:flutra/domain/entities/reclaimable_item.dart';
 import 'package:flutra/domain/entities/sdk_package.dart';
 import 'package:flutra/infrastructure/sdk/reclaim_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+
+/// A root in the host's own shape: folder paths are joined with the platform
+/// separator, so a hard-coded `C:\Sdk` would only hold on Windows.
+final String sdkRoot = Platform.isWindows ? r'C:\Sdk' : '/sdk';
 
 SdkPackage installed(String path, {String? location}) => SdkPackage(
       path: path,
@@ -16,7 +23,7 @@ List<ReclaimableItem> scan(
 }) =>
     ReclaimScanner.supersededItems(
       packages: packages,
-      sdkRoot: r'C:\Sdk',
+      sdkRoot: sdkRoot,
       avdUsage: avdUsage,
     );
 
@@ -111,10 +118,13 @@ void main() {
     test('resolves the folder from the reported location when there is one',
         () {
       final items = scan([
-        installed('build-tools;34.0.0', location: r'build-tools\34.0.0'),
+        installed(
+          'build-tools;34.0.0',
+          location: p.join('build-tools', '34.0.0'),
+        ),
         installed('build-tools;36.0.0'),
       ]);
-      expect(items.single.folderPath, r'C:\Sdk\build-tools\34.0.0');
+      expect(items.single.folderPath, p.join(sdkRoot, 'build-tools', '34.0.0'));
     });
 
     test('falls back to the package id as a path when none is reported', () {
@@ -124,7 +134,9 @@ void main() {
       ]);
       expect(
         items.single.folderPath,
-        r'C:\Sdk\system-images\android-34\google_apis\x86_64',
+        p.joinAll(
+          [sdkRoot, 'system-images', 'android-34', 'google_apis', 'x86_64'],
+        ),
       );
     });
 
@@ -138,7 +150,7 @@ void main() {
             state: PackageState.available,
           ),
         ],
-        sdkRoot: r'C:\Sdk',
+        sdkRoot: sdkRoot,
       );
       expect(items, isEmpty, reason: 'nothing on disk to reclaim');
     });

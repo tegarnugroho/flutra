@@ -101,18 +101,21 @@ void main() {
   });
 
   group('DetectedPathsCubit.javaHomeOf', () {
+    // Built for the host: javaHomeOf reads the platform's own separator, so a
+    // literal Windows path would only be a directory name on a Linux runner.
+    final jdkHome = p.join(
+      Platform.isWindows ? r'C:\Program Files' : '/usr/lib/jvm',
+      'jdk-17',
+    );
+    final launcher =
+        p.join(jdkHome, 'bin', Platform.isWindows ? 'java.exe' : 'java');
+
     test('climbs out of bin to the JDK directory', () {
-      expect(
-        DetectedPathsCubit.javaHomeOf(r'C:\Program Files\jdk-17\bin\java.exe'),
-        r'C:\Program Files\jdk-17',
-      );
+      expect(DetectedPathsCubit.javaHomeOf(launcher), jdkHome);
     });
 
     test('leaves a path that is already a home alone', () {
-      expect(
-        DetectedPathsCubit.javaHomeOf(r'C:\Program Files\jdk-17'),
-        r'C:\Program Files\jdk-17',
-      );
+      expect(DetectedPathsCubit.javaHomeOf(jdkHome), jdkHome);
     });
 
     test('has nothing to say about an empty value', () {
