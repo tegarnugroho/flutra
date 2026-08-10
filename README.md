@@ -1,5 +1,27 @@
 # Flutra
 
+## Screenshots
+
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/36800d84-cae2-4cc5-a06f-b54ab2a2f2af"
+    width="70%"
+    alt="Flutra Virtual Devices"
+  />
+</p>
+
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/831c91b8-de63-4213-bd7f-d463c3f29c8f"
+    width="49%"
+    alt="Flutra Dashboard"
+  />
+  <img
+    src="https://github.com/user-attachments/assets/9a56a2ef-08cb-4926-8b49-e0fbb98cb285"
+    width="49%"
+    alt="Flutra SDK Manager"
+  />
+</p>
 A graphical frontend for the Android SDK command-line tools, for Windows
 desktop. It wraps `sdkmanager`, `avdmanager`, `adb` and `emulator` in a UI, so
 the everyday jobs — installing a package, creating an AVD, reading a licence,
