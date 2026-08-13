@@ -1,7 +1,7 @@
 name: flutra
 description: "Flutra — a desktop manager for the Android SDK and Flutter toolchain."
 publish_to: 'none'
-version: 1.0.5+5
+version: 1.0.6+6
 
 environment:
   sdk: ^3.12.1
@@ -78,7 +78,7 @@ msix_config:
   # To make it match the product name, generate a certificate for CN=Flutra and
   # change both lines together.
   publisher: CN=FlutterSdkManager
-  msix_version: 1.0.5.5
+  msix_version: 1.0.6.6
   output_name: Flutra
   certificate_path: certificate.pfx
   certificate_password: flutter123
