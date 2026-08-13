@@ -1,5 +1,7 @@
 #include "win32_window.h"
 
+#include "utils.h"  // TEMP CLOSE INSTRUMENTATION
+
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
@@ -116,8 +118,10 @@ Win32Window::Win32Window() {
 }
 
 Win32Window::~Win32Window() {
+  CloseTrace("~Win32Window_begin");  // TEMP CLOSE INSTRUMENTATION
   --g_active_window_count;
   Destroy();
+  CloseTrace("~Win32Window_end");  // TEMP CLOSE INSTRUMENTATION
 }
 
 bool Win32Window::Create(const std::wstring& title,
@@ -180,6 +184,7 @@ Win32Window::MessageHandler(HWND hwnd,
                             LPARAM const lparam) noexcept {
   switch (message) {
     case WM_DESTROY:
+      CloseTrace("WM_DESTROY");  // TEMP CLOSE INSTRUMENTATION
       window_handle_ = nullptr;
       Destroy();
       if (quit_on_close_) {
@@ -222,11 +227,14 @@ Win32Window::MessageHandler(HWND hwnd,
 }
 
 void Win32Window::Destroy() {
+  CloseTrace("Win32Window::Destroy_begin");  // TEMP CLOSE INSTRUMENTATION
   OnDestroy();
 
   if (window_handle_) {
+    CloseTrace("DestroyWindow_call");  // TEMP CLOSE INSTRUMENTATION
     DestroyWindow(window_handle_);
     window_handle_ = nullptr;
+    CloseTrace("DestroyWindow_done");  // TEMP CLOSE INSTRUMENTATION
   }
   if (g_active_window_count == 0) {
     WindowClassRegistrar::GetInstance()->UnregisterWindowClass();

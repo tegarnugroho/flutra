@@ -67,3 +67,25 @@ std::string Utf8FromUtf16(const wchar_t* utf16_string) {
   }
   return utf8_string;
 }
+
+// TEMP CLOSE INSTRUMENTATION - remove before finishing.
+void CloseTrace(const char* tag) {
+  FILETIME ft;
+  ::GetSystemTimeAsFileTime(&ft);
+  ULARGE_INTEGER u;
+  u.LowPart = ft.dwLowDateTime;
+  u.HighPart = ft.dwHighDateTime;
+  // FILETIME counts 100ns ticks from 1601; convert to Unix epoch milliseconds.
+  unsigned long long ms = (u.QuadPart - 116444736000000000ULL) / 10000ULL;
+  wchar_t temp[MAX_PATH];
+  if (!::GetTempPathW(MAX_PATH, temp)) {
+    return;
+  }
+  std::wstring file = std::wstring(temp) + L"flutra_close_trace.log";
+  FILE* f = nullptr;
+  if (_wfopen_s(&f, file.c_str(), L"a") != 0 || f == nullptr) {
+    return;
+  }
+  fprintf(f, "%llu native %s\n", ms, tag);
+  fclose(f);
+}

@@ -44,6 +44,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     RegisterPlugins(view_controller->engine());
   });
 
+  // TEMP CLOSE INSTRUMENTATION - remove before finishing.
+  ::atexit([]() { CloseTrace("atexit"); });
+
   flutter::DartProject project(L"data");
 
   std::vector<std::string> command_line_arguments =
@@ -59,12 +62,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
   window.SetQuitOnClose(true);
 
+  CloseTrace("message_loop_enter");  // TEMP CLOSE INSTRUMENTATION
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
   }
 
+  CloseTrace("message_loop_exit");  // TEMP CLOSE INSTRUMENTATION
   ::CoUninitialize();
+  CloseTrace("wWinMain_return");  // TEMP CLOSE INSTRUMENTATION
   return EXIT_SUCCESS;
 }

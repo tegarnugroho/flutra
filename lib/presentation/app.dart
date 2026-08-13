@@ -110,16 +110,32 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     } catch (_) {}
   }
 
+  // TEMP CLOSE INSTRUMENTATION - remove before finishing.
+  void _closeTrace(String tag) {
+    try {
+      final dir = Platform.environment['TEMP'] ?? Platform.environment['TMP'];
+      if (dir == null) return;
+      File(p.join(dir, 'flutra_close_trace.log')).writeAsStringSync(
+        '${DateTime.now().toUtc().millisecondsSinceEpoch} dart $tag\n',
+        mode: FileMode.append,
+      );
+    } catch (_) {}
+  }
+
   @override
   void onWindowClose() async {
+    _closeTrace('onWindowClose_begin');
     await _saveWindowBounds();
+    _closeTrace('bounds_saved');
     // Honour the "close to tray" preference; otherwise really quit.
     final toTray = getIt<SettingsService>().settings.closeToTray;
     if (toTray) {
       await windowManager.hide();
     } else {
       await windowManager.setPreventClose(false);
+      _closeTrace('preventClose_cleared');
       await windowManager.destroy();
+      _closeTrace('destroy_returned');
     }
   }
 
