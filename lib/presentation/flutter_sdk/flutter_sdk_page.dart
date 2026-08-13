@@ -24,6 +24,7 @@ import '../common/page_scaffold.dart';
 import '../common/skeleton/skeleton_layouts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'upgrade_progress_dialog.dart';
 import 'version_switch_dialog.dart';
 import 'widgets/channel_tabs.dart';
 import 'widgets/sdk_identity_panel.dart';
@@ -525,6 +526,32 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
     if (ok) cubit.load();
   }
 
+  /// Runs `flutter upgrade` behind the phased dialog.
+  ///
+  /// Same preamble as [_run] — the dirty-checkout question has to be answered
+  /// before the process starts either way — but the dialog needs the versions
+  /// either side of the upgrade, which only the screen's state knows.
+  static Future<void> _upgrade(
+    BuildContext context,
+    FlutterSdkState state,
+  ) async {
+    final cubit = context.read<FlutterSdkCubit>();
+    final info = state.info;
+    if (info == null) return;
+    final stash = await _resolveLocalChanges(context);
+    if (stash == null || !context.mounted) return;
+    final ok = await showUpgradeProgressDialog(
+      context,
+      currentVersion: info.version,
+      channel: info.channel,
+      // Null when the release index could not name the channel tip; the header
+      // then shows the current version alone rather than inventing a target.
+      targetVersion: state.latestRelease?.displayVersion,
+      start: () => cubit.upgrade(stashLocalChanges: stash),
+    );
+    if (ok) cubit.load();
+  }
+
   static Future<void> _uninstall(
     BuildContext context,
     String path,
@@ -996,11 +1023,7 @@ class _HeaderActionsState extends State<_HeaderActions> {
           child: FilledButton(
             onPressed: state.info == null || state.isUpToDate
                 ? null
-                : () => _FlutterSdkViewState._run(
-                    context,
-                    'Upgrading Flutter (${state.info!.channel})',
-                    (stash) => cubit.upgrade(stashLocalChanges: stash),
-                  ),
+                : () => _FlutterSdkViewState._upgrade(context, state),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
