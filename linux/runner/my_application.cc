@@ -1,5 +1,6 @@
 #include "my_application.h"
 
+#include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -127,7 +128,13 @@ static gboolean my_application_local_command_line(GApplication* application,
 static void my_application_startup(GApplication* application) {
   // MyApplication* self = MY_APPLICATION(object);
 
-  // Perform any actions required at application startup.
+  // desktop_multi_window spins up a fresh engine per sub-window and registers
+  // only its own channels there, so plugins like window_manager answer with
+  // "No implementation found" in those engines. This hook is the plugin's
+  // supported way to give every sub-window the same plugin set as the main one
+  // — without it the Create Emulator window cannot drop its native caption or
+  // size itself. Mirrors the same callback in windows/runner/main.cpp.
+  desktop_multi_window_plugin_set_window_created_callback(fl_register_plugins);
 
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
 }
