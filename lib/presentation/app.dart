@@ -12,6 +12,7 @@ import '../application/emulator/emulator_events.dart';
 import '../application/settings/theme_cubit.dart';
 import '../core/di/injection.dart';
 import '../infrastructure/settings/settings_service.dart';
+import 'common/window_resize_frame.dart';
 import 'shell/app_shell.dart';
 import 'theme/app_theme.dart';
 
@@ -174,6 +175,10 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
             themeMode: mode,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
+            // Above the navigator, so the resize edges also cover dialogs and
+            // flyouts — on Linux the window has no frame of its own to grab.
+            builder: (context, child) =>
+                WindowResizeFrame(child: child ?? const SizedBox.shrink()),
             home: const AppShell(),
           );
         },

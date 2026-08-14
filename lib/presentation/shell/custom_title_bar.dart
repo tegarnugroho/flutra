@@ -36,9 +36,10 @@ class CustomTitleBar extends StatefulWidget {
 }
 
 class _CustomTitleBarState extends State<CustomTitleBar> {
-  /// Window chrome is only taken over on Windows; elsewhere the bar is just a
-  /// header band and the OS keeps drawing its own caption.
-  static final bool _managesWindow = Platform.isWindows;
+  /// Window chrome is taken over on Windows and Linux, where `main` hides the
+  /// native caption. On macOS the traffic lights stay, so the bar is just a
+  /// header band there and the OS keeps drawing its own caption.
+  static final bool _managesWindow = Platform.isWindows || Platform.isLinux;
 
   /// Turns [child] into a window-drag handle, or leaves it alone on platforms
   /// where the OS still owns the caption.

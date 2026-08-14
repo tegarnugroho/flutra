@@ -2,9 +2,6 @@
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
 #include <flutter_linux/flutter_linux.h>
-#ifdef GDK_WINDOWING_X11
-#include <gdk/gdkx.h>
-#endif
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -49,32 +46,21 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
-#ifdef GDK_WINDOWING_X11
-  GdkScreen* screen = gtk_window_get_screen(window);
-  if (GDK_IS_X11_SCREEN(screen)) {
-    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
-  }
-#endif
-  if (use_header_bar) {
-    GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
-    gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "Flutra");
-    gtk_header_bar_set_show_close_button(header_bar, TRUE);
-    gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "Flutra");
-  }
+  // No GTK header bar, and no server-side frame either: the app draws its own
+  // caption (see CustomTitleBar), and a GTK/compositor bar on top of it would
+  // both duplicate it and clash with the dark theme — under Weston/WSLg it
+  // comes out light grey regardless of the GTK theme.
+  //
+  // Done here rather than only from Dart via setTitleBarStyle(hidden) so the
+  // window is undecorated from the moment it is created. The window is not
+  // shown until the first Flutter frame arrives (see first_frame_cb), so there
+  // is no window between "decorated" and "hidden" for a frame to flash in.
+  //
+  // The title is still set: it is what the taskbar, alt-tab and the Wayland
+  // fallback read, and window_manager's setTitleBarStyle path on Linux keys
+  // off a non-null title.
+  gtk_window_set_title(window, "Flutra");
+  gtk_window_set_decorated(window, FALSE);
 
   gtk_window_set_default_size(window, 1280, 720);
   set_window_icon(window);

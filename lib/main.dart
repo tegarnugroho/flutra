@@ -209,11 +209,20 @@ Future<void> _runEmulatorConsoleWindow(Map<String, dynamic> args) async {
 
 /// Removes the native caption so [CustomTitleBar] can draw it instead.
 ///
-/// [TitleBarStyle.hidden] only strips the caption band — the resize borders and
-/// Windows Snap keep working. `setAsFrameless()` would remove those too, so it
-/// is deliberately not used.
+/// On Windows, [TitleBarStyle.hidden] only strips the caption band — the resize
+/// borders and Snap keep working. `setAsFrameless()` would remove those too, so
+/// it is deliberately not used.
+///
+/// On Linux the same call hides the GTK header bar a window was given, which is
+/// what the desktop_multi_window sub-windows get. The main window has no header
+/// bar to hide — the runner already created it undecorated (see
+/// `my_application.cc`), and this call is the idempotent Dart-side repeat of
+/// that. Undecorated means the compositor draws no resize borders either, so
+/// the main window supplies its own — see [WindowResizeFrame].
+///
+/// macOS is left alone: its traffic lights stay native.
 Future<void> _hideNativeTitleBar() async {
-  if (!Platform.isWindows) return;
+  if (!Platform.isWindows && !Platform.isLinux) return;
   await _tryWindow(
     () => windowManager.setTitleBarStyle(
       TitleBarStyle.hidden,
