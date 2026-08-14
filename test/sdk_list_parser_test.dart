@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutra/domain/entities/sdk_package.dart';
 import 'package:flutra/infrastructure/repositories/sdk_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +25,161 @@ Available Updates:
   emulator                                    | 34.1.0    | 35.1.0
 ''';
 
+/// Captured verbatim from a real `sdkmanager --list`, progress bar and all —
+/// the point of these is the bytes the tool actually emits, so nothing in them
+/// is hand-written or tidied up.
+String fixture(String name) =>
+    File('test/fixtures/$name').readAsStringSync();
+
 void main() {
+  // The two captures differ in every way that has broken this parser: the
+  // Windows one mixes CRLF section headers with LF rows, the Linux one has no
+  // "Installed packages" section at all because the SDK it came from was one
+  // bootstrap old.
+  group('parseListing on a captured Windows listing', () {
+    final listing = SdkRepositoryImpl.parseListing(
+      fixture('sdkmanager_list_windows.txt'),
+    );
+    SdkPackage byPath(String path) =>
+        listing.packages.firstWhere((e) => e.path == path);
+
+    test('reads the sections despite mixed CRLF and LF line endings', () {
+      expect(listing.hasSections, isTrue);
+      expect(listing.hasAvailableSection, isTrue);
+    });
+
+    test('skips the progress bar the tool draws with carriage returns', () {
+      // The whole preamble arrives as one \r-separated line; none of it is a
+      // package, and none of it contains a pipe.
+      expect(
+        listing.packages.where((p) => p.path.contains('%')),
+        isEmpty,
+      );
+      expect(
+        listing.packages.where((p) => p.path.contains('Loading')),
+        isEmpty,
+      );
+    });
+
+    test('parses installed packages with their location column', () {
+      final buildTools = byPath('build-tools;36.0.0');
+      expect(buildTools.state, PackageState.installed);
+      expect(buildTools.installedVersion, '36.0.0');
+      expect(buildTools.description, 'Android SDK Build-Tools 36');
+      expect(buildTools.location, r'build-tools\36.0.0');
+    });
+
+    test('parses the wide, variably-padded available rows', () {
+      final addOn = byPath('add-ons;addon-google_apis-google-21');
+      expect(addOn.state, PackageState.available);
+      expect(addOn.availableVersion, '1');
+      expect(addOn.description, 'Google APIs');
+    });
+
+    test('keeps installed and available apart', () {
+      expect(
+        listing.packages.where((p) => p.state == PackageState.installed),
+        isNotEmpty,
+      );
+      expect(
+        listing.packages.where((p) => p.state == PackageState.available),
+        isNotEmpty,
+      );
+    });
+  });
+
+  group('parseListing on a captured Linux listing', () {
+    // This is the exact shape the bug produced nothing for: a freshly
+    // bootstrapped SDK, so every package is available and none is installed.
+    final listing = SdkRepositoryImpl.parseListing(
+      fixture('sdkmanager_list_linux.txt'),
+    );
+
+    test('an SDK with nothing installed still parses its catalogue', () {
+      expect(listing.hasSections, isTrue);
+      expect(listing.hasAvailableSection, isTrue);
+      expect(listing.packages, isNotEmpty);
+      expect(
+        listing.packages.every((p) => p.state == PackageState.available),
+        isTrue,
+        reason: 'nothing was installed in the SDK this was captured from',
+      );
+    });
+
+    test('finds the packages a first-run install needs', () {
+      final paths = listing.packages.map((p) => p.path);
+      expect(paths, contains('platform-tools'));
+      expect(paths, contains('platforms;android-36'));
+      expect(paths, contains('build-tools;36.0.0'));
+      expect(paths, contains('emulator'));
+    });
+  });
+
+  group('parseListing on output that is not a listing', () {
+    test('the JAVA_HOME error is no sections, not an empty catalogue', () {
+      // Printed to stdout, with stderr empty and exit code 1 — verbatim from a
+      // Linux box with the managed JDK unreachable. Reporting this as "hasSections
+      // false" is what stops it being shown as an SDK with no packages in it.
+      const output = '\n'
+          "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.\n"
+          '\n'
+          'Please set the JAVA_HOME variable in your environment to match the\n'
+          'location of your Java installation.\n';
+
+      final listing = SdkRepositoryImpl.parseListing(output);
+      expect(listing.packages, isEmpty);
+      expect(listing.hasSections, isFalse);
+      expect(listing.hasAvailableSection, isFalse);
+    });
+
+    test('empty output is no sections', () {
+      final listing = SdkRepositoryImpl.parseListing('');
+      expect(listing.hasSections, isFalse);
+    });
+  });
+
+  group('parseListing tolerates format drift', () {
+    test('accepts either casing of the section headers', () {
+      const lower = 'installed packages:\n'
+          '  Path | Version | Description | Location\n'
+          '  platform-tools | 34.0.5 | Android SDK Platform-Tools | platform-tools\n'
+          '\n'
+          'available packages:\n'
+          '  Path | Version | Description\n'
+          '  platforms;android-35 | 1 | Android SDK Platform 35\n';
+      final listing = SdkRepositoryImpl.parseListing(lower);
+      expect(listing.hasSections, isTrue);
+      expect(listing.hasAvailableSection, isTrue);
+      expect(listing.packages, hasLength(2));
+    });
+
+    test('accepts bare CRLF throughout', () {
+      final crlf = _sample.replaceAll('\n', '\r\n');
+      expect(
+        SdkRepositoryImpl.parseList(crlf).map((p) => p.path),
+        SdkRepositoryImpl.parseList(_sample).map((p) => p.path),
+      );
+    });
+
+    test('accepts an "ID" or "Package" header column', () {
+      const output = 'Available Packages:\n'
+          '  Package | Version | Description\n'
+          '  ------- | ------- | -------\n'
+          '  platforms;android-35 | 1 | Android SDK Platform 35\n';
+      final listing = SdkRepositoryImpl.parseListing(output);
+      expect(listing.packages, hasLength(1));
+      expect(listing.packages.single.path, 'platforms;android-35');
+    });
+
+    test('skips a separator rule however wide it was drawn', () {
+      const output = 'Available Packages:\n'
+          '  Path | Version | Description\n'
+          '  ---- | -- | ------------------------------\n'
+          '  emulator | 35.1.0 | Android Emulator\n';
+      expect(SdkRepositoryImpl.parseListing(output).packages, hasLength(1));
+    });
+  });
+
   group('SdkRepositoryImpl.parseList', () {
     final packages = SdkRepositoryImpl.parseList(_sample);
     SdkPackage byPath(String p) => packages.firstWhere((e) => e.path == p);

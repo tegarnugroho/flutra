@@ -1,3 +1,4 @@
+import 'package:flutra/application/sdk/sdk_manager_cubit.dart';
 import 'package:flutra/domain/entities/sdk_package.dart';
 import 'package:flutra/presentation/sdk/widgets/sdk_package_tile.dart';
 import 'package:flutra/presentation/theme/app_theme.dart';
@@ -188,6 +189,37 @@ void main() {
         );
         expect(tester.takeException(), isNull, reason: 'at ${width}px');
       }
+    });
+  });
+
+  group('what makes an empty list empty', () {
+    // The page says "adjust the search or filters above" over an empty list.
+    // That sentence is only true when there is something to adjust — on a
+    // freshly bootstrapped SDK whose catalogue had failed to load, it blamed a
+    // search box the user had never touched.
+    test('a list with no filters on it is not filtered', () {
+      expect(const SdkManagerState().hasActiveFilters, isFalse);
+    });
+
+    test('whitespace in the search box is not a filter', () {
+      expect(
+        const SdkManagerState(query: '   ').hasActiveFilters,
+        isFalse,
+      );
+    });
+
+    test('each control the user can set counts as one', () {
+      expect(const SdkManagerState(query: 'ndk').hasActiveFilters, isTrue);
+      expect(
+        const SdkManagerState(category: PackageCategory.platforms)
+            .hasActiveFilters,
+        isTrue,
+      );
+      expect(const SdkManagerState(updatesOnly: true).hasActiveFilters, isTrue);
+      expect(
+        const SdkManagerState(installedOnly: true).hasActiveFilters,
+        isTrue,
+      );
     });
   });
 }

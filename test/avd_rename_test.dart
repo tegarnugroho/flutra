@@ -5,6 +5,7 @@ import 'package:flutra/core/command/session_environment.dart';
 import 'package:flutra/core/error/failures.dart';
 import 'package:flutra/core/platform/platform_service.dart';
 import 'package:flutra/infrastructure/repositories/emulator_repository_impl.dart';
+import 'package:flutra/infrastructure/sdk/android_tool_runner.dart';
 import 'package:flutra/infrastructure/sdk/sdk_locator.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -18,7 +19,7 @@ EmulatorRepositoryImpl repositoryAt(String avdHome) {
       ? WindowsPlatformService(environment: environment)
       : LinuxPlatformService(environment: environment);
   return EmulatorRepositoryImpl(
-    CommandRunner(SessionEnvironment()),
+    AndroidToolRunner.ambient(CommandRunner(SessionEnvironment())),
     SdkLocator(platform),
     platform,
   );

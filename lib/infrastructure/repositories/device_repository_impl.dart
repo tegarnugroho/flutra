@@ -9,6 +9,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/repositories/device_repository.dart';
+import '../sdk/android_tool_runner.dart';
 import '../sdk/sdk_locator.dart';
 
 /// [DeviceRepository] backed by the `adb` command-line tool.
@@ -16,7 +17,9 @@ import '../sdk/sdk_locator.dart';
 class DeviceRepositoryImpl implements DeviceRepository {
   DeviceRepositoryImpl(this._runner, this._locator);
 
-  final CommandRunner _runner;
+  /// adb needs no JDK of its own, but it is an Android SDK tool and goes
+  /// through the same spawn helper as the rest — one environment, not two.
+  final AndroidToolRunner _runner;
   final SdkLocator _locator;
 
   static const _timeout = Duration(seconds: 20);

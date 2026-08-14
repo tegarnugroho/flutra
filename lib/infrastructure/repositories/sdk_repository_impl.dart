@@ -10,6 +10,7 @@ import '../../core/command/sdk_operation_lock.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/sdk_package.dart';
 import '../../domain/repositories/sdk_repository.dart';
+import '../sdk/android_tool_runner.dart';
 import '../sdk/sdk_locator.dart';
 
 /// [SdkRepository] backed by the real `sdkmanager` command-line tool.
@@ -17,7 +18,9 @@ import '../sdk/sdk_locator.dart';
 class SdkRepositoryImpl implements SdkRepository {
   SdkRepositoryImpl(this._runner, this._locator, this._lock);
 
-  final CommandRunner _runner;
+  /// Every spawn goes through here rather than [CommandRunner] directly, so
+  /// sdkmanager is handed the JDK this app manages — see [AndroidToolRunner].
+  final AndroidToolRunner _runner;
   final SdkLocator _locator;
   final SdkOperationLock _lock;
 
@@ -45,18 +48,42 @@ class SdkRepositoryImpl implements SdkRepository {
   Future<List<SdkPackage>> listPackages() async {
     final result = await _runner.run(
       _sdkManager,
-      ['--list', ..._rootArg],
+      // --channel=0 is already the default, but saying so keeps the answer the
+      // same whatever a previous run or an `sdkmanager.cfg` left behind.
+      ['--list', '--channel=0', ..._rootArg],
       timeout: const Duration(minutes: 3),
     );
-    if (!result.isSuccess && result.stdout.isEmpty) {
+    final listing = parseListing(result.stdout);
+
+    // Whether "no packages" is an answer or a failure is decided by the output,
+    // not by the exit code alone.
+    //
+    // sdkmanager is a shell wrapper around a Java program, and when it cannot
+    // find java it prints "ERROR: JAVA_HOME is not set…" — on *stdout*, with
+    // stderr empty. A check for "failed and said nothing" therefore passes, and
+    // the error text parses to zero packages: the page then reports an empty
+    // catalogue for a query that never ran. A run that worked always prints at
+    // least one section header, so that is what is tested here.
+    //
+    // The second clause covers a run that exits 0 having printed nothing usable.
+    // "Available Packages" is the remote catalogue, so it is there even for an
+    // SDK with nothing installed — but it is *not* there when the network was
+    // unreachable and only the local section could be built, which is why an
+    // empty catalogue is only suspicious when nothing parsed at all.
+    if (!result.isSuccess ||
+        !listing.hasSections ||
+        (listing.packages.isEmpty && !listing.hasAvailableSection)) {
       throw ProcessFailure(
-        'sdkmanager --list failed.',
+        'sdkmanager could not read the package list.',
         exitCode: result.exitCode,
-        output: result.combinedOutput,
-        suggestion: 'Check your internet connection and SDK path.',
+        output: result.combinedOutput.isEmpty
+            ? '(sdkmanager produced no output)'
+            : result.combinedOutput,
+        suggestion: 'Check your internet connection, the SDK path, and that a '
+            'JDK is installed — sdkmanager needs Java to run.',
       );
     }
-    return parseList(result.stdout);
+    return listing.packages;
   }
 
   @override
@@ -195,24 +222,48 @@ class SdkRepositoryImpl implements SdkRepository {
   /// Sections: "Installed packages:", "Available Packages:", "Available
   /// Updates:". Static and pure so it can be unit-tested against captured
   /// fixtures.
-  static List<SdkPackage> parseList(String output) {
+  static List<SdkPackage> parseList(String output) =>
+      parseListing(output).packages;
+
+  /// [parseList] plus whether the output looked like a package listing at all.
+  ///
+  /// The distinction matters because zero packages is ambiguous on its own: a
+  /// brand-new SDK legitimately has nothing installed, while a query that never
+  /// reached the repository also parses to nothing. A run that worked always
+  /// prints at least one section header, so [SdkListing.hasSections] is what
+  /// separates "empty" from "did not happen" — see [listPackages].
+  ///
+  /// Deliberately forgiving about shape, because the shape moves between
+  /// cmdline-tools releases and between platforms: `\r\n` and bare `\r`
+  /// (sdkmanager redraws its progress bar with carriage returns), any amount of
+  /// column padding, and either casing of the section headers.
+  static SdkListing parseListing(String output) {
     final byPath = <String, SdkPackage>{};
+    final sections = <_Section>{};
     _Section section = _Section.none;
 
     for (final rawLine in const LineSplitter().convert(output)) {
-      final line = rawLine.trimRight();
+      // LineSplitter already treats a bare \r as a terminator, but output that
+      // reached us some other way (a fixture read whole, a pasted log) has not
+      // been through it.
+      final line = rawLine.replaceAll('\r', '').trimRight();
       final lower = line.trim().toLowerCase();
 
+      // Headers are matched loosely: "Installed packages:" and "Installed
+      // Packages:" have both shipped, and the trailing colon is not guaranteed.
       if (lower.startsWith('installed packages')) {
         section = _Section.installed;
+        sections.add(section);
         continue;
       }
       if (lower.startsWith('available packages')) {
         section = _Section.available;
+        sections.add(section);
         continue;
       }
       if (lower.startsWith('available updates')) {
         section = _Section.updates;
+        sections.add(section);
         continue;
       }
       if (section == _Section.none) continue;
@@ -222,9 +273,8 @@ class SdkRepositoryImpl implements SdkRepository {
       final cells = line.split('|').map((c) => c.trim()).toList();
       final first = cells.first;
       if (first.isEmpty ||
-          first.toLowerCase() == 'path' ||
-          first.toLowerCase() == 'id' ||
-          RegExp(r'^-+$').hasMatch(first)) {
+          const {'path', 'id', 'package'}.contains(first.toLowerCase()) ||
+          _separatorRow.hasMatch(first)) {
         continue;
       }
 
@@ -270,8 +320,37 @@ class SdkRepositoryImpl implements SdkRepository {
       final byCat = a.category.index.compareTo(b.category.index);
       return byCat != 0 ? byCat : a.path.compareTo(b.path);
     });
-    return list;
+    return SdkListing(
+      packages: list,
+      hasSections: sections.isNotEmpty,
+      hasAvailableSection: sections.contains(_Section.available),
+    );
   }
+
+  /// The `-------` rule under a column header, however wide it was drawn.
+  static final RegExp _separatorRow = RegExp(r'^[-\s]+$');
+}
+
+/// What `sdkmanager --list` said, including whether it said anything at all.
+class SdkListing {
+  const SdkListing({
+    required this.packages,
+    required this.hasSections,
+    required this.hasAvailableSection,
+  });
+
+  final List<SdkPackage> packages;
+
+  /// True when at least one "Installed packages" / "Available Packages" /
+  /// "Available Updates" header was seen — that is, when the output was a
+  /// package listing rather than an error message or a truncated run.
+  final bool hasSections;
+
+  /// True when the "Available Packages" section specifically was present.
+  ///
+  /// It is the section that is never legitimately absent: it lists the whole
+  /// remote catalogue, so an SDK with nothing installed still has one.
+  final bool hasAvailableSection;
 }
 
 enum _Section { none, installed, available, updates }

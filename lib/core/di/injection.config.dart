@@ -64,6 +64,7 @@ import 'package:flutra/infrastructure/repositories/flutter_repository_impl.dart'
     as _i17;
 import 'package:flutra/infrastructure/repositories/sdk_repository_impl.dart'
     as _i871;
+import 'package:flutra/infrastructure/sdk/android_tool_runner.dart' as _i1025;
 import 'package:flutra/infrastructure/sdk/flutter_locator.dart' as _i166;
 import 'package:flutra/infrastructure/sdk/path_probe_service.dart' as _i936;
 import 'package:flutra/infrastructure/sdk/reclaim_executor.dart' as _i990;
@@ -165,13 +166,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i575.LegacyDataMigration>(
       () => _i575.LegacyDataMigration(gh<_i427.PlatformService>()),
     );
-    gh.lazySingleton<_i932.EmulatorRepository>(
-      () => _i715.EmulatorRepositoryImpl(
-        gh<_i989.CommandRunner>(),
-        gh<_i706.SdkLocator>(),
-        gh<_i427.PlatformService>(),
-      ),
-    );
     gh.lazySingleton<_i129.JdkInstallService>(
       () => _i129.JdkInstallService(
         gh<_i712.JdkCatalogService>(),
@@ -180,26 +174,10 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i525.ArchiveExtractor>(),
       ),
     );
-    gh.factory<_i497.EmulatorListCubit>(
-      () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
-    );
     gh.factory<_i247.FlutterDoctorCubit>(
       () => _i247.FlutterDoctorCubit(
         gh<_i1018.DoctorRunner>(),
         gh<_i562.SettingsService>(),
-      ),
-    );
-    gh.lazySingleton<_i804.DeviceRepository>(
-      () => _i580.DeviceRepositoryImpl(
-        gh<_i989.CommandRunner>(),
-        gh<_i706.SdkLocator>(),
-      ),
-    );
-    gh.lazySingleton<_i541.SdkRepository>(
-      () => _i871.SdkRepositoryImpl(
-        gh<_i989.CommandRunner>(),
-        gh<_i706.SdkLocator>(),
-        gh<_i29.SdkOperationLock>(),
       ),
     );
     gh.lazySingleton<_i880.StorageAnalysisService>(
@@ -220,13 +198,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i509.TrashService>(
       () => _i509.TrashService(gh<_i989.CommandRunner>()),
-    );
-    gh.lazySingleton<_i609.ReclaimScanner>(
-      () => _i609.ReclaimScanner(
-        gh<_i541.SdkRepository>(),
-        gh<_i706.SdkLocator>(),
-        gh<_i427.PlatformService>(),
-      ),
     );
     gh.lazySingleton<_i324.JdkDetectionService>(
       () => _i324.JdkDetectionService(
@@ -259,13 +230,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i420.ExternalLinkService>(),
       ),
     );
-    gh.lazySingleton<_i990.ReclaimExecutor>(
-      () => _i990.ReclaimExecutor(
-        gh<_i541.SdkRepository>(),
-        gh<_i509.TrashService>(),
-        gh<_i964.SystemActions>(),
-      ),
-    );
     gh.lazySingleton<_i901.JavaToolchainService>(
       () => _i901.JavaToolchainService(
         gh<_i324.JdkDetectionService>(),
@@ -279,9 +243,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i846.FlutterReleasesService>(),
         gh<_i151.FlutterRepository>(),
       ),
-    );
-    gh.factory<_i194.LogcatDevicesCubit>(
-      () => _i194.LogcatDevicesCubit(gh<_i804.DeviceRepository>()),
     );
     gh.factory<_i781.FlutterUpdateCubit>(
       () => _i781.FlutterUpdateCubit(
@@ -303,13 +264,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i846.FlutterReleasesService>(),
       ),
     );
-    gh.factory<_i996.CreateEmulatorCubit>(
-      () => _i996.CreateEmulatorCubit(
-        gh<_i932.EmulatorRepository>(),
-        gh<_i541.SdkRepository>(),
-        gh<_i698.HostInfoService>(),
-      ),
-    );
     gh.singleton<_i520.SettingsCubit>(
       () => _i520.SettingsCubit(
         gh<_i562.SettingsService>(),
@@ -319,30 +273,19 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i386.ThemeCubit>(),
       ),
     );
-    gh.factory<_i963.ReclaimCubit>(
-      () => _i963.ReclaimCubit(
-        gh<_i609.ReclaimScanner>(),
-        gh<_i990.ReclaimExecutor>(),
-        gh<_i29.SdkOperationLock>(),
-      ),
-    );
-    gh.factory<_i4.DeviceManagerCubit>(
-      () => _i4.DeviceManagerCubit(
-        gh<_i804.DeviceRepository>(),
-        gh<_i151.FlutterRepository>(),
-      ),
-    );
-    gh.lazySingleton<_i327.DoctorFixService>(
-      () => _i327.DoctorFixService(
+    gh.lazySingleton<_i1025.AndroidToolRunner>(
+      () => _i1025.AndroidToolRunner(
         gh<_i989.CommandRunner>(),
+        gh<_i901.JavaToolchainService>(),
+        gh<_i129.JdkInstallService>(),
+        gh<_i774.ToolchainEvents>(),
+      ),
+      dispose: (i) => i.dispose(),
+    );
+    gh.lazySingleton<_i804.DeviceRepository>(
+      () => _i580.DeviceRepositoryImpl(
+        gh<_i1025.AndroidToolRunner>(),
         gh<_i706.SdkLocator>(),
-        gh<_i166.FlutterLocator>(),
-        gh<_i503.SdkScanService>(),
-        gh<_i282.SessionEnvironment>(),
-        gh<_i541.SdkRepository>(),
-        gh<_i151.FlutterRepository>(),
-        gh<_i427.PlatformService>(),
-        gh<_i964.SystemActions>(),
       ),
     );
     gh.lazySingleton<_i359.EnvironmentRepository>(
@@ -354,14 +297,8 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i901.JavaToolchainService>(),
       ),
     );
-    gh.factory<_i276.SdkManagerCubit>(
-      () => _i276.SdkManagerCubit(
-        gh<_i541.SdkRepository>(),
-        gh<_i706.SdkLocator>(),
-        gh<_i409.SdkBootstrapService>(),
-        gh<_i520.SettingsCubit>(),
-        gh<_i774.ToolchainEvents>(),
-      ),
+    gh.factory<_i194.LogcatDevicesCubit>(
+      () => _i194.LogcatDevicesCubit(gh<_i804.DeviceRepository>()),
     );
     gh.factory<_i745.WindowsCubit>(
       () => _i745.WindowsCubit(gh<_i608.WindowsToolchainService>()),
@@ -378,6 +315,72 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i520.SettingsCubit>(),
       ),
     );
+    gh.lazySingleton<_i932.EmulatorRepository>(
+      () => _i715.EmulatorRepositoryImpl(
+        gh<_i1025.AndroidToolRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i427.PlatformService>(),
+      ),
+    );
+    gh.lazySingleton<_i541.SdkRepository>(
+      () => _i871.SdkRepositoryImpl(
+        gh<_i1025.AndroidToolRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i29.SdkOperationLock>(),
+      ),
+    );
+    gh.factory<_i996.CreateEmulatorCubit>(
+      () => _i996.CreateEmulatorCubit(
+        gh<_i932.EmulatorRepository>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i698.HostInfoService>(),
+      ),
+    );
+    gh.factory<_i4.DeviceManagerCubit>(
+      () => _i4.DeviceManagerCubit(
+        gh<_i804.DeviceRepository>(),
+        gh<_i151.FlutterRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i609.ReclaimScanner>(
+      () => _i609.ReclaimScanner(
+        gh<_i541.SdkRepository>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i427.PlatformService>(),
+      ),
+    );
+    gh.lazySingleton<_i327.DoctorFixService>(
+      () => _i327.DoctorFixService(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i166.FlutterLocator>(),
+        gh<_i503.SdkScanService>(),
+        gh<_i282.SessionEnvironment>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i427.PlatformService>(),
+        gh<_i964.SystemActions>(),
+      ),
+    );
+    gh.lazySingleton<_i990.ReclaimExecutor>(
+      () => _i990.ReclaimExecutor(
+        gh<_i541.SdkRepository>(),
+        gh<_i509.TrashService>(),
+        gh<_i964.SystemActions>(),
+      ),
+    );
+    gh.factory<_i276.SdkManagerCubit>(
+      () => _i276.SdkManagerCubit(
+        gh<_i541.SdkRepository>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i409.SdkBootstrapService>(),
+        gh<_i520.SettingsCubit>(),
+        gh<_i774.ToolchainEvents>(),
+      ),
+    );
+    gh.factory<_i497.EmulatorListCubit>(
+      () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
+    );
     gh.factory<_i352.DashboardCubit>(
       () => _i352.DashboardCubit(
         gh<_i359.EnvironmentRepository>(),
@@ -386,6 +389,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i541.SdkRepository>(),
         gh<_i880.StorageAnalysisService>(),
         gh<_i774.ToolchainEvents>(),
+      ),
+    );
+    gh.factory<_i963.ReclaimCubit>(
+      () => _i963.ReclaimCubit(
+        gh<_i609.ReclaimScanner>(),
+        gh<_i990.ReclaimExecutor>(),
+        gh<_i29.SdkOperationLock>(),
       ),
     );
     gh.factory<_i698.DoctorFixCubit>(

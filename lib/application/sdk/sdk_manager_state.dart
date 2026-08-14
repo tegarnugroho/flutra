@@ -210,6 +210,16 @@ class SdkManagerState extends Equatable {
     return list;
   }
 
+  /// Whether anything the user chose is narrowing the list.
+  ///
+  /// What makes an empty list empty decides what the page is allowed to say
+  /// about it: "adjust the search or filters" is only true when there are
+  /// filters to adjust, and it read as a lie on the screen this was written
+  /// for — a fresh SDK whose catalogue had failed to load showed zero packages
+  /// and blamed a search box the user had never typed in.
+  bool get hasActiveFilters =>
+      query.trim().isNotEmpty || category != null || updatesOnly || installedOnly;
+
   bool isQueued(String path) => queue.contains(path);
   bool isActive(String path) => activePath == path;
 

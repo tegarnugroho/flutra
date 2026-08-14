@@ -678,11 +678,20 @@ class _PackageList extends StatelessWidget {
         ),
         Expanded(
           child: packages.isEmpty
-              ? const EmptyState(
-                  icon: FluentIcons.packages,
-                  title: 'No packages match',
-                  message: 'Adjust the search or filters above.',
-                )
+              ? state.hasActiveFilters
+                  ? const EmptyState(
+                      icon: FluentIcons.packages,
+                      title: 'No packages match',
+                      message: 'Adjust the search or filters above.',
+                    )
+                  : EmptyState(
+                      icon: FluentIcons.packages,
+                      title: 'No packages listed',
+                      message: 'The catalogue came back empty. Read it again '
+                          'to see whether that is still true.',
+                      actionLabel: 'Refresh',
+                      onAction: cubit.load,
+                    )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   itemCount: packages.length,

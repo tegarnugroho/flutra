@@ -13,6 +13,7 @@ import '../../domain/entities/device_definition.dart';
 import '../../domain/entities/system_image.dart';
 import '../../domain/repositories/emulator_repository.dart';
 import '../../core/platform/platform_service.dart';
+import '../sdk/android_tool_runner.dart';
 import '../sdk/sdk_locator.dart';
 
 /// [EmulatorRepository] backed by the real `avdmanager`, `emulator` and `adb`
@@ -21,7 +22,9 @@ import '../sdk/sdk_locator.dart';
 class EmulatorRepositoryImpl implements EmulatorRepository {
   EmulatorRepositoryImpl(this._runner, this._locator, this._platform);
 
-  final CommandRunner _runner;
+  /// avdmanager is a Java program behind a shell wrapper, so it needs the same
+  /// JDK environment sdkmanager does — see [AndroidToolRunner].
+  final AndroidToolRunner _runner;
   final SdkLocator _locator;
   final PlatformService _platform;
 
