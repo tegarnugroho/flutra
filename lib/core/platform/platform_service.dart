@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:injectable/injectable.dart';
@@ -17,6 +18,10 @@ import 'package:path/path.dart' as p;
 abstract class PlatformService {
   /// `windows`, `linux` or `macos`.
   String get operatingSystem;
+
+  /// The CPU architecture, spelled the way the JDK vendors spell it: `x64` or
+  /// `aarch64`. See [hostArchitecture].
+  String get architecture => hostArchitecture();
 
   bool get isWindows => operatingSystem == 'windows';
   bool get isLinux => operatingSystem == 'linux';
@@ -85,6 +90,17 @@ PlatformService? _host;
 ///
 /// Anything that is not Windows or macOS is treated as Linux: the app targets
 /// the three desktops, and the Unix layout is the sane default for the rest.
+/// The host CPU, as the JDK vendors name it.
+///
+/// Read from the ABI this process was compiled for rather than from `uname`:
+/// an x64 build running under Rosetta or Windows-on-ARM emulation must keep
+/// asking for the x64 JDK, which is the one it can actually load into a
+/// process it spawns. Both Adoptium and Azul accept these two spellings.
+String hostArchitecture() => switch (Abi.current()) {
+  Abi.linuxArm64 || Abi.macosArm64 || Abi.windowsArm64 => 'aarch64',
+  _ => 'x64',
+};
+
 PlatformService hostPlatformService({Map<String, String>? environment}) {
   final env = environment ?? Platform.environment;
   if (Platform.isWindows) return WindowsPlatformService(environment: env);
@@ -100,6 +116,9 @@ abstract class _UnixPlatformService implements PlatformService {
 
 
   String? get home => environment['HOME'];
+
+  @override
+  String get architecture => hostArchitecture();
 
   @override
   bool get isWindows => operatingSystem == 'windows';
@@ -133,6 +152,9 @@ class WindowsPlatformService implements PlatformService {
 
   @override
   String get operatingSystem => 'windows';
+
+  @override
+  String get architecture => hostArchitecture();
 
   @override
   bool get isWindows => true;

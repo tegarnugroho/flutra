@@ -30,10 +30,39 @@ void main() {
       );
     });
 
+    test('the tar.gz layout Adoptium serves to Linux is found too', () {
+      // No .exe: the Linux archive's launcher is a bare `java`.
+      _touch(p.join(root.path, 'jdk-17.0.12+7', 'bin', 'java'));
+
+      expect(
+        JdkInstallService.findJdkHome(root.path),
+        p.join(root.path, 'jdk-17.0.12+7'),
+      );
+    });
+
     test('an archive with no wrapper folder is found at the root', () {
       _touch(p.join(root.path, 'bin', 'java.exe'));
 
       expect(JdkInstallService.findJdkHome(root.path), root.path);
+    });
+
+    test('a macOS bundle keeps its JDK two levels further down', () {
+      _touch(
+        p.join(root.path, 'jdk-21.jdk', 'Contents', 'Home', 'bin', 'java'),
+      );
+
+      expect(
+        JdkInstallService.findJdkHome(root.path),
+        p.join(root.path, 'jdk-21.jdk', 'Contents', 'Home'),
+      );
+    });
+
+    test('a bin folder holding no launcher is not a JDK', () {
+      // The test is bin/java, not the presence of bin: the path returned here
+      // is the one the app registers and later runs.
+      _touch(p.join(root.path, 'jdk-21', 'bin', 'README'));
+
+      expect(JdkInstallService.findJdkHome(root.path), isNull);
     });
 
     test('an archive holding no JDK yields null rather than a wrong path', () {
@@ -124,6 +153,110 @@ void main() {
       expect(parseZuluChecksum('{"name": "x.zip"}'), isNull);
       expect(parseZuluChecksum('{"sha256_hash": ""}'), isNull);
       expect(parseZuluChecksum('<html>500</html>'), isNull);
+    });
+  });
+
+  group('executableTargets', () {
+    late Directory root;
+
+    setUp(() => root = _temp());
+    tearDown(() => root.deleteSync(recursive: true));
+
+    test('every launcher in bin, plus the helper outside it', () {
+      _touch(p.join(root.path, 'bin', 'java'));
+      _touch(p.join(root.path, 'bin', 'javac'));
+      _touch(p.join(root.path, 'lib', 'jspawnhelper'));
+      // Not executable, and not in the list.
+      _touch(p.join(root.path, 'lib', 'modules'));
+      _touch(p.join(root.path, 'release'));
+
+      final targets = JdkInstallService.executableTargets(root.path);
+
+      expect(
+        targets.map(p.basename).toSet(),
+        {'java', 'javac', 'jspawnhelper'},
+      );
+    });
+
+    test('a JDK without the optional helpers yields only bin', () {
+      _touch(p.join(root.path, 'bin', 'java'));
+
+      expect(
+        JdkInstallService.executableTargets(root.path).map(p.basename),
+        ['java'],
+      );
+    });
+
+    test('nothing to chmod is an empty list, not a throw', () {
+      expect(
+        JdkInstallService.executableTargets(p.join(root.path, 'missing')),
+        isEmpty,
+      );
+    });
+
+    test('directories inside bin are not chmod targets', () {
+      Directory(p.join(root.path, 'bin', 'server')).createSync(recursive: true);
+
+      expect(JdkInstallService.executableTargets(root.path), isEmpty);
+    });
+  });
+
+  group('checkDownloadedSize', () {
+    const published = 190 * 1024 * 1024;
+
+    test('the size the API published is the size that passes', () {
+      expect(
+        JdkInstallService.checkDownloadedSize(
+          actual: published,
+          expected: published,
+        ),
+        isNull,
+      );
+    });
+
+    test('a connection that dropped says so, with both sizes', () {
+      final message = JdkInstallService.checkDownloadedSize(
+        actual: published ~/ 2,
+        expected: published,
+      );
+
+      expect(message, contains('stopped early'));
+      expect(message, contains('95.0 MB'));
+      expect(message, contains('190.0 MB'));
+    });
+
+    test('more bytes than published is also a discard', () {
+      expect(
+        JdkInstallService.checkDownloadedSize(
+          actual: published + 1024,
+          expected: published,
+        ),
+        contains('larger than published'),
+      );
+    });
+
+    test('an empty file fails whether or not a size was published', () {
+      expect(
+        JdkInstallService.checkDownloadedSize(actual: 0, expected: published),
+        contains('empty'),
+      );
+      expect(
+        JdkInstallService.checkDownloadedSize(actual: 0, expected: null),
+        contains('empty'),
+      );
+    });
+
+    test('an API that published no size cannot fail the check', () {
+      // Azul's listing carries a size; a vendor that stops doing so must not
+      // start failing every install.
+      expect(
+        JdkInstallService.checkDownloadedSize(actual: 123, expected: null),
+        isNull,
+      );
+      expect(
+        JdkInstallService.checkDownloadedSize(actual: 123, expected: 0),
+        isNull,
+      );
     });
   });
 

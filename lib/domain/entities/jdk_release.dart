@@ -41,10 +41,14 @@ class JdkRelease extends Equatable {
   /// Full version, e.g. `21.0.12`.
   final String version;
 
-  /// A `.zip` archive — never the installer.
+  /// An archive — never the installer.
   ///
   /// An archive needs no elevation, unpacks into a folder this app manages, and
   /// uninstalls by deleting that folder. An MSI does none of those.
+  ///
+  /// Which container it is depends on the platform the catalogue asked for:
+  /// `.zip` on Windows, `.tar.gz` on Linux and macOS from Adoptium. Nothing may
+  /// assume one — the installer reads the format off the bytes.
   final String downloadUrl;
 
   final String fileName;
@@ -101,7 +105,10 @@ AdoptiumAvailability parseAdoptiumAvailability(String body) {
   );
 }
 
-/// Reads `/v3/assets/latest/{major}/hotspot`, keeping the `.zip` package.
+/// Reads `/v3/assets/latest/{major}/hotspot`, keeping the archive package.
+///
+/// Whatever container Adoptium serves for the os/arch the query pinned — a
+/// `.zip` for Windows, a `.tar.gz` for Linux and macOS.
 ///
 /// The endpoint answers with a list because it can span architectures; the
 /// query already pins one, so in practice it holds a single entry.

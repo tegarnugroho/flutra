@@ -27,9 +27,12 @@ class JdkCatalogService {
 
   static const _timeout = Duration(seconds: 20);
 
-  // TODO: x64 only, like the rest of the app. An arm64 Windows host would want
-  // aarch64 here, and nothing detects the host architecture yet.
-  static const _arch = 'x64';
+  /// The host CPU, as both APIs name it — `x64` or `aarch64`.
+  ///
+  /// Taken from [PlatformService] rather than pinned: an aarch64 host asking
+  /// for the x64 build gets a JDK it cannot run, and the failure surfaces far
+  /// from here.
+  String get _arch => _platform.architecture;
 
   /// Cached per source, because the picker can switch between them and a
   /// second look at a list already fetched should not cost a request.
