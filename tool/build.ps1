@@ -174,6 +174,20 @@ try {
         Write-TextFile $path $text
     }
 
+    # On a cold checkout (CI), the first flutter invocation bootstraps itself and
+    # prints "Building flutter tool..." / "Running pub upgrade..." to stdout,
+    # ahead of the JSON. Keep only the JSON object so ConvertFrom-Json survives.
+    function Get-FlutterMachineInfo {
+        $raw = (& flutter --version --machine 2>&1 | Out-String)
+        if ($LASTEXITCODE -ne 0) { throw "flutter --version --machine failed.`n$raw" }
+        $start = $raw.IndexOf('{')
+        $end = $raw.LastIndexOf('}')
+        if ($start -lt 0 -or $end -le $start) {
+            throw "flutter --version --machine returned no JSON.`n$raw"
+        }
+        return $raw.Substring($start, $end - $start + 1) | ConvertFrom-Json
+    }
+
     Assert-Tool 'flutter' 'Install the Flutter SDK and add its bin folder.'
     Assert-Tool 'git' 'Install Git, or build without APP_COMMIT.'
 
@@ -211,7 +225,7 @@ try {
 
     # ---- toolchain, from Flutter's own machine-readable output ------------
     Write-Host 'Reading toolchain versions...' -ForegroundColor DarkGray
-    $machine = flutter --version --machine | ConvertFrom-Json
+    $machine = Get-FlutterMachineInfo
     $flutterVersion = $machine.frameworkVersion
     $dartVersion = $machine.dartSdkVersion
     $channel = $machine.channel
