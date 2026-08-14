@@ -1,4 +1,5 @@
 import 'package:flutra/application/dashboard/dashboard_cubit.dart';
+import 'package:flutra/application/toolchain_events.dart';
 import 'package:flutra/domain/entities/environment_snapshot.dart';
 import 'package:flutra/domain/entities/tool_status.dart';
 import 'package:flutra/domain/repositories/device_repository.dart';
@@ -44,6 +45,7 @@ DashboardCubit _cubit(EnvironmentSnapshot snapshot) => DashboardCubit(
   _Unused(),
   _Unused(),
   _Unused(),
+  ToolchainEvents(),
 );
 
 class _Unused

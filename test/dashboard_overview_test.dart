@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutra/application/dashboard/dashboard_cubit.dart';
+import 'package:flutra/application/toolchain_events.dart';
 import 'package:flutra/domain/entities/avd.dart';
 import 'package:flutra/domain/entities/device.dart';
 import 'package:flutra/domain/entities/environment_snapshot.dart';
@@ -21,6 +22,32 @@ class _Env implements EnvironmentRepository {
 
   @override
   Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) => gate.future;
+
+  @override
+  noSuchMethod(Invocation i) => throw UnimplementedError();
+}
+
+/// A repository that answers immediately and counts how often it was asked.
+class _CountingEnv implements EnvironmentRepository {
+  int detections = 0;
+
+  @override
+  Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) async {
+    detections++;
+    return const EnvironmentSnapshot(
+      sdk: ToolStatus(kind: ToolKind.sdk, state: ToolState.installed),
+      java: ToolStatus(kind: ToolKind.java, state: ToolState.installed),
+      flutter: ToolStatus(kind: ToolKind.flutter, state: ToolState.installed),
+      emulator: ToolStatus(kind: ToolKind.emulator, state: ToolState.installed),
+      adb: ToolStatus(kind: ToolKind.adb, state: ToolState.installed),
+      sdkPath: null,
+      javaPath: null,
+      flutterPath: null,
+      platformToolsVersion: null,
+      buildToolsVersion: null,
+      emulatorVersion: null,
+    );
+  }
 
   @override
   noSuchMethod(Invocation i) => throw UnimplementedError();
@@ -116,7 +143,8 @@ void main() {
     storage = _Storage(
       StorageReport(slices: const [], findings: const [], scannedAt: DateTime(2026)),
     );
-    cubit = DashboardCubit(env, _Emulators(), _Devices(), _Sdk(), storage);
+    cubit = DashboardCubit(
+      env, _Emulators(), _Devices(), _Sdk(), storage, ToolchainEvents());
   });
 
   tearDown(() => cubit.close());
@@ -152,10 +180,52 @@ void main() {
     expect(cubit.state.storage, isNotNull);
   });
 
+  test('a toolchain change re-detects without the page being rebuilt', () async {
+    // Installing a JDK on the Java page has to change this screen. Navigating
+    // back rebuilds the cubit and would re-detect anyway; this covers the case
+    // it does not — the Dashboard being the page on screen when it happens.
+    final events = ToolchainEvents();
+    addTearDown(events.dispose);
+    final counting = _CountingEnv();
+    final live = DashboardCubit(
+      counting, _Emulators(), _Devices(), _Sdk(), _Storage(null), events,
+    );
+    addTearDown(live.close);
+
+    await live.refresh();
+    expect(counting.detections, 1);
+
+    events.emitChanged();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      counting.detections,
+      2,
+      reason: 'the Java row would otherwise stay wrong until a restart',
+    );
+  });
+
+  test('a closed dashboard stops listening for toolchain changes', () async {
+    // The cubit outlives nothing, but the bus is a singleton: a subscription
+    // left behind would emit into a closed cubit and throw.
+    final events = ToolchainEvents();
+    addTearDown(events.dispose);
+    final counting = _CountingEnv();
+    final gone = DashboardCubit(
+      counting, _Emulators(), _Devices(), _Sdk(), _Storage(null), events,
+    );
+
+    await gone.close();
+    events.emitChanged();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(counting.detections, 0);
+  });
+
   test('a failing tool contributes zero instead of sinking the overview',
       () async {
     final broken = DashboardCubit(env, _Emulators(), _Devices(), _Sdk(),
-        _Storage(null));
+        _Storage(null), ToolchainEvents());
     addTearDown(broken.close);
 
     await broken.loadOverview();
@@ -175,6 +245,7 @@ void main() {
       _Devices(),
       slowSdk,
       unscanned,
+      ToolchainEvents(),
     );
     addTearDown(cubit.close);
 

@@ -28,6 +28,7 @@ import 'package:flutra/application/settings/detected_paths_cubit.dart' as _i594;
 import 'package:flutra/application/settings/settings_cubit.dart' as _i520;
 import 'package:flutra/application/settings/theme_cubit.dart' as _i386;
 import 'package:flutra/application/shell/shell_navigator.dart' as _i338;
+import 'package:flutra/application/toolchain_events.dart' as _i774;
 import 'package:flutra/application/windows/windows_cubit.dart' as _i745;
 import 'package:flutra/core/command/command_runner.dart' as _i989;
 import 'package:flutra/core/command/sdk_operation_lock.dart' as _i29;
@@ -46,6 +47,8 @@ import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
     as _i846;
 import 'package:flutra/infrastructure/flutter/flutter_update_service.dart'
     as _i483;
+import 'package:flutra/infrastructure/java/java_toolchain_service.dart'
+    as _i901;
 import 'package:flutra/infrastructure/java/jdk_catalog_service.dart' as _i712;
 import 'package:flutra/infrastructure/java/jdk_detection_service.dart' as _i324;
 import 'package:flutra/infrastructure/java/jdk_install_service.dart' as _i129;
@@ -98,6 +101,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i386.ThemeCubit>(() => _i386.ThemeCubit());
     gh.singleton<_i338.ShellNavigator>(
       () => _i338.ShellNavigator(),
+      dispose: (i) => i.dispose(),
+    );
+    gh.singleton<_i774.ToolchainEvents>(
+      () => _i774.ToolchainEvents(),
       dispose: (i) => i.dispose(),
     );
     gh.lazySingleton<_i29.SdkOperationLock>(() => _i29.SdkOperationLock());
@@ -244,6 +251,14 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i964.SystemActions>(),
       ),
     );
+    gh.lazySingleton<_i901.JavaToolchainService>(
+      () => _i901.JavaToolchainService(
+        gh<_i324.JdkDetectionService>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i562.SettingsService>(),
+        gh<_i774.ToolchainEvents>(),
+      ),
+    );
     gh.lazySingleton<_i483.FlutterUpdateService>(
       () => _i483.FlutterUpdateService(
         gh<_i846.FlutterReleasesService>(),
@@ -299,38 +314,10 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i29.SdkOperationLock>(),
       ),
     );
-    gh.lazySingleton<_i359.EnvironmentRepository>(
-      () => _i241.EnvironmentRepositoryImpl(
-        gh<_i989.CommandRunner>(),
-        gh<_i706.SdkLocator>(),
-        gh<_i483.FlutterUpdateService>(),
-        gh<_i427.PlatformService>(),
-      ),
-    );
     gh.factory<_i4.DeviceManagerCubit>(
       () => _i4.DeviceManagerCubit(
         gh<_i804.DeviceRepository>(),
         gh<_i151.FlutterRepository>(),
-      ),
-    );
-    gh.factory<_i276.JavaCubit>(
-      () => _i276.JavaCubit(
-        gh<_i324.JdkDetectionService>(),
-        gh<_i712.JdkCatalogService>(),
-        gh<_i129.JdkInstallService>(),
-        gh<_i151.FlutterRepository>(),
-        gh<_i964.SystemActions>(),
-        gh<_i420.ExternalLinkService>(),
-        gh<_i520.SettingsCubit>(),
-      ),
-    );
-    gh.factory<_i352.DashboardCubit>(
-      () => _i352.DashboardCubit(
-        gh<_i359.EnvironmentRepository>(),
-        gh<_i932.EmulatorRepository>(),
-        gh<_i804.DeviceRepository>(),
-        gh<_i541.SdkRepository>(),
-        gh<_i880.StorageAnalysisService>(),
       ),
     );
     gh.lazySingleton<_i327.DoctorFixService>(
@@ -346,8 +333,39 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i964.SystemActions>(),
       ),
     );
+    gh.lazySingleton<_i359.EnvironmentRepository>(
+      () => _i241.EnvironmentRepositoryImpl(
+        gh<_i989.CommandRunner>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i483.FlutterUpdateService>(),
+        gh<_i427.PlatformService>(),
+        gh<_i901.JavaToolchainService>(),
+      ),
+    );
     gh.factory<_i745.WindowsCubit>(
       () => _i745.WindowsCubit(gh<_i608.WindowsToolchainService>()),
+    );
+    gh.factory<_i276.JavaCubit>(
+      () => _i276.JavaCubit(
+        gh<_i324.JdkDetectionService>(),
+        gh<_i901.JavaToolchainService>(),
+        gh<_i712.JdkCatalogService>(),
+        gh<_i129.JdkInstallService>(),
+        gh<_i151.FlutterRepository>(),
+        gh<_i964.SystemActions>(),
+        gh<_i420.ExternalLinkService>(),
+        gh<_i520.SettingsCubit>(),
+      ),
+    );
+    gh.factory<_i352.DashboardCubit>(
+      () => _i352.DashboardCubit(
+        gh<_i359.EnvironmentRepository>(),
+        gh<_i932.EmulatorRepository>(),
+        gh<_i804.DeviceRepository>(),
+        gh<_i541.SdkRepository>(),
+        gh<_i880.StorageAnalysisService>(),
+        gh<_i774.ToolchainEvents>(),
+      ),
     );
     gh.factory<_i698.DoctorFixCubit>(
       () => _i698.DoctorFixCubit(gh<_i327.DoctorFixService>()),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
@@ -12,6 +14,7 @@ import '../../domain/repositories/emulator_repository.dart';
 import '../../domain/repositories/environment_repository.dart';
 import '../../domain/repositories/sdk_repository.dart';
 import '../../infrastructure/storage/storage_analysis_service.dart';
+import '../toolchain_events.dart';
 
 part 'dashboard_state.dart';
 
@@ -24,13 +27,29 @@ class DashboardCubit extends Cubit<DashboardState> {
     this._devices,
     this._sdk,
     this._storage,
-  ) : super(const DashboardState());
+    this._toolchain,
+  ) : super(const DashboardState()) {
+    // A JDK installed or activated on the Java page changes this screen's
+    // toolchain rows. The cubit is rebuilt on every visit, so navigating back
+    // already re-detects — this covers the case the visit does not: the change
+    // happening while the Dashboard is the page on screen.
+    _changes = _toolchain.onChanged.listen((_) => refresh());
+  }
 
   final EnvironmentRepository _repository;
   final EmulatorRepository _emulators;
   final DeviceRepository _devices;
   final SdkRepository _sdk;
   final StorageAnalysisService _storage;
+  final ToolchainEvents _toolchain;
+
+  late final StreamSubscription<void> _changes;
+
+  @override
+  Future<void> close() {
+    _changes.cancel();
+    return super.close();
+  }
 
   /// The screen's startup load, in the order the user sees things.
   ///

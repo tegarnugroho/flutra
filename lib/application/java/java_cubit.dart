@@ -9,6 +9,7 @@ import '../../domain/entities/jdk_compatibility.dart';
 import '../../domain/entities/jdk_release.dart';
 import '../../domain/repositories/flutter_repository.dart';
 import '../../infrastructure/java/jdk_catalog_service.dart';
+import '../../infrastructure/java/java_toolchain_service.dart';
 import '../../infrastructure/java/jdk_detection_service.dart';
 import '../../infrastructure/java/jdk_install_service.dart';
 import '../../infrastructure/system/external_link_service.dart';
@@ -22,6 +23,7 @@ part 'java_state.dart';
 class JavaCubit extends Cubit<JavaState> {
   JavaCubit(
     this._detection,
+    this._toolchain,
     this._catalog,
     this._installs,
     this._flutter,
@@ -31,6 +33,10 @@ class JavaCubit extends Cubit<JavaState> {
   ) : super(const JavaState());
 
   final JdkDetectionService _detection;
+
+  /// The shared resolution path, so this page and the Dashboard cannot disagree
+  /// about which JDK is active or about what is installed.
+  final JavaToolchainService _toolchain;
   final JdkCatalogService _catalog;
   final JdkInstallService _installs;
   final FlutterRepository _flutter;
@@ -46,13 +52,12 @@ class JavaCubit extends Cubit<JavaState> {
     if (isClosed) return;
     emit(state.copyWith(status: JavaStatus.loading, clearError: true));
     try {
-      if (force) _detection.refresh();
-      final jdks = await _detection.detect(
-        manualPaths: _settings.state.manualJdkPaths,
-        force: force,
-      );
+      // Invalidate, not just refresh: the Dashboard caches the same answers and
+      // has to be told they are stale too.
+      if (force) _toolchain.invalidate();
+      final jdks = await _toolchain.jdks(force: force);
       if (isClosed) return;
-      final pathJdk = await _detection.pathJdkHome();
+      final pathJdk = await _toolchain.pathJdkHome();
       if (isClosed) return;
 
       // The list lands first. What follows shells out to Flutter, which takes
@@ -60,7 +65,7 @@ class JavaCubit extends Cubit<JavaState> {
       emit(state.copyWith(
         status: JavaStatus.ready,
         jdks: jdks,
-        javaHome: _detection.javaHome,
+        javaHome: _toolchain.javaHome,
         pathJdk: pathJdk,
       ));
       await _readFlutter();
@@ -77,7 +82,7 @@ class JavaCubit extends Cubit<JavaState> {
   /// Failures here are silent by design: no Flutter on PATH is a fine state for
   /// this screen, which is about JDKs.
   Future<void> _readFlutter() async {
-    final configured = await _flutter.configuredJdkDir();
+    final configured = await _toolchain.flutterJdkDir();
     if (isClosed) return;
     emit(state.copyWith(
       flutterJdkDir: configured,
@@ -96,7 +101,9 @@ class JavaCubit extends Cubit<JavaState> {
   Future<void> useForFlutter(Jdk jdk) async {
     await _run(jdk.path, JdkTask.settingFlutter, () async {
       await _flutter.setJdkDir(jdk.path);
-      final configured = await _flutter.configuredJdkDir();
+      // Re-reads the setting that just changed and tells the Dashboard's Java
+      // row about it. No rescan: the set of JDKs is the same one.
+      final configured = await _toolchain.refreshActiveJdk();
       if (isClosed) return;
       emit(state.copyWith(
         flutterJdkDir: configured,
@@ -123,7 +130,10 @@ class JavaCubit extends Cubit<JavaState> {
       }
       note = result.note;
       // The process this app runs in keeps the old value, so the panel would
-      // otherwise keep reporting the previous JAVA_HOME until a restart.
+      // otherwise keep reporting the previous JAVA_HOME until a restart. Told to
+      // the shared service rather than only to this state, or the Dashboard
+      // would be the screen still reporting the old one.
+      _toolchain.javaHomeOverride = jdk.path;
       if (!isClosed) emit(state.copyWith(javaHome: jdk.path));
     });
     return note;
@@ -242,6 +252,9 @@ class JavaCubit extends Cubit<JavaState> {
     if (!paths.any((p) => samePath(p, jdk.path))) {
       paths.add(jdk.path);
       await _settings.setManualJdkPaths(paths);
+      // The set of known JDKs grew — the same case as an install, so the
+      // Dashboard has to hear about it.
+      _toolchain.invalidate();
     }
     await load();
     return null;

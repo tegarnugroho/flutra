@@ -1,16 +1,41 @@
 import 'dart:io';
 
 import 'package:injectable/injectable.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/environment_snapshot.dart';
+import '../../domain/entities/jdk.dart';
 import '../../domain/entities/tool_status.dart';
 import '../../domain/repositories/environment_repository.dart';
 import '../flutter/flutter_update_service.dart';
+import '../java/java_toolchain_service.dart';
 import '../sdk/sdk_locator.dart';
+
+/// The Dashboard's Java row for the JDK a build will actually use.
+///
+/// Pure, so the mapping the row depends on — green with a version for a usable
+/// JDK, and where the row says it came from — is testable without a machine that
+/// has one installed.
+///
+/// A JRE reads as an error rather than as installed: it will not compile
+/// anything, and reporting the toolchain as ready when a Gradle build is going
+/// to fail is the more expensive kind of wrong.
+ToolStatus javaStatusOf(ActiveJdk active) {
+  final jdk = active.jdk;
+  return ToolStatus(
+    kind: ToolKind.java,
+    state: jdk.isSelectable ? ToolState.installed : ToolState.error,
+    version: jdk.version,
+    path: jdk.path,
+    detail: jdk.isSelectable
+        ? '${jdk.source.label} • via ${active.source.label}'
+        : 'No compiler here — this is a JRE, not a JDK.',
+  );
+}
 
 /// Concrete [EnvironmentRepository] that probes the real toolchain.
 ///
@@ -23,14 +48,18 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
     this._locator,
     this._flutterUpdates,
     this._platform,
+    this._java,
   );
 
   final CommandRunner _runner;
   final SdkLocator _locator;
   final PlatformService _platform;
   final FlutterUpdateService _flutterUpdates;
+  final JavaToolchainService _java;
 
   static const _probeTimeout = Duration(seconds: 30);
+
+  static final Logger _log = Logger('EnvironmentRepository');
 
   @override
   Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) async {
@@ -50,6 +79,10 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
       _detectSdk(), // pure filesystem, spawns nothing
       _detectAdb(),
     ]);
+    // Java sits in the second wave because it is the heavier of the two now: it
+    // resolves the active JDK, which reads `flutter config --list` once per app
+    // run and caches it. Paired with the emulator probe rather than added to the
+    // first wave so no wave grows past three spawns in flight.
     final second = await Future.wait([
       _detectJava(),
       _detectEmulator(),
@@ -105,7 +138,32 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
 
   // ---- Java ----------------------------------------------------------------
 
+  /// The JDK row, from the same registry the Java page lists.
+  ///
+  /// [JavaToolchainService] is asked first because it knows about the JDKs this
+  /// app installed into its own folder — which is where a Flutra-managed JDK
+  /// lives, and it is on neither `JAVA_HOME` nor PATH. Probing the environment
+  /// was all this did before, so a managed JDK that the Java page showed as
+  /// active still read "not detected" here.
+  ///
+  /// The environment probe below is kept as the fallback: the scan can come back
+  /// with nothing on a machine where `java` still answers (a JDK reached through
+  /// a wrapper script, a container image with no recognisable layout), and this
+  /// row must not become *less* able to find one than it was.
   Future<ToolStatus> _detectJava() async {
+    try {
+      final active = await _java.active();
+      if (active != null) return javaStatusOf(active);
+    } catch (e) {
+      // A scan that fell over is not the end of the row: the probe below is
+      // still worth trying, and it is what used to answer this on its own.
+      _log.fine('JDK registry lookup failed, falling back to a probe: $e');
+    }
+    return _probeJava();
+  }
+
+  /// `java -version` against `JAVA_HOME`, or whatever PATH resolves.
+  Future<ToolStatus> _probeJava() async {
     final javaHome = Platform.environment['JAVA_HOME'];
     final executable = javaHome != null
         ? p.join(javaHome, 'bin', _platform.executableName('java'))
