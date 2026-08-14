@@ -17,6 +17,27 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Ends the application when the primary window goes away.
+//
+// Every window this app opens — the log viewer, the Create Emulator wizard,
+// About — is a GtkApplicationWindow of this same GtkApplication, because that
+// is how desktop_multi_window creates them. GtkApplication runs until its *last*
+// window is destroyed, so without this the app would outlive its own main
+// window whenever a sub-window happened to still be open: no UI worth the name,
+// and a process the user has no way to reach.
+//
+// Deliberately connected to this window only. Tying the quit to "any window
+// destroyed" is the mirror-image bug — closing the log viewer would take the
+// app with it.
+//
+// The Dart side closes the sub-windows before it destroys this one (see
+// closeChildWindows), so by the time this runs there is normally nothing left
+// to tear down; this is what makes that guarantee hold even when it does not.
+static void on_primary_window_destroy(GtkWidget* window, gpointer user_data) {
+  GApplication* application = G_APPLICATION(user_data);
+  g_application_quit(application);
+}
+
 // Points the window at the icon the install rules drop next to the bundle's
 // data directory, so shells that read the window's own icon (task lists, alt-
 // tab, the Wayland fallback) show the app icon instead of a generic square.
@@ -85,6 +106,11 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  // Connected after the plugins, so this runs after their own destroy handlers
+  // have taken their windows off the books.
+  g_signal_connect(window, "destroy", G_CALLBACK(on_primary_window_destroy),
+                   application);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

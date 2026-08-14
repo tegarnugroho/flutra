@@ -15,6 +15,7 @@ import '../infrastructure/settings/settings_service.dart';
 import 'common/window_resize_frame.dart';
 import 'shell/app_shell.dart';
 import 'theme/app_theme.dart';
+import 'window/window_close_channel.dart';
 
 /// Root widget of the main window: wires the Fluent theme to the [ThemeCubit],
 /// hosts the shell, and reloads emulator lists whenever the window regains focus
@@ -111,32 +112,49 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     } catch (_) {}
   }
 
-  // TEMP CLOSE INSTRUMENTATION - remove before finishing.
-  void _closeTrace(String tag) {
-    try {
-      final dir = Platform.environment['TEMP'] ?? Platform.environment['TMP'];
-      if (dir == null) return;
-      File(p.join(dir, 'flutra_close_trace.log')).writeAsStringSync(
-        '${DateTime.now().toUtc().millisecondsSinceEpoch} dart $tag\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
-  }
+  /// True once this window has committed to quitting.
+  ///
+  /// `destroy()` closes the window, which the platform reports as another close
+  /// — window_manager raises `onWindowClose` for it whether or not close is
+  /// being prevented. Without this guard the handler runs a second time, saving
+  /// bounds and calling `destroy()` again on a window that is already going
+  /// away. On Linux that second pass is what turned a clean exit into a crash.
+  bool _quitting = false;
 
   @override
   void onWindowClose() async {
-    _closeTrace('onWindowClose_begin');
+    if (_quitting) return;
     await _saveWindowBounds();
-    _closeTrace('bounds_saved');
     // Honour the "close to tray" preference; otherwise really quit.
     final toTray = getIt<SettingsService>().settings.closeToTray;
     if (toTray) {
       await windowManager.hide();
-    } else {
-      await windowManager.setPreventClose(false);
-      _closeTrace('preventClose_cleared');
-      await windowManager.destroy();
-      _closeTrace('destroy_returned');
+      return;
+    }
+    _quitting = true;
+    await _quit();
+  }
+
+  /// Ends the app: sub-windows first, then this one.
+  ///
+  /// The order is the point. Every window in this app is a window of one
+  /// process, so destroying the main one while a sub-window's engine is still
+  /// running leaves that engine to be torn down by the shutdown itself — which
+  /// on Linux crashed the process instead of ending it. Asking the sub-windows
+  /// to close first means that by the time this window goes, there is nothing
+  /// left to unwind. See [closeChildWindows].
+  Future<void> _quit() async {
+    await closeChildWindows();
+    await windowManager.setPreventClose(false);
+    await _destroyTray();
+    await windowManager.destroy();
+  }
+
+  Future<void> _destroyTray() async {
+    try {
+      await trayManager.destroy();
+    } catch (_) {
+      // No tray on this desktop; nothing to take down.
     }
   }
 
@@ -152,9 +170,11 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       case 'show':
         await _restoreWindow();
       case 'exit':
-        await windowManager.setPreventClose(false);
-        await trayManager.destroy();
-        await windowManager.destroy();
+        // The same quit the close button takes when "close to tray" is off —
+        // one path, so the tray cannot skip the sub-window teardown.
+        if (_quitting) return;
+        _quitting = true;
+        await _quit();
     }
   }
 

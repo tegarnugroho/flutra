@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../settings/dev_logs_page.dart';
 import '../theme/app_theme.dart';
+import 'window_close_channel.dart';
 
 /// Root widget for the standalone Developer Logs OS window.
 class DevLogsWindowApp extends StatelessWidget {
@@ -19,6 +20,9 @@ class DevLogsWindowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The main window asks this one to close when the app is quitting; closing
+    // it is this window's own job, never the opener's.
+    answerCloseRequests(windowController, _handleClose);
     return FluentApp(
       title: 'Developer Logs',
       debugShowCheckedModeBanner: false,

@@ -34,6 +34,7 @@ import '../windows/windows_page.dart';
 import '../window/task_windows.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../window/window_close_channel.dart';
 import 'command_palette.dart';
 import 'custom_title_bar.dart';
 
@@ -270,8 +271,16 @@ class _AppShellState extends State<AppShell> {
   /// Quits for real, unlike the close button — that one honours the
   /// "close to tray" preference handled in `AndroidSdkManagerApp`.
   Future<void> _exit() async {
+    // Sub-windows first: they are windows of this same process, and destroying
+    // this one while their engines are still running crashed the app on Linux
+    // rather than ending it. See [closeChildWindows].
+    await closeChildWindows();
     await windowManager.setPreventClose(false);
-    await trayManager.destroy();
+    try {
+      await trayManager.destroy();
+    } catch (_) {
+      // No tray on this desktop; nothing to take down.
+    }
     await windowManager.destroy();
   }
 

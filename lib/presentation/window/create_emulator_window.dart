@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../emulator/create_emulator_page.dart';
 import '../theme/app_theme.dart';
+import 'window_close_channel.dart';
 
 /// Root widget for the standalone Create-Emulator OS window.
 ///
@@ -22,6 +23,9 @@ class CreateEmulatorWindowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The main window asks this one to close when the app is quitting;
+    // closing it is this window's own job, never the opener's.
+    answerCloseRequests(windowController, () => _handleClose(false));
     return FluentApp(
       title: 'Create Emulator',
       debugShowCheckedModeBanner: false,
