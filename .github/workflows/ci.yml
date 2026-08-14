@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-  pull_request:
+  workflow_dispatch:
 
 # A new push to the same branch makes the previous run pointless.
 concurrency:
@@ -15,13 +15,21 @@ env:
   # Matches the `environment: sdk: ^3.12.1` constraint in pubspec.yaml.
   FLUTTER_CHANNEL: stable
 
+# A plain push to main runs `analyze` and stops there. Everything below it is
+# gated on the same condition — a version tag, or a manual run for testing —
+# because building three platforms for a commit whose artifacts are never
+# released is ~11 minutes of runner quota spent on nothing.
+#
+# The condition is repeated per job rather than shared: GitHub Actions does not
+# expand YAML anchors, so a single definition is not available here.
 jobs:
-  # The cheap job, and the one that catches most things. Runs on every push.
+  # The cheap job, and the one that catches most things. Runs on every push,
+  # every tag and every manual run — it is the whole point of pushing to main.
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -36,12 +44,113 @@ jobs:
       # worth the minutes.
       - run: flutter analyze
 
+  # Makes the repo's version agree with the tag, before anything is built with
+  # it. Tagging v1.0.7 while pubspec.yaml still says 1.0.6 used to produce a
+  # release whose installer wrote the previous version into Add/Remove Programs.
+  #
+  # It runs on manual dispatch too, and does nothing there. That is deliberate:
+  # a job whose dependency was *skipped* is skipped as well, however its own
+  # `if` reads, so a version job that only ran on tags would take the three
+  # build jobs down with it on every manual run.
+  version:
+    name: Version
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: analyze
+    permissions:
+      # Pushing the bump back to main is a write; the default token is not.
+      contents: write
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      build: ${{ steps.resolve.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Work out the version this run is building
+        id: resolve
+        run: |
+          set -euo pipefail
+          current="$(sed -n 's/^version:[[:space:]]*\([0-9.]*\)+\([0-9]*\).*/\1 \2/p' pubspec.yaml)"
+          current_version="${current% *}"
+          current_build="${current#* }"
+
+          if [ "${GITHUB_REF_TYPE:-}" != "tag" ]; then
+            # A manual run builds whatever is committed. Nothing to bump, and
+            # nothing to push — this run is for testing the build, not shipping.
+            echo "version=$current_version" >> "$GITHUB_OUTPUT"
+            echo "build=$current_build" >> "$GITHUB_OUTPUT"
+            echo "Manual run: keeping $current_version+$current_build."
+            exit 0
+          fi
+
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$tag_version" = "$current_version" ]; then
+            # Already bumped by hand before tagging, which is the normal flow.
+            # Re-running the same tag must not keep incrementing the build.
+            echo "version=$current_version" >> "$GITHUB_OUTPUT"
+            echo "build=$current_build" >> "$GITHUB_OUTPUT"
+            echo "pubspec.yaml already says $current_version+$current_build."
+            exit 0
+          fi
+
+          # The build number tracks the version: the About window shows both,
+          # and a build number that lags its version says nothing useful.
+          next_build=$((current_build + 1))
+          echo "version=$tag_version" >> "$GITHUB_OUTPUT"
+          echo "build=$next_build" >> "$GITHUB_OUTPUT"
+          echo "Bumping $current_version+$current_build to $tag_version+$next_build."
+
+      - name: Commit the version to main
+        if: >-
+          github.ref_type == 'tag' &&
+          steps.resolve.outputs.version != ''
+        run: |
+          set -euo pipefail
+          bash ./tool/set_version.sh \
+            "${{ steps.resolve.outputs.version }}" \
+            "${{ steps.resolve.outputs.build }}"
+
+          if git diff --quiet; then
+            echo "Nothing changed; pubspec.yaml already matched the tag."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: set version to ${{ steps.resolve.outputs.version }}+${{ steps.resolve.outputs.build }} for $GITHUB_REF_NAME"
+
+          # HEAD is the tagged commit plus this one. It fast-forwards when the
+          # tag was cut from main's tip, which is how tags are cut here.
+          #
+          # A warning rather than a failure when it does not: the artifacts of
+          # this run are already correct, and blocking a release over a
+          # bookkeeping push would be the more expensive mistake. The bump then
+          # has to be applied to main by hand.
+          if ! git push origin "HEAD:main"; then
+            echo "::warning::Could not fast-forward main with the version bump — apply it by hand. The release itself is unaffected."
+          fi
+
   windows:
     name: Windows build
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
-    needs: analyze
+    needs: [analyze, version]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      # The tag's own commit, with the tag's version written into it. Checking
+      # out main instead would build whatever landed there since the tag.
+      - name: Set the version from the tag
+        shell: bash
+        run: |
+          bash ./tool/set_version.sh \
+            "${{ needs.version.outputs.version }}" \
+            "${{ needs.version.outputs.build }}"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -67,21 +176,31 @@ jobs:
         shell: pwsh
         run: ./tool/build.ps1 -NoBump -SkipMsix
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows-release
           path: build/windows/x64/runner/Release/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows-installer
           path: build/installer/*.exe
 
   linux:
     name: Linux AppImage
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
-    needs: analyze
+    needs: [analyze, version]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Set the version from the tag
+        run: |
+          bash ./tool/set_version.sh \
+            "${{ needs.version.outputs.version }}" \
+            "${{ needs.version.outputs.build }}"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -145,20 +264,30 @@ jobs:
           ARCH=x86_64 ./squashfs-root/AppRun build/AppDir \
             build/Flutra-x86_64.AppImage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: linux-appimage
           path: build/Flutra-x86_64.AppImage
 
   macos:
     name: macOS dmg
-    # Expensive minutes, and the artifact is unsigned — not worth running on
-    # every pull request.
-    if: github.event_name == 'push'
+    # The most expensive minutes of the three, and the artifact is unsigned.
+    # This used to skip pull requests; pull requests no longer start this
+    # workflow at all, so the gate is now the same one the other builds use.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
-    needs: analyze
+    needs: [analyze, version]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Set the version from the tag
+        run: |
+          bash ./tool/set_version.sh \
+            "${{ needs.version.outputs.version }}" \
+            "${{ needs.version.outputs.build }}"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -180,7 +309,7 @@ jobs:
           hdiutil create -volname "Flutra" -srcfolder "$STAGING" \
             -ov -format UDZO build/Flutra.dmg
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: macos-dmg
           path: build/Flutra.dmg
@@ -196,7 +325,7 @@ jobs:
       # The default token is read-only, and creating a release is a write.
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
 
