@@ -1,9 +1,11 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../application/sdk/sdk_manager_cubit.dart';
 import '../../core/di/injection.dart';
 import '../../domain/entities/sdk_package.dart';
+import '../../infrastructure/sdk/sdk_bootstrap_service.dart';
 import '../common/compact_field.dart';
 import '../common/confirm_dialog.dart';
 import '../common/copy_icon_button.dart';
@@ -101,14 +103,7 @@ class _SdkManagerView extends StatelessWidget {
     SdkManagerCubit cubit,
   ) {
     if (state.status == SdkManagerStatus.failure && state.packages.isEmpty) {
-      return EmptyState(
-        icon: FluentIcons.error_badge,
-        isError: true,
-        title: 'Could not query the SDK',
-        message: state.errorMessage ?? 'Unknown error.',
-        actionLabel: 'Retry',
-        onAction: cubit.load,
-      );
+      return _SdkUnavailable(state: state, cubit: cubit);
     }
 
     final palette = AppPalette.of(context);
@@ -135,6 +130,203 @@ class _SdkManagerView extends StatelessWidget {
           PackageQueueBar(state: state, cubit: cubit),
         if (state.consoleVisible) PackageConsole(state: state, cubit: cubit),
       ],
+    );
+  }
+}
+
+// ---- No usable SDK ----------------------------------------------------------
+
+/// What the page shows when the catalogue could not be read.
+///
+/// Three states, not one error. The old page had a single "could not query the
+/// SDK" with a Retry button, which on a machine with no SDK was a dead end:
+/// `sdkmanager` lives inside `cmdline-tools`, and `cmdline-tools` is installed
+/// by `sdkmanager`. Retry could never break that loop, so the page now offers
+/// the action that fits the case it is actually in.
+class _SdkUnavailable extends StatelessWidget {
+  const _SdkUnavailable({required this.state, required this.cubit});
+
+  final SdkManagerState state;
+  final SdkManagerCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.bootstrap != null) {
+      return _BootstrapProgress(state: state, cubit: cubit);
+    }
+
+    return switch (state.availability) {
+      SdkAvailability.noSdk => EmptyState(
+        icon: FluentIcons.cloud_download,
+        title: 'No Android SDK yet',
+        message:
+            'Flutra can download the Android command-line tools and set up an '
+            'SDK it manages itself — no admin rights, and removing it is '
+            'deleting a folder. If you already have one, point Flutra at it '
+            'instead.',
+        actionLabel: 'Install Android SDK here',
+        actionIcon: FluentIcons.download,
+        onAction: cubit.bootstrapSdk,
+        secondaryActionLabel: 'Locate existing SDK…',
+        onSecondaryAction: () => _locate(context),
+      ),
+      SdkAvailability.sdkFoundNoCmdlineTools => EmptyState(
+        icon: FluentIcons.packages,
+        title: 'This SDK has no command-line tools',
+        message:
+            'An Android SDK is here, but the tools Flutra drives it with are '
+            'missing. They can be added to it without touching anything else '
+            'that is already installed.',
+        actionLabel: 'Install cmdline-tools into this SDK',
+        actionIcon: FluentIcons.download,
+        onAction: cubit.bootstrapSdk,
+        secondaryActionLabel: 'Locate a different SDK…',
+        onSecondaryAction: () => _locate(context),
+      ),
+      // sdkmanager is there and ran. Retry is the honest offer, and its own
+      // output is the only thing that explains why.
+      SdkAvailability.queryFailed || SdkAvailability.ok => EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Could not query the SDK',
+        message: state.errorMessage ?? 'Unknown error.',
+        actionLabel: 'Retry',
+        onAction: cubit.load,
+        secondaryActionLabel: 'Locate a different SDK…',
+        onSecondaryAction: () => _locate(context),
+        footer: state.errorDetail == null || state.errorDetail!.trim().isEmpty
+            ? null
+            : _ErrorDetail(detail: state.errorDetail!.trim()),
+      ),
+    };
+  }
+
+  Future<void> _locate(BuildContext context) async {
+    final picked = await getDirectoryPath(confirmButtonText: 'Select SDK');
+    if (picked == null || !context.mounted) return;
+    final rejection = await cubit.useExistingSdk(picked);
+    if (rejection == null || !context.mounted) return;
+    await displayInfoBar(
+      context,
+      builder: (context, close) => InfoBar(
+        title: const Text('Not an Android SDK'),
+        content: Text(rejection),
+        severity: InfoBarSeverity.warning,
+        onClose: close,
+      ),
+    );
+  }
+}
+
+/// sdkmanager's own output, folded away.
+///
+/// Behind a disclosure rather than in the message: the message says what to do,
+/// and a stack of tool output above it would bury that.
+class _ErrorDetail extends StatelessWidget {
+  const _ErrorDetail({required this.detail});
+
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: Expander(
+        header: const Text('Details from sdkmanager'),
+        content: SelectableText(
+          detail,
+          style: AppTextStyles.of(context).monoBody.copyWith(
+            color: palette.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The bootstrap, while it runs.
+///
+/// The same shape as the JDK install progress: one line saying which step, a
+/// bar for the step that can report one, and a stop that is a real stop.
+class _BootstrapProgress extends StatelessWidget {
+  const _BootstrapProgress({required this.state, required this.cubit});
+
+  final SdkManagerState state;
+  final SdkManagerCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final event = state.bootstrap!;
+    final text = AppTextStyles.of(context);
+
+    if (event.stage == SdkBootstrapStage.failed) {
+      // A failure that still carries an SDK root got past the download: the
+      // tools are on disk and the path is saved, so re-reading the catalogue is
+      // the way on. Offering "try again" there would re-download 130 MB to
+      // arrive back where it already is.
+      final toolsLanded = event.sdkRoot != null;
+      return EmptyState(
+        icon: FluentIcons.error_badge,
+        isError: true,
+        title: 'Setup did not finish',
+        message: event.error ?? 'Unknown error.',
+        actionLabel: toolsLanded ? 'Reload packages' : 'Try again',
+        actionIcon: toolsLanded ? FluentIcons.refresh : FluentIcons.download,
+        onAction: toolsLanded ? cubit.load : cubit.bootstrapSdk,
+        secondaryActionLabel: 'Dismiss',
+        secondaryActionIcon: FluentIcons.cancel,
+        onSecondaryAction: cubit.dismissBootstrap,
+      );
+    }
+
+    // The one step that is a decision rather than a wait. The licences are
+    // Google's terms for the packages about to be downloaded, so this stops and
+    // asks instead of answering for the user.
+    if (event.stage == SdkBootstrapStage.awaitingLicences) {
+      return EmptyState(
+        icon: FluentIcons.text_document,
+        title: 'Accept the Android SDK licences',
+        message:
+            'The command-line tools are installed in ${event.sdkRoot}. Before '
+            'Flutra downloads platform-tools, Google requires you to accept '
+            'the SDK licences — you can read them in full on the Licences page.',
+        actionLabel: 'Accept and install platform-tools',
+        actionIcon: FluentIcons.accept,
+        onAction: cubit.acceptLicencesAndFinish,
+        secondaryActionLabel: 'Not now',
+        secondaryActionIcon: FluentIcons.cancel,
+        onSecondaryAction: cubit.dismissBootstrap,
+      );
+    }
+
+    final progress = event.progress;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Setting up the Android SDK', style: text.heroTitle),
+            const SizedBox(height: 6),
+            Text(
+              progress == null
+                  ? event.stage.label
+                  : '${event.stage.label} ${(progress * 100).round()}%',
+              textAlign: TextAlign.center,
+              style: text.caption,
+            ),
+            const SizedBox(height: 16),
+            ProgressBar(value: progress == null ? null : progress * 100),
+            const SizedBox(height: 18),
+            OutlinedActionButton(
+              icon: FluentIcons.cancel,
+              label: 'Cancel',
+              onPressed: cubit.cancelBootstrap,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -238,6 +430,21 @@ class _QuickSetupButtonState extends State<_QuickSetupButton> {
 
   @override
   Widget build(BuildContext context) {
+    // With no usable SDK there is nothing for the presets to install into —
+    // every item in the flyout would fail the same way the page already has.
+    // The one useful thing "quick setup" can mean here is the bootstrap, so it
+    // routes there rather than opening a menu of dead ends.
+    if (widget.state.availability.isBootstrappable) {
+      return OutlinedActionButton(
+        icon: FluentIcons.toolbox,
+        label: 'Quick setup',
+        busy: widget.state.isBootstrapping,
+        onPressed: widget.state.isBootstrapping
+            ? null
+            : widget.cubit.bootstrapSdk,
+      );
+    }
+
     return FlyoutTarget(
       controller: _flyout,
       child: OutlinedActionButton(

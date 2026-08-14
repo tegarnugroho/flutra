@@ -17,6 +17,10 @@ class EmptyState extends StatelessWidget {
     this.actionLabel,
     this.actionIcon = FluentIcons.refresh,
     this.onAction,
+    this.secondaryActionLabel,
+    this.secondaryActionIcon = FluentIcons.folder_open,
+    this.onSecondaryAction,
+    this.footer,
     this.isError = false,
   });
 
@@ -26,6 +30,21 @@ class EmptyState extends StatelessWidget {
   final String? actionLabel;
   final IconData actionIcon;
   final VoidCallback? onAction;
+
+  /// A second way out of this state, beside [actionLabel].
+  ///
+  /// The empty state that needed this is "no Android SDK": installing one and
+  /// pointing at one you already have are equally reasonable answers, and
+  /// picking one of them to hide behind a menu would be picking wrong for half
+  /// the people who land here.
+  final String? secondaryActionLabel;
+  final IconData secondaryActionIcon;
+  final VoidCallback? onSecondaryAction;
+
+  /// Anything that belongs under the actions — progress, an expandable detail
+  /// pane. Kept as a slot so this widget stays a layout and does not grow a
+  /// second job.
+  final Widget? footer;
 
   /// Tints the icon with [AppColors.statusError] instead of a muted grey.
   final bool isError;
@@ -58,11 +77,29 @@ class EmptyState extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 18),
-              OutlinedActionButton(
-                icon: actionIcon,
-                label: actionLabel,
-                onPressed: onAction,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedActionButton(
+                    icon: actionIcon,
+                    label: actionLabel,
+                    onPressed: onAction,
+                  ),
+                  if (secondaryActionLabel != null &&
+                      onSecondaryAction != null)
+                    OutlinedActionButton(
+                      icon: secondaryActionIcon,
+                      label: secondaryActionLabel,
+                      onPressed: onSecondaryAction,
+                    ),
+                ],
               ),
+            ],
+            if (footer != null) ...[
+              const SizedBox(height: 16),
+              footer!,
             ],
           ],
         ),

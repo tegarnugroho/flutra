@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -9,6 +10,10 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/sdk_package.dart';
 import '../../domain/repositories/sdk_repository.dart';
+import '../../infrastructure/sdk/sdk_bootstrap_service.dart';
+import '../../infrastructure/sdk/sdk_locator.dart';
+import '../settings/settings_cubit.dart';
+import '../toolchain_events.dart';
 
 part 'sdk_manager_state.dart';
 
@@ -16,9 +21,28 @@ part 'sdk_manager_state.dart';
 /// install queue and a streamed sdkmanager console.
 @injectable
 class SdkManagerCubit extends Cubit<SdkManagerState> {
-  SdkManagerCubit(this._repository) : super(const SdkManagerState());
+  SdkManagerCubit(
+    this._repository,
+    this._locator,
+    this._bootstrap,
+    this._settings,
+    this._toolchain,
+  ) : super(const SdkManagerState());
 
   final SdkRepository _repository;
+
+  /// Consulted only to tell the failure cases apart — see [classifySdkFailure].
+  /// The catalogue itself still comes from [SdkRepository].
+  final SdkLocator _locator;
+  final SdkBootstrapService _bootstrap;
+  final SettingsCubit _settings;
+  final ToolchainEvents _toolchain;
+
+  /// What a new SDK gets before it is any use.
+  ///
+  /// platform-tools is the floor rather than a preference: it carries `adb`,
+  /// which every device list, every install and the Dashboard's ADB row need.
+  static const List<String> baselinePackages = ['platform-tools'];
 
   static const int _maxConsole = 1000;
   static final RegExp _progressPattern = RegExp(r'(\d{1,3})\s*%');
@@ -34,12 +58,153 @@ class SdkManagerCubit extends Cubit<SdkManagerState> {
     try {
       final packages = await _repository.listPackages();
       if (isClosed) return;
-      emit(state.copyWith(status: SdkManagerStatus.ready, packages: packages));
+      emit(state.copyWith(
+        status: SdkManagerStatus.ready,
+        packages: packages,
+        availability: SdkAvailability.ok,
+      ));
     } on Failure catch (e) {
-      _fail('${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}');
+      _fail(
+        '${e.message}${e.suggestion == null ? '' : '\n${e.suggestion}'}',
+        detail: e is ProcessFailure ? e.output : null,
+      );
     } catch (e) {
       _fail('$e');
     }
+  }
+
+  // ---- First-run bootstrap -------------------------------------------------
+
+  /// Creates an Android SDK where there is none, or completes a half-installed
+  /// one.
+  ///
+  /// Runs to [SdkBootstrapStage.awaitingLicences] and stops there. The licences
+  /// are Google's terms for the packages that come next, so the flow pauses to
+  /// show them rather than answering them quietly on the user's behalf —
+  /// [acceptLicencesAndFinish] is the other half.
+  Future<void> bootstrapSdk() async {
+    if (isClosed || state.isBootstrapping) return;
+    emit(state.copyWith(
+      bootstrap: const SdkBootstrapEvent(
+        stage: SdkBootstrapStage.downloading,
+        progress: 0,
+      ),
+      consoleVisible: true,
+      clearError: true,
+    ));
+    // A half-installed SDK gets the tools added to it. Creating a second SDK
+    // beside the first would leave the machine with two and the user with a
+    // choice they never asked to make.
+    final existing = state.availability == SdkAvailability.sdkFoundNoCmdlineTools
+        ? _locator.sdkRoot
+        : null;
+    _log('\$ bootstrap android-sdk${existing == null ? '' : ' into $existing'}');
+
+    await for (final event
+        in _bootstrap.installCommandLineTools(intoSdkRoot: existing)) {
+      if (isClosed) return;
+      emit(state.copyWith(bootstrap: event));
+      if (event.stage == SdkBootstrapStage.failed) {
+        _log('✗ ${event.error ?? 'bootstrap failed'}');
+        return;
+      }
+      if (event.stage == SdkBootstrapStage.awaitingLicences) {
+        // The tools are on disk and usable from here on, so the path is saved
+        // now rather than after the packages: if the user closes the app at the
+        // licence step, what they already downloaded is not lost.
+        await _adoptSdkRoot(event.sdkRoot!);
+        _log('✓ command-line tools installed in ${event.sdkRoot}');
+        return;
+      }
+    }
+  }
+
+  /// Accepts the SDK licences, installs the baseline packages, and reloads.
+  ///
+  /// Only reachable from the licence step, which is the point: this is the call
+  /// the user's click authorises.
+  Future<void> acceptLicencesAndFinish() async {
+    if (isClosed || !state.awaitingLicences) return;
+    final sdkRoot = state.bootstrap!.sdkRoot;
+
+    emit(state.copyWith(
+      bootstrap: SdkBootstrapEvent(
+        stage: SdkBootstrapStage.installingPackages,
+        sdkRoot: sdkRoot,
+      ),
+      clearError: true,
+    ));
+    await _runStreaming('--licenses', _repository.acceptAllLicenses);
+    for (final package in baselinePackages) {
+      if (isClosed || _cancelled) break;
+      await _runStreaming(package, () => _repository.install(package),
+          activePath: package);
+    }
+    if (isClosed) return;
+
+    // _runStreaming reports a failure by setting errorMessage. Without this the
+    // page would keep rendering the progress view, which has no end state and
+    // no way out — the same dead end this whole flow exists to remove.
+    final failure = state.errorMessage;
+    if (failure != null) {
+      emit(state.copyWith(
+        bootstrap: SdkBootstrapEvent(
+          stage: SdkBootstrapStage.failed,
+          error: failure,
+          // Carried so the failure screen knows the hard part already
+          // succeeded: the tools are on disk and the path is saved, so the way
+          // out is re-reading the catalogue, not downloading 130 MB again.
+          sdkRoot: sdkRoot,
+        ),
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      bootstrap: const SdkBootstrapEvent(stage: SdkBootstrapStage.done),
+    ));
+    // adb exists now, so the Dashboard's Android SDK and ADB rows are both
+    // wrong until they are told.
+    _toolchain.emitChanged();
+    await load();
+    if (!isClosed) emit(state.copyWith(clearBootstrap: true));
+  }
+
+  /// Adopts an SDK the user already has.
+  ///
+  /// Returns null when it was accepted, or why it was rejected. The same test
+  /// the rest of the app uses — a folder called `Sdk` with nothing in it is a
+  /// folder, and accepting it would move the dead end one screen along.
+  Future<String?> useExistingSdk(String directory) async {
+    final path = directory.trim();
+    if (path.isEmpty) return 'No folder was chosen.';
+    if (!Directory(path).existsSync()) {
+      return '"$path" does not exist.';
+    }
+    if (!SdkLocator.looksLikeAndroidSdk(path)) {
+      return '"$path" does not hold the Android tools. Pick the SDK root — the '
+          'folder containing platform-tools, platforms or cmdline-tools.';
+    }
+    await _adoptSdkRoot(path);
+    await load();
+    return null;
+  }
+
+  /// Points settings — and so the whole app — at [root], and says so.
+  Future<void> _adoptSdkRoot(String root) async {
+    await _settings.setAndroidSdkPath(root);
+    _toolchain.emitChanged();
+  }
+
+  /// Stops a bootstrap in flight.
+  void cancelBootstrap() {
+    _bootstrap.cancel();
+    if (!isClosed) emit(state.copyWith(clearBootstrap: true));
+  }
+
+  /// Clears a failed bootstrap's message once it has been read.
+  void dismissBootstrap() {
+    if (!isClosed) emit(state.copyWith(clearBootstrap: true));
   }
 
   // ---- Filters / view ------------------------------------------------------
@@ -207,13 +372,22 @@ class SdkManagerCubit extends Cubit<SdkManagerState> {
     }
   }
 
-  void _fail(String message) {
+  void _fail(String message, {String? detail}) {
     if (isClosed) return;
+    final empty = state.packages.isEmpty;
     emit(state.copyWith(
-        status: state.packages.isEmpty
-            ? SdkManagerStatus.failure
-            : SdkManagerStatus.ready,
-        errorMessage: message));
+      status: empty ? SdkManagerStatus.failure : SdkManagerStatus.ready,
+      errorMessage: message,
+      errorDetail: detail,
+      // Only a failure with nothing to show is a state the page has to offer a
+      // way out of; a failed install on a loaded catalogue is just a message.
+      availability: empty
+          ? classifySdkFailure(
+              hasSdkRoot: _locator.sdkRoot != null,
+              hasSdkManager: _locator.sdkManager != null,
+            )
+          : SdkAvailability.ok,
+    ));
   }
 
   @override

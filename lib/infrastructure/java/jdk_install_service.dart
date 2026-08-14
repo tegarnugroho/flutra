@@ -12,7 +12,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/error/failures.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/jdk_release.dart';
-import 'archive_format.dart';
+import '../archive/archive_extractor.dart';
 import 'jdk_catalog_service.dart';
 
 /// Which part of an install is running, for the progress line.
@@ -60,11 +60,17 @@ class JdkInstallEvent {
 /// and uninstalling is deleting a directory.
 @lazySingleton
 class JdkInstallService {
-  JdkInstallService(this._catalog, this._runner, this._platform);
+  JdkInstallService(
+    this._catalog,
+    this._runner,
+    this._platform,
+    this._extractor,
+  );
 
   final JdkCatalogService _catalog;
   final CommandRunner _runner;
   final PlatformService _platform;
+  final ArchiveExtractor _extractor;
 
   static final Logger _log = Logger('JdkInstallService');
 
@@ -173,7 +179,7 @@ class JdkInstallService {
       // Modes first, then prove it runs. Checked here, while everything is
       // still in staging, so a JDK that cannot start never reaches the managed
       // folder and Retry has nothing to clean up.
-      await _restoreExecutableBits(home);
+      await _extractor.restoreExecutableBits(home);
       final launchError = await _validate(home);
       if (launchError != null) {
         yield JdkInstallEvent(
@@ -263,100 +269,15 @@ class JdkInstallService {
     await done;
   }
 
-  /// Unpacks with the OS's own extractor, choosing it by what the archive
-  /// actually is.
+  /// Unpacks the archive, whatever container the vendor served.
   ///
-  /// The format follows the archive, never the host: both vendors serve `.zip`
-  /// to Windows and `.tar.gz` to Linux and macOS, so keying the extractor off
-  /// the running platform unpacks the wrong container the moment the app leaves
-  /// Windows. It is read from the file's signature bytes — see
-  /// [detectArchiveFormat] — because the name is metadata and the bytes are the
-  /// thing being unpacked.
-  ///
-  /// Always an external process: `tar` has shipped in Windows since 1803 and
-  /// reads both zip and gzip, and a pure-Dart unpack of a 200 MB archive is
-  /// minutes of work on the UI isolate. The process is its own, so nothing here
-  /// blocks a frame.
-  Future<void> _extract(File archive, Directory destination) async {
-    final format = await detectArchiveFormat(archive);
-    _log.info(
-      'Unpacking ${p.basename(archive.path)} as ${format.name} '
-      '(${_platform.operatingSystem}).',
-    );
-
-    final (command, arguments) = switch (format) {
-      // bsdtar on Windows reads zip; elsewhere tar does not, so unzip it is.
-      ArchiveFormat.zip when _platform.isWindows => (
-        'tar',
-        ['-xf', archive.path, '-C', destination.path],
-      ),
-      ArchiveFormat.zip => (
-        'unzip',
-        ['-q', archive.path, '-d', destination.path],
-      ),
-      ArchiveFormat.tarGz => (
-        'tar',
-        ['-xzf', archive.path, '-C', destination.path],
-      ),
-      ArchiveFormat.tar => (
-        'tar',
-        ['-xf', archive.path, '-C', destination.path],
-      ),
-      // Not a process failure: nothing was run. The file that arrived is not
-      // an archive at all, which is what a CDN error page served with a 200
-      // looks like from here.
-      ArchiveFormat.unknown => throw NetworkFailure(
-        'The download is ${format.label}.',
-        suggestion: 'The server may have sent an error page instead of the '
-            'JDK. Try again, or pick another vendor.',
-      ),
-    };
-
-    final result = await _runner.run(
-      command,
-      arguments,
-      timeout: const Duration(minutes: 10),
-    );
-    if (!result.isSuccess) {
-      throw ProcessFailure(
-        'Could not unpack ${format.label} with `$command`. '
-        'Make sure `$command` is installed and on PATH.',
-        exitCode: result.exitCode,
-        output: result.combinedOutput.trim(),
-      );
-    }
-  }
-
-  /// Puts the executable bit back on everything in the JDK that needs one.
-  ///
-  /// `tar` restores modes from the archive and Info-ZIP's `unzip` restores them
-  /// from a zip's external attributes, so on a good day this changes nothing.
-  /// It is not always a good day: a zip built on Windows carries no Unix modes
-  /// at all, and a JDK whose `bin/java` is not executable fails at the first
-  /// launch with a permission error that says nothing about why.
-  ///
-  /// `lib/jspawnhelper` is named explicitly because it is not under `bin` and
-  /// the JVM cannot start a subprocess without it.
-  Future<void> _restoreExecutableBits(String home) async {
-    if (_platform.isWindows) return;
-
-    final targets = executableTargets(home);
-    if (targets.isEmpty) return;
-
-    // No shell: a staging path with a space in it must not become two
-    // arguments, and there is no glob here that needs expanding.
-    final result = await _runner.run(
-      'chmod',
-      ['+x', ...targets],
-      runInShell: false,
-      timeout: const Duration(seconds: 30),
-    );
-    if (!result.isSuccess) {
-      // Not fatal on its own — the bits may already be right. _validate is
-      // what decides whether the install works.
-      _log.warning('chmod +x on $home failed: ${result.combinedOutput.trim()}');
-    }
-  }
+  /// Delegated to [ArchiveExtractor] rather than done here: the Android SDK
+  /// bootstrap unpacks Google's command-line tools zip and hit exactly the same
+  /// two problems — the format follows the archive rather than the host, and a
+  /// Unix tool without its execute bit does not run. One implementation, so a
+  /// fix to either applies to both.
+  Future<void> _extract(File archive, Directory destination) =>
+      _extractor.extract(archive, destination);
 
   /// Runs the JDK once, and reports why it did not start.
   ///
@@ -388,28 +309,6 @@ class JdkInstallService {
     } on Failure catch (e) {
       return 'The unpacked JDK would not run: ${e.message}';
     }
-  }
-
-  /// Everything under [home] that has to be executable for the JDK to run.
-  ///
-  /// Every file in `bin`, plus the two helpers that live outside it. Missing
-  /// entries are simply absent from the list — an older JDK has no `jexec`, and
-  /// a `bin` that is not there at all is the [findJdkHome] failure, not this
-  /// one. Split out from the chmod so the selection can be tested without
-  /// running a process.
-  static List<String> executableTargets(String home) {
-    final targets = <String>[];
-    final bin = Directory(p.join(home, 'bin'));
-    if (bin.existsSync()) {
-      for (final entry in bin.listSync()) {
-        if (entry is File) targets.add(entry.path);
-      }
-    }
-    for (final helper in const ['jspawnhelper', 'jexec']) {
-      final file = File(p.join(home, 'lib', helper));
-      if (file.existsSync()) targets.add(file.path);
-    }
-    return targets;
   }
 
   /// Why [actual] bytes is not the download the API promised, or null when it

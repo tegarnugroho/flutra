@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutra/domain/entities/jdk_release.dart';
+import 'package:flutra/infrastructure/archive/archive_extractor.dart';
 import 'package:flutra/infrastructure/java/jdk_install_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -170,7 +171,7 @@ void main() {
       _touch(p.join(root.path, 'lib', 'modules'));
       _touch(p.join(root.path, 'release'));
 
-      final targets = JdkInstallService.executableTargets(root.path);
+      final targets = ArchiveExtractor.executableTargets(root.path);
 
       expect(
         targets.map(p.basename).toSet(),
@@ -182,14 +183,14 @@ void main() {
       _touch(p.join(root.path, 'bin', 'java'));
 
       expect(
-        JdkInstallService.executableTargets(root.path).map(p.basename),
+        ArchiveExtractor.executableTargets(root.path).map(p.basename),
         ['java'],
       );
     });
 
     test('nothing to chmod is an empty list, not a throw', () {
       expect(
-        JdkInstallService.executableTargets(p.join(root.path, 'missing')),
+        ArchiveExtractor.executableTargets(p.join(root.path, 'missing')),
         isEmpty,
       );
     });
@@ -197,7 +198,7 @@ void main() {
     test('directories inside bin are not chmod targets', () {
       Directory(p.join(root.path, 'bin', 'server')).createSync(recursive: true);
 
-      expect(JdkInstallService.executableTargets(root.path), isEmpty);
+      expect(ArchiveExtractor.executableTargets(root.path), isEmpty);
     });
   });
 

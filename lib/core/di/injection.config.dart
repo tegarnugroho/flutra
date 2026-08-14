@@ -41,6 +41,7 @@ import 'package:flutra/domain/repositories/environment_repository.dart'
     as _i359;
 import 'package:flutra/domain/repositories/flutter_repository.dart' as _i151;
 import 'package:flutra/domain/repositories/sdk_repository.dart' as _i541;
+import 'package:flutra/infrastructure/archive/archive_extractor.dart' as _i525;
 import 'package:flutra/infrastructure/doctor/doctor_fix_service.dart' as _i327;
 import 'package:flutra/infrastructure/doctor/doctor_runner.dart' as _i1018;
 import 'package:flutra/infrastructure/flutter/flutter_releases_service.dart'
@@ -67,6 +68,7 @@ import 'package:flutra/infrastructure/sdk/flutter_locator.dart' as _i166;
 import 'package:flutra/infrastructure/sdk/path_probe_service.dart' as _i936;
 import 'package:flutra/infrastructure/sdk/reclaim_executor.dart' as _i990;
 import 'package:flutra/infrastructure/sdk/reclaim_scanner.dart' as _i609;
+import 'package:flutra/infrastructure/sdk/sdk_bootstrap_service.dart' as _i409;
 import 'package:flutra/infrastructure/sdk/sdk_locator.dart' as _i706;
 import 'package:flutra/infrastructure/sdk/sdk_scan_service.dart' as _i503;
 import 'package:flutra/infrastructure/settings/legacy_data_migration.dart'
@@ -127,6 +129,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
       ),
     );
+    gh.lazySingleton<_i525.ArchiveExtractor>(
+      () => _i525.ArchiveExtractor(
+        gh<_i989.CommandRunner>(),
+        gh<_i427.PlatformService>(),
+      ),
+    );
     gh.lazySingleton<_i1018.DoctorRunner>(
       () => _i1018.DoctorRunner(
         gh<_i989.CommandRunner>(),
@@ -164,15 +172,16 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i427.PlatformService>(),
       ),
     );
-    gh.factory<_i497.EmulatorListCubit>(
-      () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
-    );
     gh.lazySingleton<_i129.JdkInstallService>(
       () => _i129.JdkInstallService(
         gh<_i712.JdkCatalogService>(),
         gh<_i989.CommandRunner>(),
         gh<_i427.PlatformService>(),
+        gh<_i525.ArchiveExtractor>(),
       ),
+    );
+    gh.factory<_i497.EmulatorListCubit>(
+      () => _i497.EmulatorListCubit(gh<_i932.EmulatorRepository>()),
     );
     gh.factory<_i247.FlutterDoctorCubit>(
       () => _i247.FlutterDoctorCubit(
@@ -224,6 +233,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i989.CommandRunner>(),
         gh<_i427.PlatformService>(),
         gh<_i129.JdkInstallService>(),
+      ),
+    );
+    gh.lazySingleton<_i409.SdkBootstrapService>(
+      () => _i409.SdkBootstrapService(
+        gh<_i427.PlatformService>(),
+        gh<_i525.ArchiveExtractor>(),
       ),
     );
     gh.factory<_i594.DetectedPathsCubit>(
@@ -281,9 +296,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i151.FlutterRepository>(),
       ),
     );
-    gh.factory<_i276.SdkManagerCubit>(
-      () => _i276.SdkManagerCubit(gh<_i541.SdkRepository>()),
-    );
     gh.factory<_i357.FlutterSdkCubit>(
       () => _i357.FlutterSdkCubit(
         gh<_i151.FlutterRepository>(),
@@ -340,6 +352,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i483.FlutterUpdateService>(),
         gh<_i427.PlatformService>(),
         gh<_i901.JavaToolchainService>(),
+      ),
+    );
+    gh.factory<_i276.SdkManagerCubit>(
+      () => _i276.SdkManagerCubit(
+        gh<_i541.SdkRepository>(),
+        gh<_i706.SdkLocator>(),
+        gh<_i409.SdkBootstrapService>(),
+        gh<_i520.SettingsCubit>(),
+        gh<_i774.ToolchainEvents>(),
       ),
     );
     gh.factory<_i745.WindowsCubit>(

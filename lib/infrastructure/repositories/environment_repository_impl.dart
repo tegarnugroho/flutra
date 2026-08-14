@@ -117,7 +117,7 @@ class EnvironmentRepositoryImpl implements EnvironmentRepository {
       return const ToolStatus(
         kind: ToolKind.sdk,
         state: ToolState.missing,
-        detail: 'No SDK detected. Install one from the SDK Installer.',
+        detail: 'No SDK detected. Set one up on the SDK manager page.',
       );
     }
 

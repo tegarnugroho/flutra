@@ -2,6 +2,49 @@ part of 'sdk_manager_cubit.dart';
 
 enum SdkManagerStatus { initial, loading, ready, failure }
 
+/// Why the package list is empty — which is what decides whether this page shows
+/// a way forward or a dead end.
+///
+/// The page used to have one failure: "could not query the SDK", with a Retry
+/// button. On a machine with no SDK at all that was a dead end, because the only
+/// thing that could have fixed it — installing `cmdline-tools` — needs the
+/// `sdkmanager` that lives inside `cmdline-tools`. Telling the three cases apart
+/// is what lets each one offer the action that actually applies.
+enum SdkAvailability {
+  /// Nothing is wrong, or nothing has been established yet.
+  ok,
+
+  /// No SDK root found anywhere and no sdkmanager. Nothing to repair — an SDK
+  /// has to be created, or an existing one pointed at.
+  noSdk,
+
+  /// An SDK root exists but has no command-line tools in it. Half an install,
+  /// usually an Android Studio SDK someone stripped, and the repair is narrow.
+  sdkFoundNoCmdlineTools,
+
+  /// sdkmanager is present and ran, and the run failed. The only case where
+  /// Retry is the honest offer.
+  queryFailed;
+
+  bool get isBootstrappable =>
+      this == SdkAvailability.noSdk ||
+      this == SdkAvailability.sdkFoundNoCmdlineTools;
+}
+
+/// Which of [SdkAvailability]'s cases a failed query landed in.
+///
+/// Pure, because the branch decides which UI the user sees and "what happens on
+/// a machine with a half-installed SDK" should be answerable without one.
+SdkAvailability classifySdkFailure({
+  required bool hasSdkRoot,
+  required bool hasSdkManager,
+}) {
+  if (hasSdkManager) return SdkAvailability.queryFailed;
+  return hasSdkRoot
+      ? SdkAvailability.sdkFoundNoCmdlineTools
+      : SdkAvailability.noSdk;
+}
+
 /// Column the package list is sorted by.
 enum PackageSort { name, status, version }
 
@@ -33,6 +76,9 @@ class SdkManagerState extends Equatable {
     this.consoleVisible = false,
     this.busy = false,
     this.errorMessage,
+    this.errorDetail,
+    this.availability = SdkAvailability.ok,
+    this.bootstrap,
   });
 
   final SdkManagerStatus status;
@@ -65,7 +111,28 @@ class SdkManagerState extends Equatable {
 
   final String? errorMessage;
 
+  /// The tool's own output behind a failure — stderr, an exit code — kept out of
+  /// [errorMessage] so the page can put it behind a disclosure instead of
+  /// leading with a stack of sdkmanager noise.
+  final String? errorDetail;
+
+  /// Which failure this is, and so which way out the page offers.
+  final SdkAvailability availability;
+
+  /// The first-run bootstrap, while it runs. Null when none is in flight.
+  final SdkBootstrapEvent? bootstrap;
+
   bool get isLoading => status == SdkManagerStatus.loading;
+
+  /// True while the SDK is being created from nothing.
+  bool get isBootstrapping =>
+      bootstrap != null &&
+      bootstrap!.stage != SdkBootstrapStage.done &&
+      bootstrap!.stage != SdkBootstrapStage.failed;
+
+  /// True when the bootstrap is stopped waiting for the licences to be accepted.
+  bool get awaitingLicences =>
+      bootstrap?.stage == SdkBootstrapStage.awaitingLicences;
 
   /// True until the first load settles, so a screen with no data yet shows its
   /// skeleton from the very first frame.
@@ -163,6 +230,10 @@ class SdkManagerState extends Equatable {
     bool? consoleVisible,
     bool? busy,
     String? errorMessage,
+    String? errorDetail,
+    SdkAvailability? availability,
+    SdkBootstrapEvent? bootstrap,
+    bool clearBootstrap = false,
     bool clearError = false,
     bool clearCategory = false,
     bool clearActive = false,
@@ -186,6 +257,9 @@ class SdkManagerState extends Equatable {
       consoleVisible: consoleVisible ?? this.consoleVisible,
       busy: busy ?? this.busy,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      errorDetail: clearError ? null : (errorDetail ?? this.errorDetail),
+      availability: availability ?? this.availability,
+      bootstrap: clearBootstrap ? null : (bootstrap ?? this.bootstrap),
     );
   }
 
@@ -207,5 +281,8 @@ class SdkManagerState extends Equatable {
         consoleVisible,
         busy,
         errorMessage,
+        errorDetail,
+        availability,
+        bootstrap,
       ];
 }
