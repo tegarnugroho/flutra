@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Tags only. A plain push to main starts nothing at all — not even a run
+    # with every job skipped, which is what gating the jobs alone would leave
+    # behind. The trade is that `analyze` no longer watches main: a commit that
+    # breaks the build or lets the generated files drift is now found when the
+    # release is cut, not when it lands. Running it before pushing is what
+    # covers that.
     tags: ['v*']
   workflow_dispatch:
 
@@ -15,16 +20,19 @@ env:
   # Matches the `environment: sdk: ^3.12.1` constraint in pubspec.yaml.
   FLUTTER_CHANNEL: stable
 
-# A plain push to main runs `analyze` and stops there. Everything below it is
-# gated on the same condition — a version tag, or a manual run for testing —
-# because building three platforms for a commit whose artifacts are never
-# released is ~11 minutes of runner quota spent on nothing.
+# Nothing here runs outside a version tag or a manual run: building three
+# platforms for a commit whose artifacts are never released is ~11 minutes of
+# runner quota spent on nothing, and the same now goes for analysing one.
 #
-# The condition is repeated per job rather than shared: GitHub Actions does not
-# expand YAML anchors, so a single definition is not available here.
+# The jobs below keep their own copy of that condition even though the trigger
+# already enforces it. It is the gate that survives someone adding `branches:`
+# back to the trigger for a one-off, which is exactly when three unwanted
+# platform builds would otherwise fire. The condition is repeated per job
+# rather than shared because GitHub Actions does not expand YAML anchors.
 jobs:
-  # The cheap job, and the one that catches most things. Runs on every push,
-  # every tag and every manual run — it is the whole point of pushing to main.
+  # The cheap job, and the one that catches most things — so it runs first and
+  # everything else waits on it, rather than three platform builds discovering
+  # a syntax error in parallel.
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
