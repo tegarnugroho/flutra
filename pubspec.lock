@@ -914,6 +914,13 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  smooth_window_close:
+    dependency: "direct main"
+    description:
+      path: "../smooth_window_close"
+      relative: true
+    source: path
+    version: "0.1.0"
   source_gen:
     dependency: transitive
     description:

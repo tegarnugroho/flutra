@@ -40,6 +40,8 @@ dependencies:
   intl: ^0.20.2
   desktop_multi_window: ^0.3.0
   window_manager: ^0.5.1
+  smooth_window_close:
+    path: ../smooth_window_close
   tray_manager: ^0.5.3
   file_selector: ^1.1.0
   simple_icons: ^16.23.0

@@ -5,6 +5,8 @@ import '../core/constants/app_info.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
+import 'package:logging/logging.dart';
+import 'package:smooth_window_close/smooth_window_close.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -29,9 +31,25 @@ class AndroidSdkManagerApp extends StatefulWidget {
 
 class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     with WindowListener, TrayListener {
+  late final SmoothWindowCloser _windowCloser;
+
   @override
   void initState() {
     super.initState();
+    _windowCloser = SmoothWindowCloser(
+      shouldCloseToTray: () => getIt<SettingsService>().settings.closeToTray,
+      onSaveState: () async {
+        _saveBoundsTimer?.cancel();
+        await _saveWindowBounds();
+      },
+      onCleanup: () async {
+        await closeChildWindows();
+        await _destroyTray();
+      },
+      onError: (error, stackTrace) {
+        Logger('shutdown').warning('Shutdown step failed', error, stackTrace);
+      },
+    );
     windowManager.addListener(this);
     trayManager.addListener(this);
     _initTray();
@@ -39,7 +57,12 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
 
   Future<void> _initTray() async {
     try {
-      await windowManager.setPreventClose(true);
+      await _windowCloser.initialize();
+    } catch (_) {
+      // window_manager may be unavailable after hot restart.
+    }
+
+    try {
       // Use the app icon bundled next to the executable (asset-relative paths
       // aren't reliably resolved by the tray on Windows).
       final assetIcon = p.join(
@@ -72,6 +95,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
   @override
   void dispose() {
     _saveBoundsTimer?.cancel();
+    unawaited(_windowCloser.dispose());
     windowManager.removeListener(this);
     trayManager.removeListener(this);
     super.dispose();
@@ -112,70 +136,6 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     } catch (_) {}
   }
 
-  /// True while a close request is being handled.
-  ///
-  /// `destroy()` closes the window, which the platform reports as another close
-  /// — window_manager raises `onWindowClose` for it whether or not close is
-  /// being prevented. Without this guard the handler runs a second time, saving
-  /// bounds and calling `destroy()` again on a window that is already going
-  /// away. On Linux that second pass is what turned a clean exit into a crash.
-  bool _quitting = false;
-
-  @override
-  void onWindowClose() async {
-    if (_quitting) return;
-    _quitting = true;
-    _saveBoundsTimer?.cancel();
-
-    // Read this before awaiting anything. On Windows, remove the surface from
-    // the screen before persistence, child-engine draining, and plugin teardown
-    // so none of that work leaves a visibly frozen final Flutter frame.
-    final toTray = getIt<SettingsService>().settings.closeToTray;
-    await _hideImmediatelyOnWindows();
-    await _saveWindowBounds();
-
-    if (toTray) {
-      if (!Platform.isWindows) await windowManager.hide();
-      _quitting = false;
-      return;
-    }
-    await _quit();
-  }
-
-  /// Handles explicit Exit actions, which must not honour close-to-tray.
-  Future<void> _exitApplication() async {
-    if (_quitting) return;
-    _quitting = true;
-    _saveBoundsTimer?.cancel();
-    await _hideImmediatelyOnWindows();
-    await _saveWindowBounds();
-    await _quit();
-  }
-
-  Future<void> _hideImmediatelyOnWindows() async {
-    if (!Platform.isWindows) return;
-    try {
-      await windowManager.hide();
-    } catch (_) {
-      // Keep shutting down if the plugin is unavailable during hot restart.
-    }
-  }
-
-  /// Ends the app: sub-windows first, then this one.
-  ///
-  /// The order is the point. Every window in this app is a window of one
-  /// process, so destroying the main one while a sub-window's engine is still
-  /// running leaves that engine to be torn down by the shutdown itself — which
-  /// on Linux crashed the process instead of ending it. Asking the sub-windows
-  /// to close first means that by the time this window goes, there is nothing
-  /// left to unwind. See [closeChildWindows].
-  Future<void> _quit() async {
-    await closeChildWindows();
-    await windowManager.setPreventClose(false);
-    await _destroyTray();
-    await windowManager.destroy();
-  }
-
   Future<void> _destroyTray() async {
     try {
       await trayManager.destroy();
@@ -196,11 +156,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
       case 'show':
         await _restoreWindow();
       case 'exit':
-        // The same quit the close button takes when "close to tray" is off —
-        // one path, so the tray cannot skip the sub-window teardown.
-        if (_quitting) return;
-        _quitting = true;
-        await _quit();
+        await _windowCloser.exit();
     }
   }
 
@@ -225,7 +181,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
             // flyouts — on Linux the window has no frame of its own to grab.
             builder: (context, child) =>
                 WindowResizeFrame(child: child ?? const SizedBox.shrink()),
-            home: AppShell(onExit: _exitApplication),
+            home: AppShell(onExit: _windowCloser.exit),
           );
         },
       ),
