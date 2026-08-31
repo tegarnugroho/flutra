@@ -917,9 +917,10 @@ packages:
   smooth_window_close:
     dependency: "direct main"
     description:
-      path: "../smooth_window_close"
-      relative: true
-    source: path
+      name: smooth_window_close
+      sha256: "00659d0733963bad8686140d7601ca13be2e53d7601530c6652f4abb67fbbb55"
+      url: "https://pub.dev"
+    source: hosted
     version: "0.1.0"
   source_gen:
     dependency: transitive
