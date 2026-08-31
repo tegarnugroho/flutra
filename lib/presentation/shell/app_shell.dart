@@ -11,8 +11,6 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart' as sys;
 // One brand glyph the Fluent set has no equivalent for: the Flutter logo the
 // mockup puts beside the Flutter section.
 import 'package:simple_icons/simple_icons.dart';
-import 'package:tray_manager/tray_manager.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../application/settings/app_settings.dart';
 import '../../application/shell/shell_navigator.dart';
@@ -34,7 +32,6 @@ import '../windows/windows_page.dart';
 import '../window/task_windows.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../window/window_close_channel.dart';
 import 'command_palette.dart';
 import 'custom_title_bar.dart';
 
@@ -85,7 +82,9 @@ class _Destination {
 /// The shell also owns the title bar controls: sidebar collapse, the jump-to-
 /// page palette, and the back/forward history.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.onExit});
+
+  final Future<void> Function() onExit;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -271,17 +270,7 @@ class _AppShellState extends State<AppShell> {
   /// Quits for real, unlike the close button — that one honours the
   /// "close to tray" preference handled in `AndroidSdkManagerApp`.
   Future<void> _exit() async {
-    // Sub-windows first: they are windows of this same process, and destroying
-    // this one while their engines are still running crashed the app on Linux
-    // rather than ending it. See [closeChildWindows].
-    await closeChildWindows();
-    await windowManager.setPreventClose(false);
-    try {
-      await trayManager.destroy();
-    } catch (_) {
-      // No tray on this desktop; nothing to take down.
-    }
-    await windowManager.destroy();
+    await widget.onExit();
   }
 
   /// Ctrl+K opens the palette from anywhere, including while a page's own text

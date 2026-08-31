@@ -112,7 +112,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
     } catch (_) {}
   }
 
-  /// True once this window has committed to quitting.
+  /// True while a close request is being handled.
   ///
   /// `destroy()` closes the window, which the platform reports as another close
   /// — window_manager raises `onWindowClose` for it whether or not close is
@@ -124,15 +124,41 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
   @override
   void onWindowClose() async {
     if (_quitting) return;
-    await _saveWindowBounds();
-    // Honour the "close to tray" preference; otherwise really quit.
+    _quitting = true;
+    _saveBoundsTimer?.cancel();
+
+    // Read this before awaiting anything. On Windows, remove the surface from
+    // the screen before persistence, child-engine draining, and plugin teardown
+    // so none of that work leaves a visibly frozen final Flutter frame.
     final toTray = getIt<SettingsService>().settings.closeToTray;
+    await _hideImmediatelyOnWindows();
+    await _saveWindowBounds();
+
     if (toTray) {
-      await windowManager.hide();
+      if (!Platform.isWindows) await windowManager.hide();
+      _quitting = false;
       return;
     }
-    _quitting = true;
     await _quit();
+  }
+
+  /// Handles explicit Exit actions, which must not honour close-to-tray.
+  Future<void> _exitApplication() async {
+    if (_quitting) return;
+    _quitting = true;
+    _saveBoundsTimer?.cancel();
+    await _hideImmediatelyOnWindows();
+    await _saveWindowBounds();
+    await _quit();
+  }
+
+  Future<void> _hideImmediatelyOnWindows() async {
+    if (!Platform.isWindows) return;
+    try {
+      await windowManager.hide();
+    } catch (_) {
+      // Keep shutting down if the plugin is unavailable during hot restart.
+    }
   }
 
   /// Ends the app: sub-windows first, then this one.
@@ -199,7 +225,7 @@ class _AndroidSdkManagerAppState extends State<AndroidSdkManagerApp>
             // flyouts — on Linux the window has no frame of its own to grab.
             builder: (context, child) =>
                 WindowResizeFrame(child: child ?? const SizedBox.shrink()),
-            home: const AppShell(),
+            home: AppShell(onExit: _exitApplication),
           );
         },
       ),

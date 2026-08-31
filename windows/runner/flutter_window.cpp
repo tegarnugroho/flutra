@@ -4,18 +4,11 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "single_instance.h"
-#include "utils.h"  // TEMP CLOSE INSTRUMENTATION
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {
-  // TEMP CLOSE INSTRUMENTATION - the controller is reset explicitly so the
-  // engine teardown can be timed; normally it dies with the member.
-  CloseTrace("~FlutterWindow_begin");
-  // A/B: controller left to implicit member destruction.
-  CloseTrace("~FlutterWindow_body_end");
-}
+FlutterWindow::~FlutterWindow() = default;
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -48,11 +41,9 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
-  CloseTrace("engine_teardown_begin");  // TEMP CLOSE INSTRUMENTATION
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
-  CloseTrace("engine_teardown_end");  // TEMP CLOSE INSTRUMENTATION
 
   Win32Window::OnDestroy();
 }
@@ -70,21 +61,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     return 0;
   }
 
-  // TEMP CLOSE INSTRUMENTATION - remove before finishing.
-  if (message == WM_CLOSE) {
-    CloseTrace("WM_CLOSE_received");
-  }
-
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,
                                                       lparam);
     if (result) {
-      // TEMP CLOSE INSTRUMENTATION - remove before finishing.
-      if (message == WM_CLOSE) {
-        CloseTrace("WM_CLOSE_handled_by_plugin");
-      }
       return *result;
     }
   }
