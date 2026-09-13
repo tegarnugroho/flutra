@@ -23,6 +23,13 @@
       "program": "lib/main.dart",
       "flutterMode": "release",
       "args": ["-d", "windows"]
+    },
+    {
+      "name": "Flutra Macos (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "macos"]
     }
   ]
 }
