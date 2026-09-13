@@ -38,7 +38,7 @@ dependencies:
   # Utils
   logging: ^1.3.0
   intl: ^0.20.2
-  desktop_multi_window: ^0.3.0
+  desktop_multi_window: ^0.3.1
   window_manager: ^0.5.1
   smooth_window_close: ^0.1.0
   tray_manager: ^0.5.3
