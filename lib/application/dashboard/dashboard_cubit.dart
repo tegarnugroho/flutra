@@ -81,7 +81,10 @@ class DashboardCubit extends Cubit<DashboardState> {
     // does. Publishing it — and the fact that a scan is coming — before the
     // slow calls is what stops the panel from sitting on "No scan yet" for a
     // couple of seconds and then producing figures out of nowhere.
-    final cached = await _storage.cached();
+    final cached = await _storage
+        .cached()
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) => null);
     if (isClosed) return;
     final willScan = cached == null || _storage.isStale(cached);
     // Only say "busy" when there is nothing to look at. A stale report keeps
@@ -97,8 +100,14 @@ class DashboardCubit extends Cubit<DashboardState> {
     // Two waves rather than one: see [load] for why concurrent spawns cost
     // frames. adb and avdmanager are the cheap pair and feed three of the four
     // stat cards; sdkmanager --list is the slow one and follows on its own.
-    final avdsFuture = _emulators.listAvds();
-    final devicesFuture = _devices.listDevices();
+    final avdsFuture = _emulators
+        .listAvds()
+        .timeout(const Duration(seconds: 20))
+        .catchError((_) => const <Avd>[]);
+    final devicesFuture = _devices
+        .listDevices()
+        .timeout(const Duration(seconds: 20))
+        .catchError((_) => const <Device>[]);
 
     // A tool that fails contributes a zero rather than sinking the whole
     // overview — the toolchain list above already reports what is broken.
@@ -106,19 +115,38 @@ class DashboardCubit extends Cubit<DashboardState> {
     final devices = await devicesFuture.catchError((_) => const <Device>[]);
     if (isClosed) return;
 
-    final packages = await _sdk.listPackages().catchError(
-      (_) => const <SdkPackage>[],
+    emit(
+      state.copyWith(
+        stats: DashboardStats(
+          avdCount: avds.length,
+          runningAvdCount: avds.where((a) => a.isRunning).length,
+          deviceCount: devices.where((d) => d.state.isOnline).length,
+          checkingUpdates: true,
+        ),
+      ),
     );
+
+    var updatesFailed = false;
+    final packages = await _sdk
+        .listPackages()
+        .timeout(const Duration(seconds: 20))
+        .catchError((_) {
+          updatesFailed = true;
+          return const <SdkPackage>[];
+        });
     if (isClosed) return;
 
-    emit(state.copyWith(
-      stats: DashboardStats(
-        avdCount: avds.length,
-        runningAvdCount: avds.where((a) => a.isRunning).length,
-        updateCount: packages.where((p) => p.hasUpdate).length,
-        deviceCount: devices.where((d) => d.state.isOnline).length,
+    emit(
+      state.copyWith(
+        stats: DashboardStats(
+          avdCount: avds.length,
+          runningAvdCount: avds.where((a) => a.isRunning).length,
+          updateCount: packages.where((p) => p.hasUpdate).length,
+          updatesFailed: updatesFailed,
+          deviceCount: devices.where((d) => d.state.isOnline).length,
+        ),
       ),
-    ));
+    );
 
     await scan;
   }

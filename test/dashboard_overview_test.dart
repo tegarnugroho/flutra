@@ -21,7 +21,8 @@ class _Env implements EnvironmentRepository {
   final gate = Completer<EnvironmentSnapshot>();
 
   @override
-  Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) => gate.future;
+  Future<EnvironmentSnapshot> detect({bool forceRefresh = false}) =>
+      gate.future;
 
   @override
   noSuchMethod(Invocation i) => throw UnimplementedError();
@@ -66,8 +67,9 @@ class _Emulators implements EmulatorRepository {
 
 class _Devices implements DeviceRepository {
   @override
-  Future<List<Device>> listDevices() async =>
-      const [Device(serial: 'emulator-5554', state: DeviceState.device)];
+  Future<List<Device>> listDevices() async => const [
+    Device(serial: 'emulator-5554', state: DeviceState.device),
+  ];
 
   @override
   noSuchMethod(Invocation i) => throw UnimplementedError();
@@ -141,13 +143,50 @@ void main() {
   setUp(() {
     env = _Env();
     storage = _Storage(
-      StorageReport(slices: const [], findings: const [], scannedAt: DateTime(2026)),
+      StorageReport(
+        slices: const [],
+        findings: const [],
+        scannedAt: DateTime(2026),
+      ),
     );
     cubit = DashboardCubit(
-      env, _Emulators(), _Devices(), _Sdk(), storage, ToolchainEvents());
+      env,
+      _Emulators(),
+      _Devices(),
+      _Sdk(),
+      storage,
+      ToolchainEvents(),
+    );
   });
 
   tearDown(() => cubit.close());
+
+  testWidgets(
+    'a stuck update check stops loading without claiming up to date',
+    (tester) async {
+      final slow = _SlowSdk();
+      final dashboard = DashboardCubit(
+        env,
+        _Emulators(),
+        _Devices(),
+        slow,
+        storage,
+        ToolchainEvents(),
+      );
+      addTearDown(dashboard.close);
+      final load = dashboard.loadOverview();
+      await tester.pump();
+      expect(dashboard.state.stats?.checkingUpdates, isTrue);
+      expect(dashboard.state.stats?.deviceCount, 1);
+      await tester.pump(const Duration(seconds: 21));
+      await load;
+      expect(dashboard.state.stats?.checkingUpdates, isFalse);
+      expect(dashboard.state.stats?.updatesFailed, isTrue);
+      slow.gate.complete(const []);
+      await tester.pump();
+      expect(dashboard.state.stats?.updatesFailed, isTrue);
+    },
+  );
 
   test('counts come from the shared repositories', () async {
     await cubit.loadOverview();
@@ -188,7 +227,12 @@ void main() {
     addTearDown(events.dispose);
     final counting = _CountingEnv();
     final live = DashboardCubit(
-      counting, _Emulators(), _Devices(), _Sdk(), _Storage(null), events,
+      counting,
+      _Emulators(),
+      _Devices(),
+      _Sdk(),
+      _Storage(null),
+      events,
     );
     addTearDown(live.close);
 
@@ -212,7 +256,12 @@ void main() {
     addTearDown(events.dispose);
     final counting = _CountingEnv();
     final gone = DashboardCubit(
-      counting, _Emulators(), _Devices(), _Sdk(), _Storage(null), events,
+      counting,
+      _Emulators(),
+      _Devices(),
+      _Sdk(),
+      _Storage(null),
+      events,
     );
 
     await gone.close();
@@ -222,15 +271,23 @@ void main() {
     expect(counting.detections, 0);
   });
 
-  test('a failing tool contributes zero instead of sinking the overview',
-      () async {
-    final broken = DashboardCubit(env, _Emulators(), _Devices(), _Sdk(),
-        _Storage(null), ToolchainEvents());
-    addTearDown(broken.close);
+  test(
+    'a failing tool contributes zero instead of sinking the overview',
+    () async {
+      final broken = DashboardCubit(
+        env,
+        _Emulators(),
+        _Devices(),
+        _Sdk(),
+        _Storage(null),
+        ToolchainEvents(),
+      );
+      addTearDown(broken.close);
 
-    await broken.loadOverview();
-    expect(broken.state.stats, isNotNull);
-  });
+      await broken.loadOverview();
+      expect(broken.state.stats, isNotNull);
+    },
+  );
 
   test('an unscanned disk says so before the slow tools finish', () async {
     // The panel used to sit on "No scan yet" for the couple of seconds
@@ -260,11 +317,17 @@ void main() {
       isTrue,
       reason: 'the panel has to look busy while the scan is pending',
     );
-    expect(cubit.state.stats, isNull, reason: 'the slow tool has not returned');
+    expect(cubit.state.stats?.avdCount, 2);
+    expect(cubit.state.stats?.deviceCount, 1);
+    expect(cubit.state.stats?.checkingUpdates, isTrue);
 
     slowSdk.gate.complete(const []);
     unscanned.gate.complete(
-      StorageReport(slices: const [], findings: const [], scannedAt: DateTime(2026)),
+      StorageReport(
+        slices: const [],
+        findings: const [],
+        scannedAt: DateTime(2026),
+      ),
     );
     await overview;
     await sub.cancel();

@@ -74,12 +74,16 @@ class DashboardStats extends Equatable {
     this.avdCount = 0,
     this.runningAvdCount = 0,
     this.updateCount = 0,
+    this.checkingUpdates = false,
+    this.updatesFailed = false,
     this.deviceCount = 0,
   });
 
   final int avdCount;
   final int runningAvdCount;
   final int updateCount;
+  final bool checkingUpdates;
+  final bool updatesFailed;
   final int deviceCount;
 
   @override
@@ -87,6 +91,8 @@ class DashboardStats extends Equatable {
     avdCount,
     runningAvdCount,
     updateCount,
+    checkingUpdates,
+    updatesFailed,
     deviceCount,
   ];
 }

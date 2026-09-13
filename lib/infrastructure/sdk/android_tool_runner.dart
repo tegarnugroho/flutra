@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../application/toolchain_events.dart';
 import '../../core/command/command_result.dart';
 import '../../core/command/command_runner.dart';
+import '../../core/command/system_environment.dart';
 import '../java/java_toolchain_service.dart';
 import '../java/jdk_install_service.dart';
 
@@ -50,9 +51,7 @@ class AndroidToolRunner {
   /// renaming an AVD is the whole of one — where wiring up the JDK registry
   /// would be building a toolchain to not use it.
   @visibleForTesting
-  AndroidToolRunner.ambient(this._runner)
-      : _toolchain = null,
-        _installs = null;
+  AndroidToolRunner.ambient(this._runner) : _toolchain = null, _installs = null;
 
   final CommandRunner _runner;
   final JavaToolchainService? _toolchain;
@@ -86,15 +85,14 @@ class AndroidToolRunner {
     String? workingDirectory,
     Duration? timeout,
     bool runInShell = true,
-  }) async =>
-      _runner.run(
-        executable,
-        arguments,
-        workingDirectory: workingDirectory,
-        environment: await _environment(),
-        timeout: timeout,
-        runInShell: runInShell,
-      );
+  }) async => _runner.run(
+    executable,
+    arguments,
+    workingDirectory: workingDirectory,
+    environment: await _environment(),
+    timeout: timeout,
+    runInShell: runInShell,
+  );
 
   /// Starts an Android tool for streaming with the JDK environment applied.
   ///
@@ -104,14 +102,13 @@ class AndroidToolRunner {
     List<String> arguments, {
     String? workingDirectory,
     bool runInShell = true,
-  }) async =>
-      _runner.start(
-        executable,
-        arguments,
-        workingDirectory: workingDirectory,
-        environment: await _environment(),
-        runInShell: runInShell,
-      );
+  }) async => _runner.start(
+    executable,
+    arguments,
+    workingDirectory: workingDirectory,
+    environment: await _environment(),
+    runInShell: runInShell,
+  );
 
   // ---- Environment ---------------------------------------------------------
 
@@ -119,17 +116,30 @@ class AndroidToolRunner {
     final cached = _cached;
     if (cached != null) return cached;
 
-    final home = await _resolveJavaHome();
+    var home = await _resolveJavaHome();
+    // /usr/bin/java is Apple's launcher, not a JDK. Passing /usr as
+    // JAVA_HOME can make Java-based SDK tools stall inside that launcher.
+    if (Platform.isMacOS && (home == null || p.normalize(home) == '/usr')) {
+      final result = await _runner.run(
+        '/usr/libexec/java_home',
+        const [],
+        timeout: const Duration(seconds: 5),
+      );
+      final resolved = result.stdout.trim();
+      home = result.isSuccess && isJavaHome(resolved) ? resolved : null;
+    }
     if (home == null) {
-      _log.warning('no JDK found; Android tools will run on whatever java the '
-          'system provides, if any');
+      _log.warning(
+        'no JDK found; Android tools will run on whatever java the '
+        'system provides, if any',
+      );
       return _cached = const {};
     }
 
     // JAVA_HOME alone is enough for the sdkmanager/avdmanager wrappers, but not
     // for everything they in turn shell out to, and `emulator` looks for java on
     // PATH rather than reading JAVA_HOME at all.
-    final parentPath = Platform.environment[_pathKey] ?? '';
+    final parentPath = SystemEnvironment.values[_pathKey] ?? '';
     final bin = p.join(home, 'bin');
     _log.info('Android tools will run on JDK at $home');
     return _cached = {
@@ -163,7 +173,7 @@ class AndroidToolRunner {
     // 3. The system's own, taken literally — step 1 only returns it when the
     //    detection scan also recognised it as a JDK, and an unrecognised one
     //    still runs java.
-    final env = Platform.environment['JAVA_HOME']?.trim();
+    final env = SystemEnvironment.values['JAVA_HOME']?.trim();
     if (env != null && env.isNotEmpty && isJavaHome(env)) return env;
 
     return null;
@@ -179,7 +189,9 @@ class AndroidToolRunner {
       final installs = _installs;
       if (installs == null) return null;
       final root = await installs.managedRoot();
-      return newestJdkIn(root.listSync().whereType<Directory>().map((d) => d.path));
+      return newestJdkIn(
+        root.listSync().whereType<Directory>().map((d) => d.path),
+      );
     } catch (e) {
       _log.fine('could not read the managed JDK directory: $e');
       return null;

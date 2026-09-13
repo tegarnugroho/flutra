@@ -50,7 +50,7 @@ class _DashboardView extends StatelessWidget {
               label: 'Refresh',
               busy: state.isLoading,
               onPressed: () =>
-                  context.read<DashboardCubit>().refresh(forceRefresh: true),
+                  context.read<DashboardCubit>().load(forceRefresh: true),
             ),
           ],
           child: _body(context, state),
@@ -67,7 +67,7 @@ class _DashboardView extends StatelessWidget {
         title: 'Detection failed',
         message: state.errorMessage ?? 'Something went wrong.',
         actionLabel: 'Retry',
-        onAction: () => context.read<DashboardCubit>().refresh(),
+        onAction: () => context.read<DashboardCubit>().load(),
       );
     }
     return LoadingSwitcher(
@@ -100,7 +100,8 @@ class _DashboardContent extends StatelessWidget {
   /// screen that owns AVDs, so a banner made only of those still routes there.
   Future<void> _review(BuildContext context) async {
     final findings = state.storage?.findings ?? const <ReclaimableFinding>[];
-    final onlyAvds = findings.isNotEmpty &&
+    final onlyAvds =
+        findings.isNotEmpty &&
         findings.every((f) => f.kind == ReclaimableKind.staleAvd);
     if (onlyAvds) {
       getIt<ShellNavigator>().go(ShellDestination.virtualDevices);
@@ -191,9 +192,17 @@ class _StatCards extends StatelessWidget {
       ),
       StatCard(
         label: kStatUpdates,
-        value: '${stats.updateCount}',
+        value: stats.checkingUpdates || stats.updatesFailed
+            ? '—'
+            : '${stats.updateCount}',
         valueColor: stats.updateCount > 0 ? palette.accent : null,
-        subtitle: stats.updateCount > 0 ? 'available' : 'up to date',
+        subtitle: stats.checkingUpdates
+            ? 'checking…'
+            : stats.updatesFailed
+            ? 'check unavailable'
+            : stats.updateCount > 0
+            ? 'available'
+            : 'up to date',
         onTap: () => getIt<ShellNavigator>().go(ShellDestination.updates),
       ),
       StatCard(
