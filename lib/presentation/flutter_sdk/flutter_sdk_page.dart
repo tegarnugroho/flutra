@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -198,8 +199,10 @@ class _FlutterSdkViewState extends State<_FlutterSdkView>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      final target = (index * _estimatedTileExtent)
-          .clamp(0.0, _scroll.position.maxScrollExtent);
+      final target = (index * _estimatedTileExtent).clamp(
+        0.0,
+        _scroll.position.maxScrollExtent,
+      );
       _scroll.animateTo(
         target,
         duration: const Duration(milliseconds: 220),
@@ -1077,7 +1080,11 @@ class _InstallViewState extends State<_InstallView> {
   @override
   void initState() {
     super.initState();
-    _dir = TextEditingController(text: r'C:\Dev\SDK\flutter');
+    _dir = TextEditingController(
+      text: Platform.isWindows
+          ? r'C:\Dev\SDK\flutter'
+          : p.join(Platform.environment['HOME'] ?? '.', 'Dev', 'flutter'),
+    );
     _loadVersions();
   }
 

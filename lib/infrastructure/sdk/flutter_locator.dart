@@ -5,6 +5,7 @@ import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/platform/platform_service.dart';
+import '../../core/command/system_environment.dart';
 
 /// Resolves the `flutter` executable, honouring a user-configured SDK path and
 /// falling back to whatever is on the system PATH.
@@ -25,7 +26,7 @@ class FlutterLocator {
   /// The flutter executable to invoke: the override's `bin/flutter` when valid,
   /// otherwise the bare command resolved via PATH.
   String get executable {
-    final root = _override;
+    final root = this.root;
     if (root != null) {
       final exe = p.join(root, 'bin', _platform.flutterExecutable);
       if (File(exe).existsSync()) return exe;
@@ -63,11 +64,13 @@ class FlutterLocator {
 
   Iterable<String?> _candidateRoots({bool includeOverride = true}) sync* {
     if (includeOverride) yield _override;
-    yield Platform.environment['FLUTTER_ROOT'];
+    yield SystemEnvironment.values['FLUTTER_ROOT'];
     // Windows environment lookups are case-insensitive in Platform.environment,
     // so 'PATH' covers 'Path' too.
     yield* rootsFromPathEntries(
-      (Platform.environment['PATH'] ?? '').split(Platform.isWindows ? ';' : ':'),
+      (SystemEnvironment.values['PATH'] ?? '').split(
+        Platform.isWindows ? ';' : ':',
+      ),
     );
   }
 

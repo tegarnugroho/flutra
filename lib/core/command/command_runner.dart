@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import '../error/failures.dart';
 import 'command_result.dart';
 import 'session_environment.dart';
+import 'system_environment.dart';
 
 /// Handle to a process that is currently running.
 ///
@@ -102,14 +103,18 @@ class CommandRunner {
         executable,
         arguments,
         workingDirectory: workingDirectory,
-        environment: _session.merged(environment),
+        environment: {
+          ...SystemEnvironment.values,
+          ...?_session.merged(environment),
+        },
         runInShell: runInShell,
       );
     } on ProcessException catch (e) {
       _log.warning('failed to start "$executable": ${e.message}');
       throw ExecutableNotFoundFailure(
         executable,
-        suggestion: 'Verify the tool is installed and its path is configured '
+        suggestion:
+            'Verify the tool is installed and its path is configured '
             'in Environment Settings.',
       );
     }
@@ -127,11 +132,11 @@ class CommandRunner {
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
           .map((line) {
-        buf.writeln(line);
-        if (!outputController.isClosed) {
-          outputController.add(CommandOutputLine(line, isError: isErr));
-        }
-      });
+            buf.writeln(line);
+            if (!outputController.isClosed) {
+              outputController.add(CommandOutputLine(line, isError: isErr));
+            }
+          });
     }
 
     final drained = Future.wait([
@@ -147,7 +152,8 @@ class CommandRunner {
       final stdoutStr = stdoutBuffer.toString().trimRight();
       final stderrStr = stderrBuffer.toString().trimRight();
       _log.fine(
-          'done: $executable exit=$code in ${stopwatch.elapsedMilliseconds}ms');
+        'done: $executable exit=$code in ${stopwatch.elapsedMilliseconds}ms',
+      );
       // Log the response (truncated) so the developer log shows request output.
       final combined = stderrStr.isEmpty
           ? stdoutStr
@@ -177,11 +183,9 @@ class CommandRunner {
   /// Returns null when the binary is not found. Uses `where` on Windows.
   Future<String?> which(String executable) async {
     try {
-      final result = await run(
-        Platform.isWindows ? 'where' : 'which',
-        [executable],
-        timeout: const Duration(seconds: 5),
-      );
+      final result = await run(Platform.isWindows ? 'where' : 'which', [
+        executable,
+      ], timeout: const Duration(seconds: 5));
       if (!result.isSuccess) return null;
       final first = const LineSplitter()
           .convert(result.stdout)

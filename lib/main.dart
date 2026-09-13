@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'application/settings/settings_cubit.dart';
 import 'core/di/injection.dart';
+import 'core/command/system_environment.dart';
 import 'infrastructure/logging/dev_log_service.dart';
 import 'infrastructure/settings/legacy_data_migration.dart';
 import 'infrastructure/settings/settings_service.dart';
@@ -88,6 +89,7 @@ Future<void> main(List<String> args) async {
   } on MissingPluginException catch (e) {
     Logger('main').warning('window_manager unavailable: ${e.message}');
   }
+  await SystemEnvironment.initialize();
   configureDependencies();
   _boot.mark('di');
 

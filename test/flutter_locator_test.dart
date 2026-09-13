@@ -10,17 +10,25 @@ import 'package:path/path.dart' as p;
 Directory _fakeSdk(Directory parent, String name) {
   final root = Directory(p.join(parent.path, name))..createSync();
   Directory(p.join(root.path, 'bin', 'internal')).createSync(recursive: true);
-  Directory(p.join(root.path, 'packages', 'flutter'))
-      .createSync(recursive: true);
-  File(p.join(root.path, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'))
-      .writeAsStringSync('');
+  Directory(
+    p.join(root.path, 'packages', 'flutter'),
+  ).createSync(recursive: true);
+  File(
+    p.join(root.path, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'),
+  ).writeAsStringSync('');
   return root;
 }
 
 void main() {
   late Directory temp;
 
-  setUp(() => temp = Directory.systemTemp.createTempSync('flutter_locator'));
+  setUp(
+    () => temp = Directory(
+      Directory.systemTemp
+          .createTempSync('flutter_locator')
+          .resolveSymbolicLinksSync(),
+    ),
+  );
   tearDown(() => temp.deleteSync(recursive: true));
 
   group('looksLikeFlutterSdk', () {
@@ -38,7 +46,10 @@ void main() {
       // bin/cache appears on first invocation; requiring it would miss a fresh
       // clone, which is exactly the install most likely to be measured.
       final root = _fakeSdk(temp, 'flutter');
-      expect(Directory(p.join(root.path, 'bin', 'cache')).existsSync(), isFalse);
+      expect(
+        Directory(p.join(root.path, 'bin', 'cache')).existsSync(),
+        isFalse,
+      );
       expect(FlutterLocator.looksLikeFlutterSdk(root.path), isTrue);
     });
   });
@@ -46,9 +57,9 @@ void main() {
   group('rootsFromPathEntries', () {
     test('resolves the SDK root from the bin directory on PATH', () {
       final root = _fakeSdk(temp, 'flutter');
-      final roots = FlutterLocator.rootsFromPathEntries(
-        [p.join(root.path, 'bin')],
-      ).toList();
+      final roots = FlutterLocator.rootsFromPathEntries([
+        p.join(root.path, 'bin'),
+      ]).toList();
 
       expect(roots, [root.path]);
     });
@@ -70,10 +81,9 @@ void main() {
       // A shim's parent is not an SDK, so yielding only the first candidate
       // would report "not measured" on a machine that has Flutter installed.
       final shim = Directory(p.join(temp.path, 'shims'))..createSync();
-      File(p.join(
-        shim.path,
-        Platform.isWindows ? 'flutter.bat' : 'flutter',
-      )).writeAsStringSync('');
+      File(
+        p.join(shim.path, Platform.isWindows ? 'flutter.bat' : 'flutter'),
+      ).writeAsStringSync('');
       final root = _fakeSdk(temp, 'flutter');
 
       final roots = FlutterLocator.rootsFromPathEntries([
@@ -100,7 +110,8 @@ void main() {
   group('root', () {
     test('prefers the settings override', () {
       final overridden = _fakeSdk(temp, 'overridden');
-      final locator = FlutterLocator(hostPlatform)..overrideFlutterRoot = overridden.path;
+      final locator = FlutterLocator(hostPlatform)
+        ..overrideFlutterRoot = overridden.path;
 
       expect(locator.root, overridden.path);
     });
@@ -108,7 +119,8 @@ void main() {
     test('ignores an override that is not an SDK', () {
       // A stale or mistyped setting must not hide a working install; it falls
       // through to FLUTTER_ROOT and PATH like no override at all.
-      final locator = FlutterLocator(hostPlatform)..overrideFlutterRoot = temp.path;
+      final locator = FlutterLocator(hostPlatform)
+        ..overrideFlutterRoot = temp.path;
 
       expect(locator.root, isNot(temp.path));
     });

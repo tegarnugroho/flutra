@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/platform/platform_service.dart';
+import '../../core/command/system_environment.dart';
 
 /// Discovers the Android SDK root and resolves the paths of the individual
 /// command-line tools inside it.
@@ -45,11 +46,42 @@ class SdkLocator {
 
   Iterable<String?> _candidateRoots({bool includeOverride = true}) sync* {
     if (includeOverride) yield _override;
-    yield Platform.environment['ANDROID_HOME'];
-    yield Platform.environment['ANDROID_SDK_ROOT'];
+    yield SystemEnvironment.values['ANDROID_HOME'];
+    yield SystemEnvironment.values['ANDROID_SDK_ROOT'];
+    yield* rootsFromPathEntries(
+      (SystemEnvironment.values['PATH'] ?? '').split(
+        Platform.isWindows ? ';' : ':',
+      ),
+    );
     // Where this platform's installers put it, when the environment says
     // nothing.
     yield* _platform.defaultAndroidSdkPaths;
+  }
+
+  /// Infer SDK roots from installed tools, following symlinks on PATH.
+  static Iterable<String> rootsFromPathEntries(Iterable<String> entries) sync* {
+    for (final entry in entries) {
+      final directory = entry.trim().replaceAll('"', '');
+      if (directory.isEmpty) continue;
+      for (final name in ['adb', 'emulator', 'sdkmanager', 'avdmanager']) {
+        final executable = name.endsWith('manager')
+            ? hostPlatform.scriptName(name)
+            : hostPlatform.executableName(name);
+        final file = File(p.join(directory, executable));
+        if (!file.existsSync()) continue;
+        try {
+          var parent = p.dirname(file.resolveSymbolicLinksSync());
+          // platform-tools/adb, tools/bin/sdkmanager, and
+          // cmdline-tools/<version>/bin/sdkmanager.
+          for (var depth = 0; depth < 4; depth++) {
+            if (looksLikeAndroidSdk(parent)) yield parent;
+            parent = p.dirname(parent);
+          }
+        } on FileSystemException {
+          continue;
+        }
+      }
+    }
   }
 
   /// Whether [root] is an Android SDK rather than a folder that happens to be
@@ -79,8 +111,9 @@ class SdkLocator {
     if (cmdline.existsSync()) {
       try {
         for (final version in cmdline.listSync().whereType<Directory>()) {
-          if (File(p.join(version.path, 'bin', os.scriptName('sdkmanager')))
-              .existsSync()) {
+          if (File(
+            p.join(version.path, 'bin', os.scriptName('sdkmanager')),
+          ).existsSync()) {
             return true;
           }
         }
@@ -102,32 +135,31 @@ class SdkLocator {
 
   /// Path to `sdkmanager`, searching both new and legacy layouts.
   String? get sdkManager => _firstExisting([
-        if (sdkRoot != null) ...[
-          p.join(sdkRoot!, 'cmdline-tools', 'latest', 'bin', _bat('sdkmanager')),
-          p.join(sdkRoot!, 'cmdline-tools', 'bin', _bat('sdkmanager')),
-          p.join(sdkRoot!, 'tools', 'bin', _bat('sdkmanager')),
-        ],
-      ]);
+    if (sdkRoot != null) ...[
+      p.join(sdkRoot!, 'cmdline-tools', 'latest', 'bin', _bat('sdkmanager')),
+      p.join(sdkRoot!, 'cmdline-tools', 'bin', _bat('sdkmanager')),
+      p.join(sdkRoot!, 'tools', 'bin', _bat('sdkmanager')),
+    ],
+  ]);
 
   /// Path to `avdmanager`.
   String? get avdManager => _firstExisting([
-        if (sdkRoot != null) ...[
-          p.join(sdkRoot!, 'cmdline-tools', 'latest', 'bin', _bat('avdmanager')),
-          p.join(sdkRoot!, 'cmdline-tools', 'bin', _bat('avdmanager')),
-          p.join(sdkRoot!, 'tools', 'bin', _bat('avdmanager')),
-        ],
-      ]);
+    if (sdkRoot != null) ...[
+      p.join(sdkRoot!, 'cmdline-tools', 'latest', 'bin', _bat('avdmanager')),
+      p.join(sdkRoot!, 'cmdline-tools', 'bin', _bat('avdmanager')),
+      p.join(sdkRoot!, 'tools', 'bin', _bat('avdmanager')),
+    ],
+  ]);
 
   /// Path to `adb` from platform-tools.
   String? get adb => _firstExisting([
-        if (sdkRoot != null)
-          p.join(sdkRoot!, 'platform-tools', _exe('adb')),
-      ]);
+    if (sdkRoot != null) p.join(sdkRoot!, 'platform-tools', _exe('adb')),
+  ]);
 
   /// Path to the `emulator` binary.
   String? get emulator => _firstExisting([
-        if (sdkRoot != null) p.join(sdkRoot!, 'emulator', _exe('emulator')),
-      ]);
+    if (sdkRoot != null) p.join(sdkRoot!, 'emulator', _exe('emulator')),
+  ]);
 
   /// The `build-tools` directory (holds one sub-dir per installed version).
   String? get buildToolsDir =>
@@ -147,12 +179,13 @@ class SdkLocator {
   List<String> get installedBuildToolsVersions {
     final dir = buildToolsDir;
     if (dir == null || !Directory(dir).existsSync()) return const [];
-    final versions = Directory(dir)
-        .listSync()
-        .whereType<Directory>()
-        .map((d) => p.basename(d.path))
-        .toList()
-      ..sort(_compareVersions);
+    final versions =
+        Directory(dir)
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort(_compareVersions);
     return versions;
   }
 
