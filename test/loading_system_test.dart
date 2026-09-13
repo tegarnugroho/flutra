@@ -222,6 +222,28 @@ void main() {
   });
 
   group('screen skeletons', () {
+    for (final entry in {
+      'dashboard': const DashboardSkeleton(),
+      'flutter sdk': const FlutterSdkSkeleton(),
+      'virtual devices': const EmulatorListSkeleton(),
+      'devices': const DeviceListSkeleton(),
+      'updates': const UpdatesSkeleton(),
+      'windows': const WindowsSkeleton(),
+      'doctor': const DoctorSkeleton(),
+    }.entries) {
+      testWidgets('${entry.key} fits a short page body', (tester) async {
+        tester.view.physicalSize = const Size(770, 350);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(_host(entry.value));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     // Content width beside the open (190) and compact (52) navigation pane, at
     // the narrowest and a roomy window.
     const widths = <double>[770, 908, 1410];

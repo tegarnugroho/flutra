@@ -10,7 +10,7 @@ import '../tile_box.dart';
 import 'skeleton_primitives.dart';
 
 /// The frame every screen skeleton shares: page-body padding, one shimmer
-/// controller for the whole subtree, and a left-aligned column.
+/// controller for the whole subtree, and a scrollable left-aligned column.
 ///
 /// Sizes here mirror the real rows on purpose — [GroupedListRow] pads 12/9 and
 /// its title line is 12.5px, so a 36px row with a 12px line lands the content
@@ -23,7 +23,8 @@ class _SkeletonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SkeletonShimmer(
-      child: Padding(
+      child: SingleChildScrollView(
+        primary: false,
         padding: kPageBodyPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
