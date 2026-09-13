@@ -6,7 +6,7 @@ import '../../core/command/command_runner.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/doctor_report.dart';
 
-/// The default check order used before a successful run has been recorded.
+/// Windows check order; other platforms use [DoctorRunner.expectedChecks].
 ///
 /// Matches what `flutter doctor -v` prints on Windows.
 const kDefaultDoctorChecks = <String>[
@@ -113,15 +113,37 @@ class DoctorRunner {
 
   bool get isRunning => _current != null;
 
+  /// Platform-specific placeholders. Actual streamed checks remain authoritative.
+  List<String> expectedChecks([Iterable<String> previous = const []]) {
+    bool supported(String name) => switch (name) {
+      'Windows Version' || 'Visual Studio' => _platform.isWindows,
+      'Xcode' => _platform.isMacos,
+      'Linux toolchain' => _platform.isLinux,
+      _ => true,
+    };
+    final remembered = previous.where(supported).toList();
+    if (remembered.isNotEmpty) return remembered;
+    return [
+      'Flutter',
+      if (_platform.isWindows) 'Windows Version',
+      'Android toolchain',
+      if (_platform.isMacos) 'Xcode',
+      'Chrome',
+      if (_platform.isWindows) 'Visual Studio',
+      if (_platform.isLinux) 'Linux toolchain',
+      'Android Studio',
+      'Connected device',
+      'Network resources',
+    ];
+  }
+
   /// Starts a run and streams its events.
   ///
   /// [expectedChecks] pre-populates the UI; unknown names that stream in are
   /// appended rather than dropped.
-  Stream<DoctorEvent> run({
-    List<String> expectedChecks = kDefaultDoctorChecks,
-  }) {
+  Stream<DoctorEvent> run({List<String>? expectedChecks}) {
     final controller = StreamController<DoctorEvent>();
-    unawaited(_run(controller, expectedChecks));
+    unawaited(_run(controller, expectedChecks ?? this.expectedChecks()));
     return controller.stream;
   }
 
@@ -142,10 +164,10 @@ class DoctorRunner {
     }
 
     try {
-      final command = await _runner.start(
-        _platform.flutterExecutable,
-        ['doctor', '-v'],
-      );
+      final command = await _runner.start(_platform.flutterExecutable, [
+        'doctor',
+        '-v',
+      ]);
       _current = command;
       controller.add(DoctorRunStarted(expectedChecks));
       startNext();
@@ -171,20 +193,24 @@ class DoctorRunner {
       if (cancelled) {
         controller.add(const DoctorRunFailed('Cancelled', cancelled: true));
       } else if (parser.resolved.isEmpty) {
-        controller.add(DoctorRunFailed(
-          result.combinedOutput.trim().isEmpty
-              ? 'flutter doctor produced no output.'
-              : result.combinedOutput.trim(),
-        ));
+        controller.add(
+          DoctorRunFailed(
+            result.combinedOutput.trim().isEmpty
+                ? 'flutter doctor produced no output.'
+                : result.combinedOutput.trim(),
+          ),
+        );
       } else {
-        controller.add(DoctorRunCompleted(
-          passed: parser.resolved
-              .where((r) => r.status == DoctorStatus.ok)
-              .length,
-          total: parser.resolved.length,
-          totalElapsed: stopwatch.elapsed,
-          rawOutput: raw.toString(),
-        ));
+        controller.add(
+          DoctorRunCompleted(
+            passed: parser.resolved
+                .where((r) => r.status == DoctorStatus.ok)
+                .length,
+            total: parser.resolved.length,
+            totalElapsed: stopwatch.elapsed,
+            rawOutput: raw.toString(),
+          ),
+        );
       }
     } catch (e) {
       _current = null;
@@ -291,12 +317,12 @@ class DoctorStreamParser {
 
   /// Maps a marker glyph to a status, tolerating console codepage variants.
   static DoctorStatus statusFromMarker(String marker) => switch (marker) {
-        // U+221A on the Windows console, U+2713 elsewhere.
-        '√' || '✓' || '+' => DoctorStatus.ok,
-        '!' => DoctorStatus.warning,
-        '✗' || '✘' || 'x' || 'X' => DoctorStatus.error,
-        _ => DoctorStatus.info,
-      };
+    // U+221A on the Windows console, U+2713 elsewhere.
+    '√' || '✓' || '+' => DoctorStatus.ok,
+    '!' => DoctorStatus.warning,
+    '✗' || '✘' || 'x' || 'X' => DoctorStatus.error,
+    _ => DoctorStatus.info,
+  };
 
   /// Reads the `[353ms]` / `[3.4s]` / `[1,821ms]` suffix flutter prints.
   static Duration? parseElapsed(String title) {

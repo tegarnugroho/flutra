@@ -12,15 +12,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// A runner the test drives by hand, so event ordering is deterministic.
 class _FakeRunner extends DoctorRunner {
-  _FakeRunner()
-      : super(CommandRunner(SessionEnvironment()), hostPlatform);
+  _FakeRunner({PlatformService? platform})
+    : super(
+        CommandRunner(SessionEnvironment()),
+        platform ?? WindowsPlatformService(),
+      );
 
   final _controller = StreamController<DoctorEvent>();
   List<String>? requestedChecks;
   var cancelled = false;
 
   @override
-  Stream<DoctorEvent> run({List<String> expectedChecks = kDefaultDoctorChecks}) {
+  Stream<DoctorEvent> run({List<String>? expectedChecks}) {
     requestedChecks = expectedChecks;
     return _controller.stream;
   }
@@ -78,31 +81,68 @@ void main() {
     await runner.close();
   });
 
+  for (final platform in [MacosPlatformService(), LinuxPlatformService()]) {
+    test('${platform.operatingSystem} ignores cached Windows checks', () async {
+      await cubit.run();
+        final localRunner = _FakeRunner(platform: platform);
+      final localSettings = _FakeSettings();
+      await localSettings.save(
+        const AppSettings(
+          doctorTimings: {
+            'Flutter': 100,
+            'Windows Version': 100,
+            'Visual Studio': 100,
+            'Android toolchain': 100,
+          },
+        ),
+      );
+      final local = FlutterDoctorCubit(localRunner, localSettings);
+      addTearDown(() async {
+        await local.close();
+        await localRunner.close();
+      });
+      await local.run();
+      expect(local.state.checks.map((c) => c.name), [
+        'Flutter',
+        'Android toolchain',
+      ]);
+      expect(localRunner.expectedChecks(), isNot(contains('Windows Version')));
+      expect(localRunner.expectedChecks(), isNot(contains('Visual Studio')));
+      expect(
+        localRunner.expectedChecks(),
+        contains(platform.isMacos ? 'Xcode' : 'Linux toolchain'),
+      );
+    });
+  }
+
   test('pre-renders every expected check as pending', () async {
     await cubit.run();
     expect(cubit.state.isRunning, isTrue);
     expect(cubit.state.checks, hasLength(kDefaultDoctorChecks.length));
     expect(
-        cubit.state.checks.every((c) => c.phase == DoctorCheckPhase.pending),
-        isTrue);
+      cubit.state.checks.every((c) => c.phase == DoctorCheckPhase.pending),
+      isTrue,
+    );
   });
 
   test('marks exactly one check running at a time', () async {
     await cubit.run();
     runner.emit(const DoctorCheckStarted('Flutter'));
     await _settle();
-    final running =
-        cubit.state.checks.where((c) => c.phase == DoctorCheckPhase.running);
+    final running = cubit.state.checks.where(
+      (c) => c.phase == DoctorCheckPhase.running,
+    );
     expect(running, hasLength(1));
     expect(running.single.name, 'Flutter');
   });
 
   test('resolves checks with status, summary and elapsed', () async {
     await cubit.run();
-    runner.emit(_resolved('Flutter', elapsed: const Duration(milliseconds: 353)));
+    runner.emit(
+      _resolved('Flutter', elapsed: const Duration(milliseconds: 353)),
+    );
     await _settle();
-    final flutter =
-        cubit.state.checks.firstWhere((c) => c.name == 'Flutter');
+    final flutter = cubit.state.checks.firstWhere((c) => c.name == 'Flutter');
     expect(flutter.phase, DoctorCheckPhase.done);
     expect(flutter.status, DoctorStatus.ok);
     expect(flutter.elapsed, const Duration(milliseconds: 353));
@@ -113,7 +153,10 @@ void main() {
     await cubit.run();
     runner.emit(_resolved('Quantum toolchain'));
     await _settle();
-    expect(cubit.state.checks.map((c) => c.name), contains('Quantum toolchain'));
+    expect(
+      cubit.state.checks.map((c) => c.name),
+      contains('Quantum toolchain'),
+    );
   });
 
   test('attaches detail lines to the right check', () async {
@@ -129,28 +172,29 @@ void main() {
   test('completion keeps only resolved rows and persists timings', () async {
     await cubit.run();
     runner.emit(_resolved('Flutter', elapsed: const Duration(seconds: 1)));
-    runner.emit(_resolved('Chrome', elapsed: const Duration(milliseconds: 200)));
+    runner.emit(
+      _resolved('Chrome', elapsed: const Duration(milliseconds: 200)),
+    );
     await _settle();
-    runner.emit(const DoctorRunCompleted(
-      passed: 2,
-      total: 2,
-      totalElapsed: Duration(seconds: 5),
-      rawOutput: 'raw',
-    ));
+    runner.emit(
+      const DoctorRunCompleted(
+        passed: 2,
+        total: 2,
+        totalElapsed: Duration(seconds: 5),
+        rawOutput: 'raw',
+      ),
+    );
     await _settle();
 
     expect(cubit.state.status, DoctorRunStatus.done);
     expect(cubit.state.checks, hasLength(2));
     expect(cubit.state.elapsed, const Duration(seconds: 5));
     expect(cubit.state.report?.rawOutput, 'raw');
-    expect(settings.settings.doctorTimings,
-        {'Flutter': 1000, 'Chrome': 200});
+    expect(settings.settings.doctorTimings, {'Flutter': 1000, 'Chrome': 200});
   });
 
   test('progress is weighted by the previous run durations', () async {
-    settings.save(const AppSettings(
-      doctorTimings: {'Fast': 100, 'Slow': 900},
-    ));
+    settings.save(const AppSettings(doctorTimings: {'Fast': 100, 'Slow': 900}));
     await cubit.run();
     expect(runner.requestedChecks, ['Fast', 'Slow']);
 
@@ -168,31 +212,36 @@ void main() {
     await cubit.run();
     runner.emit(_resolved('Flutter'));
     await _settle();
-    expect(cubit.state.progress,
-        closeTo(1 / kDefaultDoctorChecks.length, 0.001));
+    expect(
+      cubit.state.progress,
+      closeTo(1 / kDefaultDoctorChecks.length, 0.001),
+    );
   });
 
-  test('cancel turns the running row into an error and keeps the rest',
-      () async {
-    await cubit.run();
-    runner.emit(_resolved('Flutter'));
-    runner.emit(const DoctorCheckStarted('Windows Version'));
-    await _settle();
-    cubit.cancel();
-    expect(runner.cancelled, isTrue);
-    runner.emit(const DoctorRunFailed('Cancelled', cancelled: true));
-    await _settle();
+  test(
+    'cancel turns the running row into an error and keeps the rest',
+    () async {
+      await cubit.run();
+      runner.emit(_resolved('Flutter'));
+      runner.emit(const DoctorCheckStarted('Windows Version'));
+      await _settle();
+      cubit.cancel();
+      expect(runner.cancelled, isTrue);
+      runner.emit(const DoctorRunFailed('Cancelled', cancelled: true));
+      await _settle();
 
-    expect(cubit.state.status, DoctorRunStatus.interrupted);
-    final flutter = cubit.state.checks.firstWhere((c) => c.name == 'Flutter');
-    final windows =
-        cubit.state.checks.firstWhere((c) => c.name == 'Windows Version');
-    expect(flutter.status, DoctorStatus.ok);
-    expect(windows.status, DoctorStatus.error);
-    expect(windows.summary, 'cancelled');
-    // Checks that never started stay pending, not errored.
-    expect(cubit.state.checks.last.phase, DoctorCheckPhase.pending);
-  });
+      expect(cubit.state.status, DoctorRunStatus.interrupted);
+      final flutter = cubit.state.checks.firstWhere((c) => c.name == 'Flutter');
+      final windows = cubit.state.checks.firstWhere(
+        (c) => c.name == 'Windows Version',
+      );
+      expect(flutter.status, DoctorStatus.ok);
+      expect(windows.status, DoctorStatus.error);
+      expect(windows.summary, 'cancelled');
+      // Checks that never started stay pending, not errored.
+      expect(cubit.state.checks.last.phase, DoctorCheckPhase.pending);
+    },
+  );
 
   test('a failure before any row shows the error state', () async {
     await cubit.run();

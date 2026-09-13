@@ -14,7 +14,7 @@ part 'flutter_doctor_state.dart';
 @injectable
 class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
   FlutterDoctorCubit(this._runner, this._settings)
-      : super(const FlutterDoctorState());
+    : super(const FlutterDoctorState());
 
   /// `flutter doctor` runs its validators concurrently, so several checks can
   /// resolve within the same few milliseconds. Revealing them one at a time
@@ -38,16 +38,17 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
 
     final weights = _settings.settings.doctorTimings;
     // Reuse the last run's check order; fall back to the platform default.
-    final expected =
-        weights.isEmpty ? kDefaultDoctorChecks : weights.keys.toList();
+    final expected = _runner.expectedChecks(weights.keys);
 
     // Rows are replaced only now, not on the button press, so a re-run never
     // flashes an empty page.
-    emit(FlutterDoctorState(
-      status: DoctorRunStatus.running,
-      checks: [for (final name in expected) DoctorCheck(name: name)],
-      weights: weights,
-    ));
+    emit(
+      FlutterDoctorState(
+        status: DoctorRunStatus.running,
+        checks: [for (final name in expected) DoctorCheck(name: name)],
+        weights: weights,
+      ),
+    );
 
     _clock = Stopwatch()..start();
     _stopwatch = Timer.periodic(_tick, (_) {
@@ -91,9 +92,10 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
         break;
 
       case DoctorCheckStarted(:final name):
-        _updateCheck(name, (c) => c.isDone
-            ? c
-            : c.copyWith(phase: DoctorCheckPhase.running));
+        _updateCheck(
+          name,
+          (c) => c.isDone ? c : c.copyWith(phase: DoctorCheckPhase.running),
+        );
 
       case DoctorCheckResolved():
         _resolve(event);
@@ -143,13 +145,15 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
     _stop();
     // Drop rows that never resolved: this run's check list is the truth.
     final checks = state.checks.where((c) => c.isDone).toList();
-    emit(state.copyWith(
-      status: DoctorRunStatus.done,
-      checks: checks,
-      elapsed: event.totalElapsed,
-      rawOutput: event.rawOutput,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        status: DoctorRunStatus.done,
+        checks: checks,
+        elapsed: event.totalElapsed,
+        rawOutput: event.rawOutput,
+        clearError: true,
+      ),
+    );
     unawaited(_persistTimings(checks));
   }
 
@@ -157,11 +161,13 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
     _stop();
     final hadRows = state.checks.any((c) => c.isDone);
     if (!hadRows) {
-      emit(state.copyWith(
-        status: DoctorRunStatus.failure,
-        checks: const [],
-        errorMessage: message,
-      ));
+      emit(
+        state.copyWith(
+          status: DoctorRunStatus.failure,
+          checks: const [],
+          errorMessage: message,
+        ),
+      );
       return;
     }
     // Keep what completed; the check that was mid-flight becomes an error row.
@@ -177,11 +183,13 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
         else
           c,
     ];
-    emit(state.copyWith(
-      status: DoctorRunStatus.interrupted,
-      checks: checks,
-      errorMessage: message,
-    ));
+    emit(
+      state.copyWith(
+        status: DoctorRunStatus.interrupted,
+        checks: checks,
+        errorMessage: message,
+      ),
+    );
   }
 
   Future<void> _persistTimings(List<DoctorCheck> checks) async {
@@ -191,8 +199,7 @@ class FlutterDoctorCubit extends Cubit<FlutterDoctorState> {
     };
     if (timings.isEmpty) return;
     try {
-      await _settings.save(
-          _settings.settings.copyWith(doctorTimings: timings));
+      await _settings.save(_settings.settings.copyWith(doctorTimings: timings));
     } catch (_) {
       // Timings are an optimisation; losing them only affects the next bar.
     }
