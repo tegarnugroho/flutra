@@ -155,6 +155,7 @@ class DoctorRunner {
     final parser = DoctorStreamParser();
     final raw = StringBuffer();
     var index = 0;
+    StreamSubscription? outputSubscription;
 
     void startNext() {
       if (index < expectedChecks.length) {
@@ -172,7 +173,7 @@ class DoctorRunner {
       controller.add(DoctorRunStarted(expectedChecks));
       startNext();
 
-      final sub = command.output.listen((line) {
+      outputSubscription = command.output.listen((line) {
         raw.writeln(line.text);
         for (final event in parser.feed(line.text)) {
           controller.add(event);
@@ -180,8 +181,8 @@ class DoctorRunner {
         }
       });
 
-      final result = await command.result;
-      await sub.cancel();
+      final result = await command.result.timeout(const Duration(minutes: 2));
+      await outputSubscription.cancel();
       for (final event in parser.flush()) {
         controller.add(event);
       }
@@ -212,10 +213,21 @@ class DoctorRunner {
           ),
         );
       }
+    } on TimeoutException {
+      _current?.cancel();
+      controller.add(
+        const DoctorRunFailed(
+          'Flutter doctor timed out after 2 minutes. Check the configured JDK '
+          'and Android toolchain, then retry.',
+        ),
+      );
     } catch (e) {
       _current = null;
       controller.add(DoctorRunFailed('$e'));
     } finally {
+      await outputSubscription?.cancel();
+      _current = null;
+      _cancelled = false;
       await controller.close();
     }
   }

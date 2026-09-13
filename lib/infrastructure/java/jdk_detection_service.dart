@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/command/command_runner.dart';
+import '../../core/command/system_environment.dart';
 import '../../core/error/failures.dart';
 import '../../core/platform/platform_service.dart';
 import '../../domain/entities/jdk.dart';
@@ -52,14 +53,28 @@ class JdkDetectionService {
 
   /// `JAVA_HOME`, if it is set to something.
   String? get javaHome {
-    final value = Platform.environment['JAVA_HOME']?.trim();
+    final value = SystemEnvironment.values['JAVA_HOME']?.trim();
     return (value == null || value.isEmpty) ? null : value;
   }
 
   /// The JDK root owning the first `java` on PATH, or null when there is none.
   Future<String?> pathJdkHome() async {
     final executable = await _runner.which(_platform.executableName('java'));
-    return executable == null ? null : jdkHomeOf(executable);
+    if (executable == null) return null;
+    if (_platform.isMacos && p.normalize(executable) == '/usr/bin/java') {
+      try {
+        final result = await _runner.run(
+          '/usr/libexec/java_home',
+          const [],
+          timeout: _probeTimeout,
+        );
+        final home = result.stdout.trim();
+        return result.isSuccess && looksLikeJavaHome(home) ? home : null;
+      } catch (_) {
+        return null;
+      }
+    }
+    return jdkHomeOf(_resolve(executable));
   }
 
   /// `…\jdk-17\bin\java.exe` → `…\jdk-17`.
@@ -71,8 +86,10 @@ class JdkDetectionService {
 
   /// Whether [directory] looks like a JDK or JRE root at all.
   bool looksLikeJavaHome(String directory) =>
-      File(p.join(directory, 'bin', _platform.executableName('java')))
-          .existsSync();
+      !(_platform.isMacos && p.normalize(directory) == '/usr') &&
+      File(
+        p.join(directory, 'bin', _platform.executableName('java')),
+      ).existsSync();
 
   /// Reads one directory as a JDK, whatever state it is in.
   ///
@@ -83,9 +100,9 @@ class JdkDetectionService {
     final root = _resolve(directory);
     if (!looksLikeJavaHome(root)) return null;
 
-    final hasCompiler =
-        File(p.join(root, 'bin', _platform.executableName('javac')))
-            .existsSync();
+    final hasCompiler = File(
+      p.join(root, 'bin', _platform.executableName('javac')),
+    ).existsSync();
 
     final release = await _readRelease(root);
     var version = release?['JAVA_VERSION'];
@@ -121,7 +138,9 @@ class JdkDetectionService {
     // entry names a real installer, PATH only names what a shell happened to
     // export. The first source to claim a path is the one the tile shows.
     found.addAll(await _describeAll(await _managedJdks(), JdkSource.managed));
-    found.addAll(await _describeAll(await _registryHomes(), JdkSource.registry));
+    found.addAll(
+      await _describeAll(await _registryHomes(), JdkSource.registry),
+    );
     found.addAll(await _describeAll(_commonDirJdks(), JdkSource.disk));
     found.addAll(await _describeAll(_jdksDirJdks(), JdkSource.jdksDir));
     found.addAll(
@@ -252,11 +271,10 @@ class JdkDetectionService {
   /// normal answer on a machine without that vendor's installer.
   Future<String?> _reg(List<String> arguments) async {
     try {
-      final result = await _runner.run(
-        'reg',
-        ['query', ...arguments],
-        timeout: const Duration(seconds: 10),
-      );
+      final result = await _runner.run('reg', [
+        'query',
+        ...arguments,
+      ], timeout: const Duration(seconds: 10));
       return result.isSuccess ? result.stdout : null;
     } on Failure catch (e) {
       _log.fine('reg query failed: ${e.message}');
@@ -284,11 +302,9 @@ class JdkDetectionService {
   Future<String?> _probeVersion(String root) async {
     final executable = p.join(root, 'bin', _platform.executableName('java'));
     try {
-      final result = await _runner.run(
-        executable,
-        ['-version'],
-        timeout: _probeTimeout,
-      );
+      final result = await _runner.run(executable, [
+        '-version',
+      ], timeout: _probeTimeout);
       // `java -version` writes to stderr; some builds use stdout.
       return parseJavaVersionOutput(result.combinedOutput);
     } on Failure catch (e) {
